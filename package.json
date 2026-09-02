@@ -1,0 +1,73 @@
+{
+    "name": "eslint-plugin-weld",
+    "version": "0.0.1-test",
+    "description": "ESLint-плагин для проверки правил WELD (Well-Encapsulated Layered Design)",
+    "keywords": [
+        "eslint",
+        "eslintplugin",
+        "eslint-plugin",
+        "weld",
+        "architecture",
+        "layers",
+        "encapsulation",
+        "imports"
+    ],
+    "homepage": "https://github.com/jt4d-lab/weld#readme",
+    "bugs": {
+        "url": "https://github.com/jt4d-lab/weld/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/jt4d-lab/weld.git"
+    },
+    "license": "MIT",
+    "author": "Arswarog",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "lint": "eslint .",
+        "prepack": "yarn build",
+        "smoke": "./scripts/smoke-test.sh",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "typecheck": "tsc --noEmit",
+        "verify": "yarn lint && yarn format:check && yarn typecheck && yarn test && yarn build"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.0",
+        "@types/node": "^26.0.0",
+        "eslint": "^10.0.0",
+        "prettier": "^3.9.0",
+        "tsup": "^8.5.0",
+        "typescript": "^5.9.0",
+        "typescript-eslint": "^8.69.0",
+        "vitest": "^4.1.0"
+    },
+    "peerDependencies": {
+        "eslint": ">=9.0.0"
+    },
+    "packageManager": "yarn@4.10.3",
+    "engines": {
+        "node": ">=20.19.0"
+    },
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
+    }
+}

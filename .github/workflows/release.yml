@@ -1,0 +1,90 @@
+name: Release
+
+# Релиз запускается пушем тега вида v0.1.0.
+# Версия пакета берётся из имени тега: в package.json лежит заглушка,
+# а настоящее значение проставляется здесь перед сборкой.
+# Workflow только стейджит версию в npm (`npm stage publish`) — публикует её
+# человек командой `npm stage approve`, подтверждая 2FA.
+on:
+    push:
+        tags:
+            - 'v[0-9]+.[0-9]+.[0-9]+'
+            - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+    contents: read
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    publish:
+        name: Публикация в npm
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write # создание GitHub Release
+            id-token: write # provenance для npm
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - run: corepack enable
+
+            # Node 24 (LTS) нужна ради npm: команда `npm stage` появилась в npm 11.15,
+            # а с Node 22 приезжает npm 10. Понижать версию здесь нельзя — стейдж
+            # отвалится. Поддержку Node 20.19+ у самого пакета это не затрагивает,
+            # её проверяет матрица в ci.yml.
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: yarn
+                  registry-url: https://registry.npmjs.org
+
+            - run: yarn install --immutable
+
+            - run: yarn lint
+            - run: yarn format:check
+            - run: yarn typecheck
+            - run: yarn test
+
+            # Версию задаёт тег, а не репозиторий: в package.json хранится заглушка
+            # 0.0.0. `npm version` проверяет, что значение из тега — корректный semver,
+            # и сохраняет форматирование файла. Шаг стоит до сборки, потому что tsup
+            # вшивает версию из package.json в plugin.meta.version.
+            - name: Проставить версию из тега
+              id: version
+              run: |
+                  version="${GITHUB_REF_NAME#v}"
+
+                  npm version "$version" --no-git-tag-version --allow-same-version
+
+                  # Предрелизы (0.1.0-rc.1) не должны занимать dist-tag latest.
+                  if [[ "$version" == *-* ]]; then
+                    echo "dist_tag=next" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+                  fi
+
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+
+            - run: yarn build
+
+            # Заодно проверяет, что версия из тега доехала до plugin.meta.version:
+            # smoke-тест сверяет её с package.json.
+            - name: Проверить установку собранного пакета
+              run: yarn smoke
+
+            - name: npm stage publish
+              run: npm stage publish --provenance --access public --tag "${{ steps.version.outputs.dist_tag }}"
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            - name: Создать GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "$GITHUB_REF_NAME" \
+                    --title "$GITHUB_REF_NAME" \
+                    --generate-notes \
+                    ${{ steps.version.outputs.dist_tag == 'next' && '--prerelease' || '' }}

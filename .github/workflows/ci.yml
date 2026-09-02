@@ -1,0 +1,66 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    verify:
+        name: Проверки (Node ${{ matrix.node }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                node: ['20.19', '22', '24']
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - run: corepack enable
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ matrix.node }}
+                  cache: yarn
+
+            - run: yarn install --immutable
+
+            - run: yarn lint
+            - run: yarn format:check
+            - run: yarn typecheck
+            - run: yarn test
+            - run: yarn build
+
+    smoke:
+        name: Установка в проект (ESLint ${{ matrix.eslint }})
+        runs-on: ubuntu-latest
+        needs: verify
+        strategy:
+            fail-fast: false
+            matrix:
+                eslint: ['9', '10']
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - run: corepack enable
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  cache: yarn
+
+            - run: yarn install --immutable
+
+            # Собирает тарбол, ставит его во временный проект и запускает там ESLint —
+            # то же самое, что получит потребитель после публикации.
+            - run: yarn smoke ${{ matrix.eslint }}
