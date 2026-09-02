@@ -38,7 +38,8 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 Менеджер пакетов — Yarn 4 через corepack (`corepack enable`), Node 20.19+. TypeScript компилируется
 через `tsup` в ESM (`dist/`), тесты — `vitest`.
 
-- `yarn verify` — линт, `prettier --check`, типы, тесты, сборка (то же, что гоняет CI).
+- `yarn verify` — `yarn checks` плюс сборка; ровно это гоняет CI.
+- `yarn checks` — линт, `prettier --check`, типы, тесты (без сборки; используется в релизе).
 - `yarn test` / `yarn test:watch` — тесты.
 - `yarn build` — сборка в `dist/`.
 - `yarn smoke [версия-eslint]` — собирает тарбол, ставит его во временный проект и запускает там
@@ -59,9 +60,10 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 ## Релиз
 
 Релиз запускается git-тегом `vX.Y.Z` (`.github/workflows/release.yml`). Источник версии — имя тега:
-в `package.json` лежит заглушка `0.0.0`, а workflow проставляет версию из тега перед сборкой,
-поэтому она попадает и в тарбол, и в `plugin.meta.version`. Бампить версию в `package.json` коммитом
-не нужно — достаточно повесить тег.
+в `package.json` лежит заглушка `0.0.0`, а workflow проставляет версию из тега перед упаковкой.
+`plugin.meta` (`name`, `version`) читается из `package.json` в рантайме, поэтому отдельно
+синхронизировать её в коде не нужно. Бампить версию в `package.json` коммитом не нужно — достаточно
+повесить тег.
 
 Публикация двухшаговая. Workflow доводит дело до `npm stage publish`: версия уезжает в реестр
 закрытой, установить её нельзя. Публикует человек, локально и с 2FA:

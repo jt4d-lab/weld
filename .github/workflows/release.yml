@@ -1,10 +1,5 @@
 name: Release
 
-# Релиз запускается пушем тега вида v0.1.0.
-# Версия пакета берётся из имени тега: в package.json лежит заглушка,
-# а настоящее значение проставляется здесь перед сборкой.
-# Workflow только стейджит версию в npm (`npm stage publish`) — публикует её
-# человек командой `npm stage approve`, подтверждая 2FA.
 on:
     push:
         tags:
@@ -43,15 +38,11 @@ jobs:
 
             - run: yarn install --immutable
 
-            - run: yarn lint
-            - run: yarn format:check
-            - run: yarn typecheck
-            - run: yarn test
+            - run: yarn checks
 
-            # Версию задаёт тег, а не репозиторий: в package.json хранится заглушка
-            # 0.0.0. `npm version` проверяет, что значение из тега — корректный semver,
-            # и сохраняет форматирование файла. Шаг стоит до сборки, потому что tsup
-            # вшивает версию из package.json в plugin.meta.version.
+            # Шаг стоит до упаковки: версия из package.json уезжает и в тарбол,
+            # и в plugin.meta.version. `npm version` заодно проверяет, что значение
+            # из тега — корректный semver, и сохраняет форматирование файла.
             - name: Проставить версию из тега
               id: version
               run: |
@@ -68,10 +59,6 @@ jobs:
 
                   echo "version=$version" >> "$GITHUB_OUTPUT"
 
-            - run: yarn build
-
-            # Заодно проверяет, что версия из тега доехала до plugin.meta.version:
-            # smoke-тест сверяет её с package.json.
             - name: Проверить установку собранного пакета
               run: yarn smoke
 

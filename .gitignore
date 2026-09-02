@@ -2,7 +2,7 @@
 node_modules/
 .pnp.*
 
-# Yarn (Berry) — в репозитории держим только yarn.lock и .yarnrc.yml
+# Yarn (Berry)
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
