@@ -4,17 +4,19 @@
 # проекте: собирает тарбол ровно так, как это сделает `npm publish`, ставит его
 # во временный проект и запускает там ESLint.
 #
-# Использование: scripts/smoke-test.sh [версия-eslint]   (по умолчанию latest)
+# Использование: scripts/smoke-test.sh [версия-eslint]
+#
+# Версия ESLint по умолчанию — старший поддерживаемый мажор, а не latest: выход
+# нового мажора не должен менять результат проверки без правки в репозитории.
 
 set -euo pipefail
 
-ESLINT_VERSION="${1:-latest}"
+ESLINT_VERSION="${1:-10}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-PKG_NAME="$(node -p "require('$ROOT/package.json').name")"
-PKG_VERSION="$(node -p "require('$ROOT/package.json').version")"
+read -r PKG_NAME PKG_VERSION < <(node -p "const p=require('$ROOT/package.json'); p.name+' '+p.version")
 
 echo "==> Собираю тарбол $PKG_NAME@$PKG_VERSION"
 (cd "$ROOT" && yarn pack --out "$TMP/plugin.tgz" >/dev/null)
@@ -52,31 +54,25 @@ JS
 
 npm install --silent --no-audit --no-fund "$TMP/plugin.tgz" "eslint@$ESLINT_VERSION"
 
-echo "==> Проверяю, что плагин грузится как ESM-модуль"
+echo "==> Проверяю, что плагин грузится как ESM-модуль и попадает в конфиг"
 node --input-type=module -e "
   import assert from 'node:assert/strict';
+  import { ESLint } from 'eslint';
+
   const plugin = (await import('$PKG_NAME')).default;
   assert.equal(plugin.meta.name, '$PKG_NAME');
   assert.equal(plugin.meta.version, '$PKG_VERSION', 'версия в meta не совпала с package.json');
   assert.ok(plugin.configs.recommended, 'нет configs.recommended');
   assert.ok(plugin.rules && typeof plugin.rules === 'object', 'нет реестра правил');
   console.log('    meta:', JSON.stringify(plugin.meta));
+
+  const config = await new ESLint().calculateConfigForFile('src/example.js');
+  const plugins = Array.isArray(config.plugins) ? config.plugins : Object.keys(config.plugins ?? {});
+  assert.ok(plugins.includes('weld'), 'плагин weld не найден в конфиге, plugins = ' + plugins.join(', '));
+  console.log('    plugins:', plugins.join(', '));
 "
 
 echo "==> Запускаю ESLint в проекте-потребителе"
 npx --no-install eslint src/example.js
-
-echo "==> Проверяю, что плагин попал в вычисленный конфиг"
-npx --no-install eslint --print-config src/example.js > "$TMP/config.json"
-node -e "
-  const config = require('$TMP/config.json');
-  const plugins = Array.isArray(config.plugins) ? config.plugins : Object.keys(config.plugins ?? {});
-  // ESLint 9 печатает префикс как 'weld', ESLint 10 — как 'weld:eslint-plugin-weld@<версия>'.
-  if (!plugins.some((name) => name === 'weld' || name.startsWith('weld:'))) {
-    console.error('плагин weld не найден в конфиге, plugins =', plugins);
-    process.exit(1);
-  }
-  console.log('    plugins:', plugins.join(', '));
-"
 
 echo "==> Smoke-тест пройден"

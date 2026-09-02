@@ -34,11 +34,7 @@ jobs:
 
             - run: yarn install --immutable
 
-            - run: yarn lint
-            - run: yarn format:check
-            - run: yarn typecheck
-            - run: yarn test
-            - run: yarn build
+            - run: yarn verify
 
     smoke:
         name: Установка в проект (ESLint ${{ matrix.eslint }})
@@ -61,6 +57,4 @@ jobs:
 
             - run: yarn install --immutable
 
-            # Собирает тарбол, ставит его во временный проект и запускает там ESLint —
-            # то же самое, что получит потребитель после публикации.
             - run: yarn smoke ${{ matrix.eslint }}

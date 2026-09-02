@@ -14,12 +14,10 @@
         "noUncheckedIndexedAccess": true,
         "noImplicitOverride": true,
         "noFallthroughCasesInSwitch": true,
-        "exactOptionalPropertyTypes": false,
         "verbatimModuleSyntax": true,
         "isolatedModules": true,
 
-        "declaration": true,
-        "emitDeclarationOnly": false,
+        // tsc здесь — только тайпчекер: .d.ts и бандл делает tsup.
         "noEmit": true,
         "skipLibCheck": true,
         "esModuleInterop": true,
