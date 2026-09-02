@@ -1,8 +1,10 @@
 name: Release
 
-# Публикация в npm запускается пушем тега вида v0.1.0.
+# Релиз запускается пушем тега вида v0.1.0.
 # Версия пакета берётся из имени тега: в package.json лежит заглушка,
 # а настоящее значение проставляется здесь перед сборкой.
+# Workflow только стейджит версию в npm (`npm stage publish`) — публикует её
+# человек командой `npm stage approve`, подтверждая 2FA.
 on:
     push:
         tags:
@@ -29,9 +31,13 @@ jobs:
 
             - run: corepack enable
 
+            # Node 24 (LTS) нужна ради npm: команда `npm stage` появилась в npm 11.15,
+            # а с Node 22 приезжает npm 10. Понижать версию здесь нельзя — стейдж
+            # отвалится. Поддержку Node 20.19+ у самого пакета это не затрагивает,
+            # её проверяет матрица в ci.yml.
             - uses: actions/setup-node@v4
               with:
-                  node-version: '22'
+                  node-version: '24'
                   cache: yarn
                   registry-url: https://registry.npmjs.org
 
@@ -69,8 +75,8 @@ jobs:
             - name: Проверить установку собранного пакета
               run: yarn smoke
 
-            - name: npm publish
-              run: npm publish --provenance --access public --tag "${{ steps.version.outputs.dist_tag }}"
+            - name: npm stage publish
+              run: npm stage publish --provenance --access public --tag "${{ steps.version.outputs.dist_tag }}"
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

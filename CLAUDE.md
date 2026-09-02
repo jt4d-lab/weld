@@ -58,10 +58,22 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 
 ## Релиз
 
-Публикация в npm автоматическая, по git-тегу `vX.Y.Z` (`.github/workflows/release.yml`). Источник
-версии — имя тега: в `package.json` лежит заглушка `0.0.0`, а workflow проставляет версию из тега
-перед сборкой, поэтому она попадает и в тарбол, и в `plugin.meta.version`. Бампить версию в
-`package.json` коммитом не нужно — достаточно повесить тег. Вручную `npm publish` не запускай.
+Релиз запускается git-тегом `vX.Y.Z` (`.github/workflows/release.yml`). Источник версии — имя тега:
+в `package.json` лежит заглушка `0.0.0`, а workflow проставляет версию из тега перед сборкой,
+поэтому она попадает и в тарбол, и в `plugin.meta.version`. Бампить версию в `package.json` коммитом
+не нужно — достаточно повесить тег.
+
+Публикация двухшаговая. Workflow доводит дело до `npm stage publish`: версия уезжает в реестр
+закрытой, установить её нельзя. Публикует человек, локально и с 2FA:
+
+```sh
+npm stage list eslint-plugin-weld   # найти stage-id нужной версии
+npm stage view <stage-id>           # посмотреть, что именно уедет
+npm stage approve <stage-id>        # собственно публикация
+npm stage reject <stage-id>         # отменить ненужный стейдж
+```
+
+Обычный `npm publish` вручную не запускай — он обходит этот порядок и публикует без provenance.
 
 ## Язык
 
