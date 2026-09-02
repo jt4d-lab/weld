@@ -11,7 +11,7 @@ on:
                 description: 'Тип релиза'
                 required: true
                 type: choice
-                default: patch
+                default: prerelease
                 options:
                     - patch
                     - minor
@@ -72,7 +72,12 @@ jobs:
                   if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
                     spec="${GITHUB_REF_NAME#v}"
                   else
-                    base="$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo v0.0.0)"
+                    # База — максимальный тег репозитория, а не ближайший в истории ветки:
+                    # после amend/rebase теги остаются на осиротевших коммитах, и бамп от
+                    # видимого из ветки тега упирается в уже занятую в npm версию.
+                    # versionsort.suffix=- ставит пререлизы перед своим релизом, как в semver.
+                    base="$(git -c versionsort.suffix=- tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+                    base="${base:-v0.0.0}"
                     npm version "${base#v}" --no-git-tag-version --allow-same-version >/dev/null
 
                     spec="$BUMP"
