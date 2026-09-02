@@ -6,7 +6,7 @@
  */
 
 import { ENTRY_EXTENSIONS } from '../../entry-extensions.js';
-import { resolvePath } from '../../path/posix.js';
+import { relativePath, resolvePath } from '../../path/posix.js';
 import type { Alias } from '../../settings/aliases.js';
 
 export type Form = { kind: 'relative' } | { kind: 'alias'; alias: Alias };
@@ -77,4 +77,49 @@ function hasDisallowedExtension(path: string): boolean {
 
     const ext = match[1] as string;
     return !(ENTRY_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+/**
+ * Обратный рендер: граница `barrier` (директория) в специфаер в форме исходного импорта.
+ * Форма выигрывает у пути цели — путь про форму записи ничего не знает.
+ */
+export function renderSpecifier(
+    form: Form,
+    fromDir: string,
+    barrier: string,
+    aliases: Alias[],
+): string {
+    if (form.kind === 'relative') {
+        return renderRelative(fromDir, barrier);
+    }
+
+    if (coversDirectory(form.alias.anchor, barrier)) {
+        return renderAlias(form.alias, barrier);
+    }
+
+    const covering = aliases.filter((alias) => coversDirectory(alias.anchor, barrier));
+    if (covering.length === 0) {
+        return renderRelative(fromDir, barrier);
+    }
+
+    const longest = covering.reduce((best, alias) =>
+        alias.anchor.length > best.anchor.length ? alias : best,
+    );
+    return renderAlias(longest, barrier);
+}
+
+function coversDirectory(anchor: string, dir: string): boolean {
+    return dir === anchor || dir.startsWith(`${anchor}/`);
+}
+
+function renderAlias(alias: Alias, barrier: string): string {
+    if (barrier === alias.anchor) {
+        return alias.prefix;
+    }
+    return `${alias.prefix}/${relativePath(alias.anchor, barrier)}`;
+}
+
+function renderRelative(fromDir: string, barrier: string): string {
+    const rel = relativePath(fromDir, barrier);
+    return rel.startsWith('./') || rel.startsWith('../') ? rel : `./${rel}`;
 }
