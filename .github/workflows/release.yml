@@ -72,10 +72,6 @@ jobs:
                   if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
                     spec="${GITHUB_REF_NAME#v}"
                   else
-                    # База — максимальный тег репозитория, а не ближайший в истории ветки:
-                    # после amend/rebase теги остаются на осиротевших коммитах, и бамп от
-                    # видимого из ветки тега упирается в уже занятую в npm версию.
-                    # versionsort.suffix=- ставит пререлизы перед своим релизом, как в semver.
                     base="$(git -c versionsort.suffix=- tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
                     base="${base:-v0.0.0}"
                     npm version "${base#v}" --no-git-tag-version --allow-same-version >/dev/null
@@ -87,7 +83,6 @@ jobs:
                   tag="$(npm version "$spec" --preid "$PREID" --no-git-tag-version --allow-same-version)"
                   version="${tag#v}"
 
-                  # Предрелизы (0.1.0-rc.1) не должны занимать dist-tag latest.
                   if [[ "$version" == *-* ]]; then
                     dist_tag=next
                   else
@@ -97,13 +92,10 @@ jobs:
                   echo "dist_tag=$dist_tag" >> "$GITHUB_OUTPUT"
                   echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-                  # Заметки к релизу считаем от последнего стабильного тега: иначе после серии rc
-                  # в них попадут только изменения с предыдущего rc, а не весь релизный цикл.
-                  prev="$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*' --exclude "$tag" --abbrev=0 2>/dev/null || true)"
+                  prev="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -v -- '-' | grep -vx -- "$tag" | head -n 1 || true)"
                   echo "Заметки от ${prev:-начала истории}"
                   echo "notes_start_tag=$prev" >> "$GITHUB_OUTPUT"
 
-                  # Итоги — в сводку прогона: она видна и когда публикация упала.
                   {
                     echo "## Релиз $tag"
                     echo
