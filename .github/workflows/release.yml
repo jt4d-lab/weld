@@ -1,0 +1,81 @@
+name: Release
+
+# Публикация в npm запускается пушем тега вида v0.1.0.
+# Версия в package.json должна совпадать с тегом — иначе workflow падает
+# до публикации.
+on:
+    push:
+        tags:
+            - 'v[0-9]+.[0-9]+.[0-9]+'
+            - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+    contents: read
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    publish:
+        name: Публикация в npm
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write # создание GitHub Release
+            id-token: write # provenance для npm
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - run: corepack enable
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  cache: yarn
+                  registry-url: https://registry.npmjs.org
+
+            - run: yarn install --immutable
+
+            - name: Сверить версию пакета с тегом
+              id: version
+              run: |
+                  tag_version="${GITHUB_REF_NAME#v}"
+                  pkg_version="$(node -p "require('./package.json').version")"
+
+                  if [ "$tag_version" != "$pkg_version" ]; then
+                    echo "Тег $GITHUB_REF_NAME не совпадает с версией в package.json ($pkg_version)" >&2
+                    exit 1
+                  fi
+
+                  # Предрелизы (0.1.0-rc.1) не должны занимать dist-tag latest.
+                  if [[ "$pkg_version" == *-* ]]; then
+                    echo "dist_tag=next" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+                  fi
+
+                  echo "version=$pkg_version" >> "$GITHUB_OUTPUT"
+
+            - run: yarn lint
+            - run: yarn format:check
+            - run: yarn typecheck
+            - run: yarn test
+            - run: yarn build
+
+            - name: Проверить установку собранного пакета
+              run: yarn smoke
+
+            - name: npm publish
+              run: npm publish --provenance --access public --tag "${{ steps.version.outputs.dist_tag }}"
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            - name: Создать GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "$GITHUB_REF_NAME" \
+                    --title "$GITHUB_REF_NAME" \
+                    --generate-notes \
+                    ${{ steps.version.outputs.dist_tag == 'next' && '--prerelease' || '' }}
