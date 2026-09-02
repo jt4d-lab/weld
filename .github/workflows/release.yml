@@ -70,7 +70,7 @@ jobs:
               run: yarn smoke
 
             - name: npm publish
-              run: npm publish --provenance --access public --tag "${{ steps.version.outputs.dist_tag }}"
+              run: npm stage publish --provenance --access public --tag "${{ steps.version.outputs.dist_tag }}"
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
