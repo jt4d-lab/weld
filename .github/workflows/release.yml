@@ -1,8 +1,8 @@
 name: Release
 
 # Публикация в npm запускается пушем тега вида v0.1.0.
-# Версия в package.json должна совпадать с тегом — иначе workflow падает
-# до публикации.
+# Версия пакета берётся из имени тега: в package.json лежит заглушка,
+# а настоящее значение проставляется здесь перед сборкой.
 on:
     push:
         tags:
@@ -37,32 +37,35 @@ jobs:
 
             - run: yarn install --immutable
 
-            - name: Сверить версию пакета с тегом
+            - run: yarn lint
+            - run: yarn format:check
+            - run: yarn typecheck
+            - run: yarn test
+
+            # Версию задаёт тег, а не репозиторий: в package.json хранится заглушка
+            # 0.0.0. `npm version` проверяет, что значение из тега — корректный semver,
+            # и сохраняет форматирование файла. Шаг стоит до сборки, потому что tsup
+            # вшивает версию из package.json в plugin.meta.version.
+            - name: Проставить версию из тега
               id: version
               run: |
-                  tag_version="${GITHUB_REF_NAME#v}"
-                  pkg_version="$(node -p "require('./package.json').version")"
+                  version="${GITHUB_REF_NAME#v}"
 
-                  if [ "$tag_version" != "$pkg_version" ]; then
-                    echo "Тег $GITHUB_REF_NAME не совпадает с версией в package.json ($pkg_version)" >&2
-                    exit 1
-                  fi
+                  npm version "$version" --no-git-tag-version --allow-same-version
 
                   # Предрелизы (0.1.0-rc.1) не должны занимать dist-tag latest.
-                  if [[ "$pkg_version" == *-* ]]; then
+                  if [[ "$version" == *-* ]]; then
                     echo "dist_tag=next" >> "$GITHUB_OUTPUT"
                   else
                     echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
                   fi
 
-                  echo "version=$pkg_version" >> "$GITHUB_OUTPUT"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
 
-            - run: yarn lint
-            - run: yarn format:check
-            - run: yarn typecheck
-            - run: yarn test
             - run: yarn build
 
+            # Заодно проверяет, что версия из тега доехала до plugin.meta.version:
+            # smoke-тест сверяет её с package.json.
             - name: Проверить установку собранного пакета
               run: yarn smoke
 

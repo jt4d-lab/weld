@@ -58,9 +58,10 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 
 ## Релиз
 
-Публикация в npm автоматическая, по git-тегу `vX.Y.Z` (`.github/workflows/release.yml`); тег должен
-совпадать с версией в `package.json`, иначе workflow падает до публикации. Вручную `npm publish` не
-запускай.
+Публикация в npm автоматическая, по git-тегу `vX.Y.Z` (`.github/workflows/release.yml`). Источник
+версии — имя тега: в `package.json` лежит заглушка `0.0.0`, а workflow проставляет версию из тега
+перед сборкой, поэтому она попадает и в тарбол, и в `plugin.meta.version`. Бампить версию в
+`package.json` коммитом не нужно — достаточно повесить тег. Вручную `npm publish` не запускай.
 
 ## Язык
 
