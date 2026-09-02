@@ -89,11 +89,12 @@ jobs:
 
                   # Предрелизы (0.1.0-rc.1) не должны занимать dist-tag latest.
                   if [[ "$version" == *-* ]]; then
-                    echo "dist_tag=next" >> "$GITHUB_OUTPUT"
+                    dist_tag=next
                   else
-                    echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+                    dist_tag=latest
                   fi
 
+                  echo "dist_tag=$dist_tag" >> "$GITHUB_OUTPUT"
                   echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
                   # Заметки к релизу считаем от последнего стабильного тега: иначе после серии rc
@@ -101,6 +102,28 @@ jobs:
                   prev="$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*' --exclude "$tag" --abbrev=0 2>/dev/null || true)"
                   echo "Заметки от ${prev:-начала истории}"
                   echo "notes_start_tag=$prev" >> "$GITHUB_OUTPUT"
+
+                  # Итоги — в сводку прогона: она видна и когда публикация упала.
+                  {
+                    echo "## Релиз $tag"
+                    echo
+                    echo "| Параметр | Значение |"
+                    echo "| --- | --- |"
+                    echo "| Версия | \`$version\` |"
+                    echo "| dist-tag | \`$dist_tag\` |"
+                    if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+                      echo "| Источник версии | тег пуша \`$GITHUB_REF_NAME\` |"
+                    else
+                      echo "| База | \`$base\` |"
+                      echo "| Бамп | \`$BUMP\` (preid \`$PREID\`) |"
+                    fi
+                    if [[ -n "$prev" ]]; then
+                      echo "| Заметки от | \`$prev\` |"
+                    else
+                      echo "| Заметки от | начала истории |"
+                    fi
+                    echo "| Коммит | \`$GITHUB_SHA\` |"
+                  } >> "$GITHUB_STEP_SUMMARY"
 
             - name: Проверить установку собранного пакета
               run: yarn smoke
@@ -129,4 +152,13 @@ jobs:
                     args+=(--prerelease)
                   fi
 
-                  gh release create "$TAG" "${args[@]}"
+                  url="$(gh release create "$TAG" "${args[@]}")"
+                  pkg="$(node -p 'require("./package.json").name')"
+
+                  {
+                    echo
+                    echo "### Опубликовано"
+                    echo
+                    echo "- npm: https://www.npmjs.com/package/$pkg/v/${TAG#v}"
+                    echo "- GitHub Release: $url"
+                  } >> "$GITHUB_STEP_SUMMARY"
