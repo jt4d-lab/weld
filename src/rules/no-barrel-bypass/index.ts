@@ -19,7 +19,7 @@ const messages = {
     useBarrel: "Import through '{{suggestion}}'.",
 };
 
-type LiteralNode = { type: 'Literal'; value: string; raw?: string };
+type LiteralNode = { type: 'Literal'; value: string; raw: string };
 
 function isStringLiteral(node: { type: string } | null | undefined): node is LiteralNode {
     return (
@@ -66,7 +66,7 @@ export function createRule(env: CheckEnv): Rule.RuleModule {
                     return;
                 }
 
-                const quote = sourceNode.raw?.[0] ?? '"';
+                const quote = sourceNode.raw[0];
                 const replacement = `${quote}${suggestion}${quote}`;
                 const applyFix = (fixer: Rule.RuleFixer): Rule.Fix =>
                     fixer.replaceText(sourceNode, replacement);
