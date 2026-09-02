@@ -5,6 +5,30 @@ on:
         tags:
             - 'v[0-9]+.[0-9]+.[0-9]+'
             - 'v[0-9]+.[0-9]+.[0-9]+-*'
+    workflow_dispatch:
+        inputs:
+            bump:
+                description: 'Тип релиза'
+                required: true
+                type: choice
+                default: patch
+                options:
+                    - patch
+                    - minor
+                    - major
+                    - prerelease # инкремент текущего пререлиза: 0.2.0-rc.0 → 0.2.0-rc.1
+            prerelease:
+                description: 'Выпустить как пререлиз (patch → prepatch и т.д.)'
+                type: boolean
+                default: false
+            preid:
+                description: 'Идентификатор пререлиза'
+                type: choice
+                default: rc
+                options:
+                    - rc
+                    - beta
+                    - alpha
 
 permissions:
     contents: read
@@ -22,7 +46,11 @@ jobs:
             id-token: write # provenance для npm
 
         steps:
+            # Полная история с тегами нужна ручному запуску: базовую версию для
+            # бампа брать больше неоткуда — в package.json лежит заглушка 0.0.0.
             - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
             - run: corepack enable
 
@@ -43,12 +71,39 @@ jobs:
             # Шаг стоит до упаковки: версия из package.json уезжает и в тарбол,
             # и в plugin.meta.version. `npm version` заодно проверяет, что значение
             # из тега — корректный semver, и сохраняет форматирование файла.
-            - name: Проставить версию из тега
+            - name: Определить версию релиза
               id: version
+              env:
+                  BUMP: ${{ inputs.bump }}
+                  PRERELEASE: ${{ inputs.prerelease }}
+                  PREID: ${{ inputs.preid }}
               run: |
-                  version="${GITHUB_REF_NAME#v}"
+                  set -euo pipefail
 
-                  npm version "$version" --no-git-tag-version --allow-same-version
+                  if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+                    # Запуск тегом: версия — это имя тега, считать нечего.
+                    version="${GITHUB_REF_NAME#v}"
+                    npm version "$version" --no-git-tag-version --allow-same-version >/dev/null
+                    tag="$GITHUB_REF_NAME"
+                  else
+                    # Ручной запуск: база — ближайший релизный тег в истории этой ветки.
+                    base="$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo v0.0.0)"
+                    npm version "${base#v}" --no-git-tag-version --allow-same-version >/dev/null
+
+                    # prerelease бампает уже существующий пререлиз, поэтому приставку
+                    # к нему не клеим — pre-prerelease не существует.
+                    if [[ "$PRERELEASE" == "true" && "$BUMP" != "prerelease" ]]; then
+                      bump="pre$BUMP"
+                    else
+                      bump="$BUMP"
+                    fi
+
+                    # Всю semver-арифметику делает npm; --preid при обычном бампе игнорируется.
+                    tag="$(npm version "$bump" --preid "$PREID" --no-git-tag-version)"
+                    version="${tag#v}"
+
+                    echo "База $base → $bump → $tag"
+                  fi
 
                   # Предрелизы (0.1.0-rc.1) не должны занимать dist-tag latest.
                   if [[ "$version" == *-* ]]; then
@@ -58,6 +113,7 @@ jobs:
                   fi
 
                   echo "version=$version" >> "$GITHUB_OUTPUT"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
             - name: Проверить установку собранного пакета
               run: yarn smoke
@@ -67,11 +123,14 @@ jobs:
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+            # При ручном запуске тега ещё нет — gh создаёт его сам на текущем коммите.
+            # Делаем это после публикации, чтобы неудачная сборка не оставляла тег в репозитории.
             - name: Создать GitHub Release
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  gh release create "$GITHUB_REF_NAME" \
-                    --title "$GITHUB_REF_NAME" \
+                  gh release create "${{ steps.version.outputs.tag }}" \
+                    --target "$GITHUB_SHA" \
+                    --title "${{ steps.version.outputs.tag }}" \
                     --generate-notes \
                     ${{ steps.version.outputs.dist_tag == 'next' && '--prerelease' || '' }}
