@@ -31,7 +31,10 @@ export function parseSpecifier(
 
     const alias = matchAlias(specifier, aliases);
     if (alias !== null) {
-        const suffix = specifier === alias.prefix ? '' : specifier.slice(alias.prefix.length + 1);
+        const suffix =
+            specifier === alias.prefix
+                ? ''
+                : specifier.slice(alias.prefix.length + 1).replace(/^\/+/, '');
         return finalize(resolvePath(alias.anchor, suffix), { kind: 'alias', alias });
     }
 
