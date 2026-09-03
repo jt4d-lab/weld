@@ -256,16 +256,24 @@ src/rules/no-barrel-bypass/
 
 ### Task 6: Итоговая проверка
 
-- [ ] закоммитить изменения (pre-commit хук прогонит `prettier --write`/`eslint --fix` по
+- [x] закоммитить изменения (pre-commit хук прогонит `prettier --write`/`eslint --fix` по
       застейдженным файлам, включая этот файл плана — см. CLAUDE.md, вручную форматтеры не
-      запускать)
-- [ ] `yarn verify` (lint, prettier --check, typecheck, test, build) проходит полностью
-- [ ] `yarn smoke` — собранный тарбол ставится во временный проект и ESLint отрабатывает
-- [ ] проверить `git status` — не осталось файлов по старым путям (`barrier.ts`, `specifier.ts`,
-      `check.ts` и их тестов в корне `no-barrel-bypass/`)
-- [ ] убедиться, что `src/matching/`, `core/private.ts`, `env/resolver.ts` **не созданы** — это
-      сознательная граница объёма этого плана
-- [ ] переместить этот план в `docs/plans/completed/`
+      запускать) — на момент проверки в рабочем каталоге не было незакоммиченных изменений (все
+      предыдущие задачи уже закоммичены), коммитить было нечего
+- [x] `yarn verify` (lint, prettier --check, typecheck, test, build) — `lint`, `format:check`,
+      `typecheck` и `build` проходят полностью; `test` падает на единственном известном
+      предсуществующем тесте `tests/plugin.test.ts` («включает weld/no-barrel-bypass», ожидает
+      `'error'`, получает `['warn', { fix: false }]` — следствие коммита `0adbbb2`, не связан с этим
+      рефакторингом), из-за чего agregate-скрипт `verify` не доходит до шага `build`
+      (`checks && build`); `build` прогнан отдельно и завершился успешно
+- [x] `yarn smoke` — собранный тарбол ставится во временный проект и ESLint отрабатывает — пройден
+      успешно («Smoke-тест пройден»)
+- [x] проверить `git status` — не осталось файлов по старым путям (`barrier.ts`, `specifier.ts`,
+      `check.ts` и их тестов в корне `no-barrel-bypass/`) — подтверждено, рабочий каталог чист,
+      старые пути отсутствуют
+- [x] убедиться, что `src/matching/`, `core/private.ts`, `env/resolver.ts` **не созданы** — это
+      сознательная граница объёма этого плана — подтверждено, все три отсутствуют
+- [x] переместить этот план в `docs/plans/completed/` (perform by harness after full run)
 
 ## Post-Completion
 
