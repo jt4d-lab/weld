@@ -1,4 +1,4 @@
-import { ENTRY_EXTENSIONS } from '../entry-extensions.js';
+import { isEntryExtension } from '../entry-extensions.js';
 import { resolvePath } from '../path/posix.js';
 
 export type Alias = { prefix: string; anchor: string };
@@ -135,7 +135,7 @@ function normalizeAnchor(anchorRaw: string, base: string): string | null {
 
     const ext = extMatch[1] as string;
     const name = last.slice(0, -(ext.length + 1));
-    if (name !== 'index' || !(ENTRY_EXTENSIONS as readonly string[]).includes(ext)) {
+    if (name !== 'index' || !isEntryExtension(ext)) {
         return null;
     }
 

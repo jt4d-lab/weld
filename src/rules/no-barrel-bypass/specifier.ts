@@ -5,7 +5,7 @@
  * подстановкой якоря. Резолвер не нужен — существование цели проверяет `import/no-unresolved`.
  */
 
-import { ENTRY_EXTENSIONS } from '../../entry-extensions.js';
+import { isEntryExtension } from '../../entry-extensions.js';
 import { relativePath, resolvePath } from '../../path/posix.js';
 import type { Alias } from '../../settings/aliases.js';
 
@@ -76,7 +76,7 @@ function hasDisallowedExtension(path: string): boolean {
     }
 
     const ext = match[1] as string;
-    return !(ENTRY_EXTENSIONS as readonly string[]).includes(ext);
+    return !isEntryExtension(ext);
 }
 
 /**
@@ -121,5 +121,5 @@ function renderAlias(alias: Alias, barrier: string): string {
 
 function renderRelative(fromDir: string, barrier: string): string {
     const rel = relativePath(fromDir, barrier);
-    return rel.startsWith('./') || rel.startsWith('../') ? rel : `./${rel}`;
+    return rel.startsWith('../') ? rel : `./${rel}`;
 }
