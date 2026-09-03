@@ -1,5 +1,5 @@
 import { Linter, RuleTester } from 'eslint';
-import tsParser from '@typescript-eslint/parser';
+import tseslint from 'typescript-eslint';
 import { describe, expect, it } from 'vitest';
 
 import { createRule } from '../../../src/rules/no-barrel-bypass/index.js';
@@ -12,7 +12,7 @@ function hasEntryPointIn(dirs: Iterable<string>): (dir: string) => boolean {
 const languageOptions = {
     ecmaVersion: 2022 as const,
     sourceType: 'module' as const,
-    parser: tsParser,
+    parser: tseslint.parser,
 };
 
 // RuleTester ищет глобальные `describe`/`it`, которых нет в vitest без `globals: true` в конфиге —
