@@ -5,9 +5,9 @@
  * подстановкой якоря. Резолвер не нужен — существование цели проверяет `import/no-unresolved`.
  */
 
-import { isEntryExtension } from '../../entry-extensions.js';
-import { basename, relativePath, resolvePath, splitExtension } from '../../path/posix.js';
-import type { Alias } from '../../settings/aliases.js';
+import { isEntryExtension } from '../../../entry-extensions.js';
+import { basename, relativePath, resolvePath, splitExtension } from '../../../path/posix.js';
+import type { Alias } from '../../../settings/aliases.js';
 
 export type Form = { kind: 'relative' } | { kind: 'alias'; alias: Alias };
 export type Target = { path: string; form: Form };

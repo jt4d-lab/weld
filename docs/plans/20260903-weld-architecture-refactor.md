@@ -181,21 +181,21 @@ src/rules/no-barrel-bypass/
 - Delete: `src/rules/no-barrel-bypass/barrier.ts`, `barrier.test.ts`, `specifier.ts`,
   `specifier.test.ts`
 
-- [ ] перенести `barrier.ts`/`barrier.test.ts` в `core/` без изменения логики, поправить
+- [x] перенести `barrier.ts`/`barrier.test.ts` в `core/` без изменения логики, поправить
       относительные импорты (`../../path/posix.js` → `../../../path/posix.js`)
-- [ ] перенести `specifier.ts`/`specifier.test.ts` в `core/` аналогично, поправить импорты
+- [x] перенести `specifier.ts`/`specifier.test.ts` в `core/` аналогично, поправить импорты
       (`../../entry-extensions.js`, `../../path/posix.js`, `../../settings/aliases.js`)
-- [ ] обновить `check.ts`: импорты `./barrier.js`/`./specifier.js` → `./core/barrier.js`/
+- [x] обновить `check.ts`: импорты `./barrier.js`/`./specifier.js` → `./core/barrier.js`/
       `./core/specifier.js` (это единственная правка в файле в этой задаче — `check.ts` остаётся
       рабочим и не переименован, переименование и смена сигнатуры — в Task 4)
-- [ ] создать `core/verdict.ts` с типом
+- [x] создать `core/verdict.ts` с типом
       `export type Verdict = { kind: 'ok' } | { kind: 'crossesBarrier'; suggestion: string }` — без
       поля `boundary`: сегодняшний `check.ts` уже осознанно не отдаёт границу наружу («Найденная
       граница наружу не отдаётся: она нужна только для рендера исправленного пути»), Verdict эту
       инвариант сохраняет. Файл только с типом — потребителя (`pipeline.ts`) у него пока нет,
       добавляется в Task 4
-- [ ] прогнать `yarn test` — весь набор (включая ещё не переименованный `check.ts`) проходит без
-      изменений поведения
+- [x] прогнать `yarn test` — весь набор (включая ещё не переименованный `check.ts`) проходит без
+      изменений поведения (кроме известного `tests/plugin.test.ts`, не связано с этой задачей)
 
 ### Task 4: `pipeline.ts` — `check.ts` на `Verdict`, обновление всех потребителей
 

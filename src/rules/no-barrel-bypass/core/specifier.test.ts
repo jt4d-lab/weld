@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseSpecifier, renderSpecifier } from './specifier.js';
-import type { Alias } from '../../settings/aliases.js';
+import type { Alias } from '../../../settings/aliases.js';
 
 const fromDir = '/repo/src/feature';
 

@@ -5,8 +5,8 @@
 import { dirname } from '../../path/posix.js';
 import type { Alias } from '../../settings/aliases.js';
 
-import { findBarrier } from './barrier.js';
-import { parseSpecifier, renderSpecifier } from './specifier.js';
+import { findBarrier } from './core/barrier.js';
+import { parseSpecifier, renderSpecifier } from './core/specifier.js';
 
 export type CheckInput = { specifier: string; fromFile: string; aliases: Alias[] };
 export type CheckEnv = { hasEntryPoint(dir: string): boolean };

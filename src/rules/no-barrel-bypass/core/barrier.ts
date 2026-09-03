@@ -10,7 +10,7 @@ import {
     relativePath,
     resolvePath,
     splitExtension,
-} from '../../path/posix.js';
+} from '../../../path/posix.js';
 
 function isIndexFile(targetPath: string): boolean {
     return splitExtension(basename(targetPath)).name === 'index';
