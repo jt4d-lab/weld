@@ -35,7 +35,10 @@ import weld from 'eslint-plugin-weld';
 export default [weld.configs.recommended];
 ```
 
-Плагин предоставляет готовые наборы правил `recommended` и `strict`:
+Плагин предоставляет готовые наборы правил `recommended` и `strict`. `recommended` включает
+`weld/no-barrel-bypass` как `warn` с выключенным автофиксом (`fix: false`) — только suggestion,
+применяемый вручную и по одному месту за раз. `strict` включает то же правило как `error` с
+автофиксом по умолчанию (см. [опцию `fix`](docs/rules/no-barrel-bypass.md#опция-fix)):
 
 ```js
 import weld from 'eslint-plugin-weld';

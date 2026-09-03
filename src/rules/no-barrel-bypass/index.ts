@@ -57,7 +57,7 @@ export function createRule(env: CheckEnv): Rule.RuleModule {
             }
 
             const aliases = readAliases(context.settings, context.cwd);
-            const { fix = false } = (context.options[0] as Options | undefined) ?? {};
+            const { fix = true } = (context.options[0] as Options | undefined) ?? {};
 
             function check(reportNode: Rule.Node, sourceNode: LiteralNode): void {
                 const original = sourceNode.value;

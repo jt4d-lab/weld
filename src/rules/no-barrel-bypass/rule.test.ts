@@ -66,6 +66,7 @@ describe('weld/no-barrel-bypass', () => {
                     name: 'import',
                     code: "import { a } from '../other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
+                    options: [{ fix: false }],
                     errors: [
                         {
                             messageId: 'bypass',
@@ -83,6 +84,7 @@ describe('weld/no-barrel-bypass', () => {
                     name: 'import type',
                     code: "import type { A } from '../other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
+                    options: [{ fix: false }],
                     errors: [
                         {
                             messageId: 'bypass',
@@ -100,6 +102,7 @@ describe('weld/no-barrel-bypass', () => {
                     name: 'import()',
                     code: "const p = import('../other/internal.ts');",
                     filename: '/repo/src/feature/file.ts',
+                    options: [{ fix: false }],
                     errors: [
                         {
                             messageId: 'bypass',
@@ -117,6 +120,7 @@ describe('weld/no-barrel-bypass', () => {
                     name: 'require()',
                     code: "const a = require('../other/internal.ts');",
                     filename: '/repo/src/feature/file.ts',
+                    options: [{ fix: false }],
                     errors: [
                         {
                             messageId: 'bypass',
@@ -146,6 +150,7 @@ describe('weld/no-barrel-bypass', () => {
                     code: "import { a } from '@src/other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
                     settings: { weld: { baseUrl: '/repo', aliases: { '@src/*': ['src/*'] } } },
+                    options: [{ fix: false }],
                     errors: [
                         {
                             messageId: 'bypass',
@@ -175,6 +180,7 @@ describe('weld/no-barrel-bypass', () => {
                     name: 'windows filename',
                     code: "import { a } from '../other/internal.ts';",
                     filename: 'C:\\repo\\src\\feature\\file.ts',
+                    options: [{ fix: false }],
                     errors: [
                         {
                             messageId: 'bypass',
@@ -236,6 +242,24 @@ describe('weld/no-barrel-bypass', () => {
                             ],
                         },
                     ],
+                },
+            ],
+        });
+    });
+
+    it('без опции fix применяется автофикс (fix:true по умолчанию)', () => {
+        const env = fakeEnv(['/repo/src/other']);
+        const rule = createRule(env);
+
+        ruleTester.run('no-barrel-bypass default fix', rule, {
+            valid: [],
+            invalid: [
+                {
+                    name: 'опция fix не задана → fix',
+                    code: "import { a } from '../other/internal.ts';",
+                    filename: '/repo/src/feature/file.ts',
+                    output: "import { a } from '../other';",
+                    errors: [{ messageId: 'bypass' }],
                 },
             ],
         });

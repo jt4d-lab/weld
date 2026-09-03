@@ -30,6 +30,7 @@ describe('интеграция weld/no-barrel-bypass с реальным createE
                     name: 'относительный импорт пробивает баррель фикстуры',
                     code: "import { a } from '../feature/internal.ts';",
                     filename: `${PROJECT_DIR}/src/other/file.ts`,
+                    options: [{ fix: false }],
                     errors: [
                         {
                             messageId: 'bypass',
@@ -62,6 +63,7 @@ describe('интеграция weld/no-barrel-bypass с реальным createE
                     settings: {
                         weld: { baseUrl: PROJECT_DIR, aliases: { '@src/*': ['src/*'] } },
                     },
+                    options: [{ fix: false }],
                     errors: [
                         {
                             messageId: 'bypass',
@@ -91,6 +93,7 @@ describe('интеграция weld/no-barrel-bypass с реальным createE
             name: 'та же граница, второй прогон',
             code: "import { a } from '../feature/internal.ts';",
             filename: `${PROJECT_DIR}/src/other/file.ts`,
+            options: [{ fix: false }],
             errors: [
                 {
                     messageId: 'bypass',
