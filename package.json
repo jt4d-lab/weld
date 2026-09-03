@@ -43,17 +43,25 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "lint": "eslint .",
+        "lint-staged": "lint-staged",
         "prepack": "yarn build",
+        "prepare": "husky",
         "smoke": "./scripts/smoke-test.sh",
         "test": "vitest run",
         "test:watch": "vitest",
         "typecheck": "tsc --noEmit",
         "verify": "yarn checks && yarn build"
     },
+    "lint-staged": {
+        "*.{js,mjs,cjs,ts,tsx,json,md,mdx,yml,yaml}": "prettier --write",
+        "*.{js,mjs,cjs,ts,tsx}": "eslint --fix"
+    },
     "devDependencies": {
         "@eslint/js": "^10.0.0",
         "@types/node": "^26.0.0",
         "eslint": "^10.0.0",
+        "husky": "^9.1.7",
+        "lint-staged": "^17.4.1",
         "prettier": "^3.9.0",
         "tsup": "^8.5.0",
         "typescript": "^5.9.0",
