@@ -35,6 +35,14 @@ import weld from 'eslint-plugin-weld';
 export default [weld.configs.recommended];
 ```
 
+Плагин предоставляет готовые наборы правил `recommended` и `strict`:
+
+```js
+import weld from 'eslint-plugin-weld';
+
+export default [weld.configs.strict];
+```
+
 Можно подключить и сам плагин, включая правила поштучно:
 
 ```js

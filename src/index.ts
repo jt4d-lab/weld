@@ -14,12 +14,24 @@ const recommended: Linter.Config = {
     rules: {},
 };
 
+const strict: Linter.Config = {
+    name: 'weld/strict',
+    rules: {},
+};
+
 const plugin = {
-    meta: { name, version },
+    meta: {
+        name,
+        version,
+    },
     rules,
-    configs: { recommended },
+    configs: {
+        recommended,
+        strict,
+    },
 } satisfies ESLint.Plugin;
 
 recommended.plugins = { weld: plugin };
+strict.plugins = { weld: plugin };
 
 export default plugin;
