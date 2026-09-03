@@ -46,7 +46,7 @@ describe('конфиг recommended', () => {
     });
 
     it('включает weld/no-barrel-bypass', () => {
-        expect(recommended.rules?.['weld/no-barrel-bypass']).toBe('error');
+        expect(recommended.rules?.['weld/no-barrel-bypass']).toEqual(['warn', { fix: false }]);
     });
 });
 

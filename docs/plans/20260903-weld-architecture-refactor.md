@@ -260,12 +260,11 @@ src/rules/no-barrel-bypass/
       застейдженным файлам, включая этот файл плана — см. CLAUDE.md, вручную форматтеры не
       запускать) — на момент проверки в рабочем каталоге не было незакоммиченных изменений (все
       предыдущие задачи уже закоммичены), коммитить было нечего
-- [x] `yarn verify` (lint, prettier --check, typecheck, test, build) — `lint`, `format:check`,
-      `typecheck` и `build` проходят полностью; `test` падает на единственном известном
-      предсуществующем тесте `tests/plugin.test.ts` («включает weld/no-barrel-bypass», ожидает
-      `'error'`, получает `['warn', { fix: false }]` — следствие коммита `0adbbb2`, не связан с этим
-      рефакторингом), из-за чего agregate-скрипт `verify` не доходит до шага `build`
-      (`checks && build`); `build` прогнан отдельно и завершился успешно
+- [x] `yarn verify` (lint, prettier --check, typecheck, test, build) — тест `tests/plugin.test.ts`
+      («включает weld/no-barrel-bypass») ожидал устаревшее значение `'error'`, тогда как коммит
+      `0adbbb2` этой же ветки намеренно понизил `recommended` до `['warn', { fix: false }]` (добавив
+      отдельный пресет `strict` с `'error'`); ассерт теста обновлён под актуальное поведение
+      `recommended`, после чего `yarn verify` проходит целиком, включая `build`
 - [x] `yarn smoke` — собранный тарбол ставится во временный проект и ESLint отрабатывает — пройден
       успешно («Smoke-тест пройден»)
 - [x] проверить `git status` — не осталось файлов по старым путям (`barrier.ts`, `specifier.ts`,
