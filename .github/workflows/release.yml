@@ -8,7 +8,7 @@ on:
     workflow_dispatch:
         inputs:
             bump:
-                description: 'Тип релиза'
+                description: 'Release type'
                 required: true
                 type: choice
                 default: prerelease
@@ -21,7 +21,7 @@ on:
                     - premajor
                     - prerelease
             preid:
-                description: 'Идентификатор пререлиза (для pre*-релизов)'
+                description: 'Prerelease identifier (for pre*-releases)'
                 type: choice
                 default: rc
                 options:
@@ -38,7 +38,7 @@ concurrency:
 
 jobs:
     publish:
-        name: Публикация в npm
+        name: Publish to npm
         runs-on: ubuntu-latest
         permissions:
             contents: write
@@ -61,7 +61,7 @@ jobs:
 
             - run: yarn checks
 
-            - name: Определить версию релиза
+            - name: Determine release version
               id: version
               env:
                   BUMP: ${{ inputs.bump }}
@@ -77,7 +77,7 @@ jobs:
                     npm version "${base#v}" --no-git-tag-version --allow-same-version >/dev/null
 
                     spec="$BUMP"
-                    echo "База $base, бамп $spec"
+                    echo "Base $base, bump $spec"
                   fi
 
                   tag="$(npm version "$spec" --preid "$PREID" --no-git-tag-version --allow-same-version)"
@@ -93,31 +93,31 @@ jobs:
                   echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
                   prev="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -v -- '-' | grep -vx -- "$tag" | head -n 1 || true)"
-                  echo "Заметки от ${prev:-начала истории}"
+                  echo "Release notes starting from ${prev:-the beginning of history}"
                   echo "notes_start_tag=$prev" >> "$GITHUB_OUTPUT"
 
                   {
-                    echo "## Релиз $tag"
+                    echo "## Release $tag"
                     echo
-                    echo "| Параметр | Значение |"
+                    echo "| Parameter | Value |"
                     echo "| --- | --- |"
-                    echo "| Версия | \`$version\` |"
+                    echo "| Version | \`$version\` |"
                     echo "| dist-tag | \`$dist_tag\` |"
                     if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-                      echo "| Источник версии | тег пуша \`$GITHUB_REF_NAME\` |"
+                      echo "| Version source | push tag \`$GITHUB_REF_NAME\` |"
                     else
-                      echo "| База | \`$base\` |"
-                      echo "| Бамп | \`$BUMP\` (preid \`$PREID\`) |"
+                      echo "| Base | \`$base\` |"
+                      echo "| Bump | \`$BUMP\` (preid \`$PREID\`) |"
                     fi
                     if [[ -n "$prev" ]]; then
-                      echo "| Заметки от | \`$prev\` |"
+                      echo "| Release notes starting from | \`$prev\` |"
                     else
-                      echo "| Заметки от | начала истории |"
+                      echo "| Release notes starting from | the beginning of history |"
                     fi
-                    echo "| Коммит | \`$GITHUB_SHA\` |"
+                    echo "| Commit | \`$GITHUB_SHA\` |"
                   } >> "$GITHUB_STEP_SUMMARY"
 
-            - name: Проверить установку собранного пакета
+            - name: Verify installation of the built package
               run: yarn smoke
 
             - name: npm publish
@@ -125,7 +125,7 @@ jobs:
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-            - name: Создать GitHub Release
+            - name: Create GitHub Release
               env:
                   GH_TOKEN: ${{ github.token }}
                   TAG: ${{ steps.version.outputs.tag }}
@@ -149,7 +149,7 @@ jobs:
 
                   {
                     echo
-                    echo "### Опубликовано"
+                    echo "### Published"
                     echo
                     echo "- npm: https://www.npmjs.com/package/$pkg/v/${TAG#v}"
                     echo "- GitHub Release: $url"

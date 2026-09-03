@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
     verify:
-        name: Проверки (Node ${{ matrix.node }})
+        name: Checks (Node ${{ matrix.node }})
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
@@ -37,7 +37,7 @@ jobs:
             - run: yarn verify
 
     smoke:
-        name: Установка в проект (ESLint ${{ matrix.eslint }})
+        name: Install in project (ESLint ${{ matrix.eslint }})
         runs-on: ubuntu-latest
         needs: verify
         strategy:
