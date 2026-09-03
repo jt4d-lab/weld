@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseSpecifier } from '../../../src/rules/no-barrel-bypass/specifier.js';
+import { parseSpecifier, renderSpecifier } from '../../../src/rules/no-barrel-bypass/specifier.js';
 import type { Alias } from '../../../src/settings/aliases.js';
+import type { Form } from '../../../src/rules/no-barrel-bypass/specifier.js';
 
 const fromDir = '/repo/src/feature';
 
@@ -115,5 +116,69 @@ describe('parseSpecifier: расширения из ENTRY_EXTENSIONS не выз
             path: '/repo/src/feature/feature/x.ts',
             form: { kind: 'relative' },
         });
+    });
+});
+
+describe('renderSpecifier', () => {
+    const relativeForm: Form = { kind: 'relative' };
+
+    it('ветка 1: относительная форма — добавляется префикс ./', () => {
+        const result = renderSpecifier(relativeForm, '/repo/src/feature', '/repo/src/other', []);
+        expect(result).toBe('../other');
+    });
+
+    it('ветка 1: директория с точкой в имени (.storybook) не путается с префиксом ./', () => {
+        const result = renderSpecifier(
+            relativeForm,
+            '/repo/src/feature',
+            '/repo/src/feature/.storybook',
+            [],
+        );
+        expect(result).toBe('./.storybook');
+    });
+
+    it('ветка 2: якорь исходного алиаса покрывает barrier — используется тот же алиас', () => {
+        const alias: Alias = { prefix: '@src', anchor: '/repo/src' };
+        const form: Form = { kind: 'alias', alias };
+        const result = renderSpecifier(form, '/repo/src/feature', '/repo/src/other', [alias]);
+        expect(result).toBe('@src/other');
+    });
+
+    it('ветка 2: barrier === anchor — результат голый префикс без слэша', () => {
+        const alias: Alias = { prefix: '@src', anchor: '/repo/src' };
+        const form: Form = { kind: 'alias', alias };
+        const result = renderSpecifier(form, '/repo/src/feature', '/repo/src', [alias]);
+        expect(result).toBe('@src');
+    });
+
+    it('ветка 3: исходный якорь не покрывает barrier — выигрывает самый длинный покрывающий якорь', () => {
+        const originalAlias: Alias = { prefix: '@other', anchor: '/repo/other' };
+        const form: Form = { kind: 'alias', alias: originalAlias };
+        const aliases: Alias[] = [
+            { prefix: '@src', anchor: '/repo/src' },
+            { prefix: '@feature', anchor: '/repo/src/feature' },
+            originalAlias,
+        ];
+        const result = renderSpecifier(
+            form,
+            '/repo/src/feature',
+            '/repo/src/feature/inner',
+            aliases,
+        );
+        expect(result).toBe('@feature/inner');
+    });
+
+    it('ветка 4: ни один алиас не покрывает barrier — откат на относительный путь', () => {
+        const originalAlias: Alias = { prefix: '@other', anchor: '/repo/other' };
+        const form: Form = { kind: 'alias', alias: originalAlias };
+        const aliases: Alias[] = [originalAlias, { prefix: '@pkg', anchor: '/repo/packages/pkg' }];
+        const result = renderSpecifier(form, '/repo/src/feature', '/repo/src/sibling', aliases);
+        expect(result).toBe('../sibling');
+    });
+
+    it('результат не содержит расширения или хвоста /index', () => {
+        const result = renderSpecifier(relativeForm, '/repo/src/feature', '/repo/src/other', []);
+        expect(result).not.toMatch(/\.\w+$/);
+        expect(result).not.toMatch(/\/index$/);
     });
 });
