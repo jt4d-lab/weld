@@ -18,6 +18,10 @@ describe('метаданные плагина', () => {
 });
 
 describe('реестр правил', () => {
+    it('не пуст', () => {
+        expect(Object.keys(plugin.rules).length).toBeGreaterThan(0);
+    });
+
     it('каждое правило описано и снабжено сообщениями', () => {
         for (const [name, rule] of Object.entries<Rule.RuleModule>(plugin.rules)) {
             expect(rule.meta, `${name}: нет meta`).toBeDefined();
@@ -39,6 +43,10 @@ describe('конфиг recommended', () => {
             expect(ruleId.startsWith('weld/')).toBe(true);
             expect(Object.keys(plugin.rules)).toContain(ruleId.slice('weld/'.length));
         }
+    });
+
+    it('включает no-barrel-bypass', () => {
+        expect(recommended.rules?.['weld/no-barrel-bypass']).toBe('error');
     });
 });
 
