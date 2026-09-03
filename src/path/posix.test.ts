@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    basename,
     commonDirectory,
     dirname,
     isAbsolutePath,
     relativePath,
     resolvePath,
+    splitExtension,
     toPosix,
 } from './posix.js';
 
@@ -79,6 +81,26 @@ describe('resolvePath', () => {
 
     it('абсолютный path полностью заменяет base', () => {
         expect(resolvePath('/a/b', '/c/d')).toBe('/c/d');
+    });
+});
+
+describe('basename', () => {
+    it('последний сегмент абсолютного пути', () => {
+        expect(basename('/a/b/c.ts')).toBe('c.ts');
+    });
+
+    it('относительный путь без слэша — весь путь', () => {
+        expect(basename('index.ts')).toBe('index.ts');
+    });
+});
+
+describe('splitExtension', () => {
+    it('разделяет имя и расширение', () => {
+        expect(splitExtension('index.ts')).toEqual({ name: 'index', ext: 'ts' });
+    });
+
+    it('без расширения — пустой ext, имя целиком', () => {
+        expect(splitExtension('index')).toEqual({ name: 'index', ext: '' });
     });
 });
 

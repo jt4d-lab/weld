@@ -47,6 +47,22 @@ export function isAbsolutePath(path: string): boolean {
     return splitAbsolute(path) !== null;
 }
 
+/** Последний сегмент пути (posix или относительный) после последнего `/`. */
+export function basename(path: string): string {
+    return path.slice(path.lastIndexOf('/') + 1);
+}
+
+/** Разбивает basename на имя и расширение (без точки). Расширения нет — `ext` пустой, `name` — весь basename. */
+export function splitExtension(base: string): { name: string; ext: string } {
+    const match = /\.([^./]+)$/.exec(base);
+    if (!match) {
+        return { name: base, ext: '' };
+    }
+
+    const ext = match[1] as string;
+    return { name: base.slice(0, -(ext.length + 1)), ext };
+}
+
 /** Директория выше `path`. Требует абсолютный `path`; у корня родителя нет — возвращает сам корень. */
 export function dirname(path: string): string {
     const segments = splitAbsolute(path);
@@ -72,10 +88,12 @@ export function resolvePath(base: string, path: string): string {
     }
 
     const absoluteTarget = splitAbsolute(path);
-    const segments = absoluteTarget !== null ? [...absoluteTarget] : [...baseSegments];
-    const parts = absoluteTarget !== null ? [] : path.split('/');
+    if (absoluteTarget !== null) {
+        return joinAbsolute(absoluteTarget);
+    }
 
-    for (const part of parts) {
+    const segments = [...baseSegments];
+    for (const part of path.split('/')) {
         if (part === '' || part === '.') {
             continue;
         }

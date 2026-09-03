@@ -3,13 +3,17 @@
  * `fromDir` в `targetPath`, поднимаясь от их общей директории вниз к цели.
  */
 
-import { commonDirectory, dirname, relativePath, resolvePath } from '../../path/posix.js';
+import {
+    basename,
+    commonDirectory,
+    dirname,
+    relativePath,
+    resolvePath,
+    splitExtension,
+} from '../../path/posix.js';
 
 function isIndexFile(targetPath: string): boolean {
-    const base = targetPath.slice(targetPath.lastIndexOf('/') + 1);
-    const dotIndex = base.lastIndexOf('.');
-    const name = dotIndex === -1 ? base : base.slice(0, dotIndex);
-    return name === 'index';
+    return splitExtension(basename(targetPath)).name === 'index';
 }
 
 /**

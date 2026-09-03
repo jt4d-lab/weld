@@ -6,7 +6,7 @@
  */
 
 import { isEntryExtension } from '../../entry-extensions.js';
-import { relativePath, resolvePath } from '../../path/posix.js';
+import { basename, relativePath, resolvePath, splitExtension } from '../../path/posix.js';
 import type { Alias } from '../../settings/aliases.js';
 
 export type Form = { kind: 'relative' } | { kind: 'alias'; alias: Alias };
@@ -72,14 +72,8 @@ function finalize(path: string, form: Form): Target | null {
 }
 
 function hasDisallowedExtension(path: string): boolean {
-    const last = path.slice(path.lastIndexOf('/') + 1);
-    const match = /\.([^./]+)$/.exec(last);
-    if (!match) {
-        return false;
-    }
-
-    const ext = match[1] as string;
-    return !isEntryExtension(ext);
+    const { ext } = splitExtension(basename(path));
+    return ext !== '' && !isEntryExtension(ext);
 }
 
 /**
@@ -100,19 +94,28 @@ export function renderSpecifier(
         return renderAlias(form.alias, barrier);
     }
 
-    const covering = aliases.filter((alias) => coversDirectory(alias.anchor, barrier));
-    if (covering.length === 0) {
-        return renderRelative(fromDir, barrier);
-    }
-
-    const longest = covering.reduce((best, alias) =>
-        alias.anchor.length > best.anchor.length ? alias : best,
-    );
-    return renderAlias(longest, barrier);
+    const longest = longestCoveringAlias(aliases, barrier);
+    return longest === null ? renderRelative(fromDir, barrier) : renderAlias(longest, barrier);
 }
 
 function coversDirectory(anchor: string, dir: string): boolean {
     return dir === anchor || dir.startsWith(`${anchor}/`);
+}
+
+/** Самый длинный анкор, покрывающий `dir`; `null`, если ни один не покрывает. */
+function longestCoveringAlias(aliases: Alias[], dir: string): Alias | null {
+    let best: Alias | null = null;
+
+    for (const alias of aliases) {
+        if (!coversDirectory(alias.anchor, dir)) {
+            continue;
+        }
+        if (best === null || alias.anchor.length > best.anchor.length) {
+            best = alias;
+        }
+    }
+
+    return best;
 }
 
 function renderAlias(alias: Alias, barrier: string): string {

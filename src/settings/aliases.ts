@@ -1,5 +1,5 @@
 import { isEntryExtension } from '../entry-extensions.js';
-import { resolvePath } from '../path/posix.js';
+import { resolvePath, splitExtension } from '../path/posix.js';
 
 export type Alias = { prefix: string; anchor: string };
 
@@ -127,14 +127,12 @@ function normalizeAnchor(anchorRaw: string, base: string): string | null {
 
     const segments = anchorRaw.split('/');
     const last = segments[segments.length - 1] ?? '';
-    const extMatch = /\.([^./]+)$/.exec(last);
+    const { name, ext } = splitExtension(last);
 
-    if (!extMatch) {
+    if (ext === '') {
         return resolvePath(base, anchorRaw);
     }
 
-    const ext = extMatch[1] as string;
-    const name = last.slice(0, -(ext.length + 1));
     if (name !== 'index' || !isEntryExtension(ext)) {
         return null;
     }
