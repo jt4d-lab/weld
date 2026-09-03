@@ -3,46 +3,11 @@ import { resolvePath, splitExtension } from '../path/posix.js';
 
 export type Alias = { prefix: string; anchor: string };
 
-const cache = new WeakMap<object, Alias[]>();
-
 /**
  * Разбирает `settings.weld` (формат `paths` из tsconfig) в список алиасов, готовых для
- * `parseSpecifier`/`renderSpecifier`. Нет `settings.weld` — сразу `[]`, минуя кэш.
+ * `parseSpecifier`/`renderSpecifier`.
  */
-export function readAliases(settings: unknown, cwd: string): Alias[] {
-    const weld = getWeldSettings(settings);
-    if (weld === undefined) {
-        return [];
-    }
-
-    const cached = cache.get(weld);
-    if (cached !== undefined) {
-        return cached;
-    }
-
-    const result = parseAliases(weld, cwd);
-    cache.set(weld, result);
-    return result;
-}
-
-function getWeldSettings(settings: unknown): Record<string, unknown> | undefined {
-    if (typeof settings !== 'object' || settings === null) {
-        return undefined;
-    }
-
-    const weld = (settings as Record<string, unknown>).weld;
-    if (weld === undefined) {
-        return undefined;
-    }
-
-    if (typeof weld !== 'object' || weld === null) {
-        throw new Error('settings.weld must be an object');
-    }
-
-    return weld as Record<string, unknown>;
-}
-
-function parseAliases(weld: Record<string, unknown>, cwd: string): Alias[] {
+export function parseAliases(weld: Record<string, unknown>, cwd: string): Alias[] {
     const rawAliases = weld.aliases;
     if (rawAliases === undefined) {
         return [];

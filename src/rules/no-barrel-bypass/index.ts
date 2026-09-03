@@ -7,7 +7,7 @@ import type { Rule } from 'eslint';
 import type { Literal } from 'estree';
 
 import { isAbsolutePath, toPosix } from '../../path/posix.js';
-import { readAliases } from '../../settings/aliases.js';
+import { createWeldSettings } from '../../settings/weld.js';
 
 import type { CheckEnv } from './check.js';
 import { checkImport } from './check.js';
@@ -56,7 +56,7 @@ export function createRule(env: CheckEnv): Rule.RuleModule {
                 return {};
             }
 
-            const aliases = readAliases(context.settings, context.cwd);
+            const aliases = createWeldSettings(context.settings, context.cwd).getAliases();
             const { fix = true } = (context.options[0] as Options | undefined) ?? {};
 
             function check(reportNode: Rule.Node, sourceNode: LiteralNode): void {
