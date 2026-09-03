@@ -7,26 +7,30 @@ import type { Alias } from '../../settings/aliases.js';
 
 import { findBarrier } from './core/barrier.js';
 import { parseSpecifier, renderSpecifier } from './core/specifier.js';
+import type { Verdict } from './core/verdict.js';
 
 export type CheckInput = { specifier: string; fromFile: string; aliases: Alias[] };
 export type CheckEnv = { hasEntryPoint(dir: string): boolean };
 
 /**
- * Возвращает исправленный специфаер при нарушении границы, иначе `null`. Найденная граница наружу
- * не отдаётся: она нужна только для рендера исправленного пути.
+ * Возвращает `Verdict` с исправленным специфаером при нарушении границы, иначе `{ kind: 'ok' }`.
+ * Найденная граница наружу не отдаётся: она нужна только для рендера исправленного пути.
  */
-export function checkImport(input: CheckInput, env: CheckEnv): string | null {
+export function checkImport(input: CheckInput, env: CheckEnv): Verdict {
     const fromDir = dirname(input.fromFile);
 
     const target = parseSpecifier(input.specifier, fromDir, input.aliases);
     if (target === null) {
-        return null;
+        return { kind: 'ok' };
     }
 
     const barrier = findBarrier(fromDir, target.path, env.hasEntryPoint);
     if (barrier === null) {
-        return null;
+        return { kind: 'ok' };
     }
 
-    return renderSpecifier(target.form, fromDir, barrier, input.aliases);
+    return {
+        kind: 'crossesBarrier',
+        suggestion: renderSpecifier(target.form, fromDir, barrier, input.aliases),
+    };
 }

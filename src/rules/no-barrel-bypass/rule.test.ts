@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 import { describe, expect, it } from 'vitest';
 
 import { createRule } from './index.js';
-import type { CheckEnv } from './check.js';
+import type { CheckEnv } from './pipeline.js';
 
 function fakeEnv(dirs: string[]): CheckEnv {
     const set = new Set(dirs);

@@ -9,8 +9,8 @@ import type { Literal } from 'estree';
 import { isAbsolutePath, toPosix } from '../../path/posix.js';
 import { createWeldSettings } from '../../settings/weld.js';
 
-import type { CheckEnv } from './check.js';
-import { checkImport } from './check.js';
+import type { CheckEnv } from './pipeline.js';
+import { checkImport } from './pipeline.js';
 
 type Options = { fix?: boolean };
 
@@ -61,32 +61,36 @@ export function createRule(env: CheckEnv): Rule.RuleModule {
 
             function check(reportNode: Rule.Node, sourceNode: LiteralNode): void {
                 const original = sourceNode.value;
-                const suggestion = checkImport({ specifier: original, fromFile, aliases }, env);
-                if (suggestion === null) {
-                    return;
+                const verdict = checkImport({ specifier: original, fromFile, aliases }, env);
+
+                switch (verdict.kind) {
+                    case 'ok':
+                        return;
+                    case 'crossesBarrier': {
+                        const { suggestion } = verdict;
+                        const quote = sourceNode.raw[0];
+                        const replacement = `${quote}${suggestion}${quote}`;
+                        const applyFix = (fixer: Rule.RuleFixer): Rule.Fix =>
+                            fixer.replaceText(sourceNode, replacement);
+
+                        context.report({
+                            node: reportNode,
+                            messageId: 'bypass',
+                            data: { suggestion, original },
+                            ...(fix
+                                ? { fix: applyFix }
+                                : {
+                                      suggest: [
+                                          {
+                                              messageId: 'useBarrel',
+                                              data: { suggestion },
+                                              fix: applyFix,
+                                          },
+                                      ],
+                                  }),
+                        });
+                    }
                 }
-
-                const quote = sourceNode.raw[0];
-                const replacement = `${quote}${suggestion}${quote}`;
-                const applyFix = (fixer: Rule.RuleFixer): Rule.Fix =>
-                    fixer.replaceText(sourceNode, replacement);
-
-                context.report({
-                    node: reportNode,
-                    messageId: 'bypass',
-                    data: { suggestion, original },
-                    ...(fix
-                        ? { fix: applyFix }
-                        : {
-                              suggest: [
-                                  {
-                                      messageId: 'useBarrel',
-                                      data: { suggestion },
-                                      fix: applyFix,
-                                  },
-                              ],
-                          }),
-                });
             }
 
             return {

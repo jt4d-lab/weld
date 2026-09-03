@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkImport } from './check.js';
-import type { CheckEnv } from './check.js';
+import { checkImport } from './pipeline.js';
+import type { CheckEnv } from './pipeline.js';
 import type { Alias } from '../../settings/aliases.js';
 
 function fakeEnv(dirs: string[]): CheckEnv {
@@ -20,7 +20,7 @@ describe('checkImport — сквозная связка', () => {
             },
             env,
         );
-        expect(result).toBe('../other');
+        expect(result).toEqual({ kind: 'crossesBarrier', suggestion: '../other' });
     });
 
     it('тот же импорт с алиасом, покрывающим границу, даёт тот же результат по границе, но путь с алиасом', () => {
@@ -34,21 +34,21 @@ describe('checkImport — сквозная связка', () => {
             },
             env,
         );
-        expect(result).toBe('@src/other');
+        expect(result).toEqual({ kind: 'crossesBarrier', suggestion: '@src/other' });
     });
 });
 
 describe('checkImport — ранние выходы', () => {
-    it('отсечённый специфаер (голый пакет) даёт null', () => {
+    it('отсечённый специфаер (голый пакет) даёт ok', () => {
         const env = fakeEnv(['/repo/src/other']);
         const result = checkImport(
             { specifier: 'lodash', fromFile: '/repo/src/feature/file.ts', aliases: [] },
             env,
         );
-        expect(result).toBeNull();
+        expect(result).toEqual({ kind: 'ok' });
     });
 
-    it('отсутствие границы на пути даёт null', () => {
+    it('отсутствие границы на пути даёт ok', () => {
         const env = fakeEnv([]);
         const result = checkImport(
             {
@@ -58,6 +58,6 @@ describe('checkImport — ранние выходы', () => {
             },
             env,
         );
-        expect(result).toBeNull();
+        expect(result).toEqual({ kind: 'ok' });
     });
 });

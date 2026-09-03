@@ -211,26 +211,26 @@ src/rules/no-barrel-bypass/
 - Modify: `src/rules/no-barrel-bypass/index.ts`
 - Modify: `src/rules/no-barrel-bypass/rule.test.ts`
 
-- [ ] переименовать `check.ts` → `pipeline.ts`; имя функции `checkImport` сохраняется, но
+- [x] переименовать `check.ts` → `pipeline.ts`; имя функции `checkImport` сохраняется, но
       возвращаемый тип меняется с `string | null` на `Verdict` (импортированный из
       `./core/verdict.js`): `target === null` или `barrier === null` → `{ kind: 'ok' }`, иначе
       `{ kind: 'crossesBarrier', suggestion: renderSpecifier(...) }` — сама логика поиска границы и
       рендера не меняется, меняется только форма возвращаемого значения
-- [ ] обновить `check.test.ts` → `pipeline.test.ts`: проверки на `checkImport(...)` теперь сверяют
+- [x] обновить `check.test.ts` → `pipeline.test.ts`: проверки на `checkImport(...)` теперь сверяют
       объект `Verdict`, а не строку/`null`
-- [ ] обновить `src/env/entry-point.ts`: импорт типа `CheckEnv` теперь из `./pipeline.js`
+- [x] обновить `src/env/entry-point.ts`: импорт типа `CheckEnv` теперь из `./pipeline.js`
       (`../rules/no-barrel-bypass/pipeline.js`)
-- [ ] обновить `src/rules/no-barrel-bypass/index.ts`: импорт `CheckEnv`/`checkImport` — из
+- [x] обновить `src/rules/no-barrel-bypass/index.ts`: импорт `CheckEnv`/`checkImport` — из
       `./pipeline.js`; заменить прямую сборку `context.report` на разбор `Verdict`:
       `switch (verdict.kind) { case 'ok': return; case 'crossesBarrier': /* сегодняшняя логика report     с messageId 'bypass'/'useBarrel', data, fix/suggest — дословно как сейчас */ }`
-- [ ] обновить `rule.test.ts`: путь импорта `CheckEnv` → `./pipeline.js`; тестовые ожидания
+- [x] обновить `rule.test.ts`: путь импорта `CheckEnv` → `./pipeline.js`; тестовые ожидания
       (`messageId`, `data`, `suggestions`) не меняются — это подтверждает, что видимое поведение
       правила не изменилось
-- [ ] проверить `integration.test.ts` — он не импортирует `check.js`/`pipeline.js` напрямую (только
+- [x] проверить `integration.test.ts` — он не импортирует `check.js`/`pipeline.js` напрямую (только
       `./index.js`), поэтому изменений не требует; прогоном тестов подтвердить, что он всё равно
       проходит
-- [ ] прогнать `yarn test` — весь набор, включая `rule.test.ts` и `integration.test.ts`, проходит
-      без изменений ожиданий
+- [x] прогнать `yarn test` — весь набор, включая `rule.test.ts` и `integration.test.ts`, проходит
+      без изменений ожиданий (кроме известного `tests/plugin.test.ts`, не связано с этой задачей)
 
 ### Task 5: Проверка соответствия документации
 

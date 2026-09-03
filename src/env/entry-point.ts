@@ -9,7 +9,7 @@
 import { existsSync } from 'node:fs';
 
 import { ENTRY_EXTENSIONS } from '../entry-extensions.js';
-import type { CheckEnv } from '../rules/no-barrel-bypass/check.js';
+import type { CheckEnv } from '../rules/no-barrel-bypass/pipeline.js';
 
 const TTL_MS = 30_000;
 
