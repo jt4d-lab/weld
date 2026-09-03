@@ -1,4 +1,4 @@
-import { ENTRY_EXTENSIONS } from '../../entry-extensions.js';
+import { isEntryPointBasename } from '../../entry-extensions.js';
 import { commonDirectory, dirname } from '../../path/posix.js';
 
 /**
@@ -50,16 +50,5 @@ function isEntryPointOf(dir: string, targetPath: string): boolean {
     }
 
     const basename = lastSlash === -1 ? targetPath : targetPath.slice(lastSlash + 1);
-    if (basename === 'index') {
-        return true;
-    }
-
-    const dotIndex = basename.lastIndexOf('.');
-    if (dotIndex === -1) {
-        return false;
-    }
-
-    const name = basename.slice(0, dotIndex);
-    const extension = basename.slice(dotIndex + 1);
-    return name === 'index' && (ENTRY_EXTENSIONS as readonly string[]).includes(extension);
+    return basename === 'index' || isEntryPointBasename(basename);
 }

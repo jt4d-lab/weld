@@ -137,6 +137,12 @@ describe('renderSpecifier', () => {
         expect(result).toBe('./.storybook');
     });
 
+    it('ветка 1: покрывающий алиас в списке не подменяет относительную форму', () => {
+        const alias: Alias = { prefix: '@src', anchor: '/repo/src' };
+        const result = renderSpecifier(relativeForm, '/repo/other', '/repo/src/feature', [alias]);
+        expect(result).toBe('../src/feature');
+    });
+
     it('ветка 2: якорь исходного алиаса покрывает barrier — используется тот же алиас', () => {
         const alias: Alias = { prefix: '@src', anchor: '/repo/src' };
         const form: Form = { kind: 'alias', alias };

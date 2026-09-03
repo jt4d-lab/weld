@@ -1,4 +1,4 @@
-import { ENTRY_EXTENSIONS } from '../entry-extensions.js';
+import { isEntryPointBasename } from '../entry-extensions.js';
 import { dirname, resolvePath } from '../path/posix.js';
 
 export type Alias = { prefix: string; anchor: string };
@@ -155,20 +155,12 @@ function toEntryPointDirectory(path: string): string | null {
     const lastSlash = path.lastIndexOf('/');
     const basename = lastSlash === -1 ? path : path.slice(lastSlash + 1);
 
-    const dotIndex = basename.lastIndexOf('.');
-    if (dotIndex === -1) {
+    if (!basename.includes('.')) {
         // нет расширения — трактуем как директорию как есть
         return path;
     }
 
-    const name = basename.slice(0, dotIndex);
-    const extension = basename.slice(dotIndex + 1);
-
-    if (name === 'index' && (ENTRY_EXTENSIONS as readonly string[]).includes(extension)) {
-        return dirname(path);
-    }
-
-    return null;
+    return isEntryPointBasename(basename) ? dirname(path) : null;
 }
 
 function typeString(value: unknown): string {

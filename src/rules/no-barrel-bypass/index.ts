@@ -44,10 +44,7 @@ export function createRule(env: CheckEnv): Rule.RuleModule {
                 return {};
             }
 
-            const aliases = readAliases(
-                context.settings as Record<string, unknown> | undefined,
-                context.cwd,
-            );
+            const aliases = readAliases(context.settings, context.cwd);
             const { fix = false } = (context.options[0] as Options | undefined) ?? {};
 
             function checkLiteral(node: StringLiteral): void {
@@ -107,10 +104,14 @@ function report(
 ): void {
     const quote = node.raw[0] ?? "'";
     const replacement = `${quote}${suggestion}${quote}`;
-    const makeFix: Rule.ReportFixer = (fixer) => fixer.replaceText(node as never, replacement);
+    // `StringLiteral` намеренно урезан до `type`/`value`/`raw` — `range`/`loc`/`parent` правилу
+    // не нужны, но `replaceText`/`report` требуют полный `Rule.Node`; каст через `unknown`
+    // оставляет целевой тип видимым вместо полного отключения проверки через `never`.
+    const makeFix: Rule.ReportFixer = (fixer) =>
+        fixer.replaceText(node as unknown as Rule.Node, replacement);
 
     context.report({
-        node: node as never,
+        node: node as unknown as Rule.Node,
         messageId: 'bypass',
         data: { suggestion, original: node.value },
         fix: applyFix ? makeFix : undefined,

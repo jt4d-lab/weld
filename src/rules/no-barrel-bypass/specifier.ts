@@ -60,7 +60,11 @@ export function renderSpecifier(
     barrier: string,
     aliases: Alias[],
 ): string {
-    if (form.kind === 'alias' && coversDirectory(form.alias.anchor, barrier)) {
+    if (form.kind === 'relative') {
+        return renderRelative(fromDir, barrier);
+    }
+
+    if (coversDirectory(form.alias.anchor, barrier)) {
         return renderWithAlias(form.alias, barrier);
     }
 
