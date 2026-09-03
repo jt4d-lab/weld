@@ -1,0 +1,156 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v[0-9]+.[0-9]+.[0-9]+'
+            - 'v[0-9]+.[0-9]+.[0-9]+-*'
+    workflow_dispatch:
+        inputs:
+            bump:
+                description: 'Release type'
+                required: true
+                type: choice
+                default: prerelease
+                options:
+                    - patch
+                    - minor
+                    - major
+                    - prepatch
+                    - preminor
+                    - premajor
+                    - prerelease
+            preid:
+                description: 'Prerelease identifier (for pre*-releases)'
+                type: choice
+                default: rc
+                options:
+                    - rc
+                    - beta
+                    - alpha
+
+permissions:
+    contents: read
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    publish:
+        name: Publish to npm
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            id-token: write
+
+        steps:
+            - uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+
+            - run: corepack enable
+
+            - uses: actions/setup-node@v5
+              with:
+                  node-version: '24'
+                  cache: yarn
+                  registry-url: https://registry.npmjs.org
+
+            - run: yarn install --immutable
+
+            - run: yarn checks
+
+            - name: Determine release version
+              id: version
+              env:
+                  BUMP: ${{ inputs.bump }}
+                  PREID: ${{ inputs.preid }}
+              run: |
+                  set -euo pipefail
+
+                  if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+                    spec="${GITHUB_REF_NAME#v}"
+                  else
+                    base="$(git -c versionsort.suffix=- tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+                    base="${base:-v0.0.0}"
+                    npm version "${base#v}" --no-git-tag-version --allow-same-version >/dev/null
+
+                    spec="$BUMP"
+                    echo "Base $base, bump $spec"
+                  fi
+
+                  tag="$(npm version "$spec" --preid "$PREID" --no-git-tag-version --allow-same-version)"
+                  version="${tag#v}"
+
+                  if [[ "$version" == *-* ]]; then
+                    dist_tag=next
+                  else
+                    dist_tag=latest
+                  fi
+
+                  echo "dist_tag=$dist_tag" >> "$GITHUB_OUTPUT"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+                  prev="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -v -- '-' | grep -vx -- "$tag" | head -n 1 || true)"
+                  echo "Release notes starting from ${prev:-the beginning of history}"
+                  echo "notes_start_tag=$prev" >> "$GITHUB_OUTPUT"
+
+                  {
+                    echo "## Release $tag"
+                    echo
+                    echo "| Parameter | Value |"
+                    echo "| --- | --- |"
+                    echo "| Version | \`$version\` |"
+                    echo "| dist-tag | \`$dist_tag\` |"
+                    if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+                      echo "| Version source | push tag \`$GITHUB_REF_NAME\` |"
+                    else
+                      echo "| Base | \`$base\` |"
+                      echo "| Bump | \`$BUMP\` (preid \`$PREID\`) |"
+                    fi
+                    if [[ -n "$prev" ]]; then
+                      echo "| Release notes starting from | \`$prev\` |"
+                    else
+                      echo "| Release notes starting from | the beginning of history |"
+                    fi
+                    echo "| Commit | \`$GITHUB_SHA\` |"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            - name: Verify installation of the built package
+              run: yarn smoke
+
+            - name: npm publish
+              run: npm publish --provenance --access public --tag "${{ steps.version.outputs.dist_tag }}"
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            - name: Create GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ steps.version.outputs.tag }}
+                  NOTES_START_TAG: ${{ steps.version.outputs.notes_start_tag }}
+                  PRERELEASE: ${{ steps.version.outputs.dist_tag == 'next' && '1' || '' }}
+              run: |
+                  set -euo pipefail
+
+                  args=(--target "$GITHUB_SHA" --title "$TAG" --generate-notes)
+
+                  if [[ -n "$NOTES_START_TAG" ]]; then
+                    args+=(--notes-start-tag "$NOTES_START_TAG")
+                  fi
+
+                  if [[ -n "$PRERELEASE" ]]; then
+                    args+=(--prerelease)
+                  fi
+
+                  url="$(gh release create "$TAG" "${args[@]}")"
+                  pkg="$(node -p 'require("./package.json").name')"
+
+                  {
+                    echo
+                    echo "### Published"
+                    echo
+                    echo "- npm: https://www.npmjs.com/package/$pkg/v/${TAG#v}"
+                    echo "- GitHub Release: $url"
+                  } >> "$GITHUB_STEP_SUMMARY"
