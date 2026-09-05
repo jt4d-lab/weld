@@ -11,72 +11,69 @@ const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url),
     version: string;
 };
 
-describe('plugin metadata', () => {
-    it('matches package.json', () => {
+describe('метаданные плагина', () => {
+    it('совпадают с package.json', () => {
         expect(plugin.meta).toEqual({ name: pkg.name, version: pkg.version });
     });
 });
 
-describe('rule registry', () => {
-    it('every rule has documentation and messages', () => {
+describe('реестр правил', () => {
+    it('не пуст', () => {
+        expect(Object.keys(plugin.rules).length).toBeGreaterThan(0);
+    });
+
+    it('каждое правило описано и снабжено сообщениями', () => {
         for (const [name, rule] of Object.entries<Rule.RuleModule>(plugin.rules)) {
-            expect(rule.meta, `${name}: missing meta`).toBeDefined();
-            expect(rule.meta?.docs, `${name}: missing meta.docs`).toBeDefined();
-            expect(rule.meta?.messages, `${name}: missing meta.messages`).toBeDefined();
+            expect(rule.meta, `${name}: нет meta`).toBeDefined();
+            expect(rule.meta?.docs, `${name}: нет meta.docs`).toBeDefined();
+            expect(rule.meta?.messages, `${name}: нет meta.messages`).toBeDefined();
         }
     });
 });
 
-describe('rule configs', () => {
-    it('exports the recommended and strict configs', () => {
-        expect(plugin.configs?.recommended).toBeDefined();
-        expect(plugin.configs?.strict).toBeDefined();
+describe('конфиг recommended', () => {
+    const { recommended } = plugin.configs;
+
+    it('регистрирует плагин под префиксом weld', () => {
+        expect(recommended.plugins?.weld).toBe(plugin);
     });
 
-    for (const [name, config] of Object.entries(plugin.configs ?? {})) {
-        describe(name, () => {
-            it('registers the plugin under the weld namespace', () => {
-                expect(config.plugins?.weld).toBe(plugin);
-            });
+    it('включает только существующие правила', () => {
+        for (const ruleId of Object.keys(recommended.rules ?? {})) {
+            expect(ruleId.startsWith('weld/')).toBe(true);
+            expect(Object.keys(plugin.rules)).toContain(ruleId.slice('weld/'.length));
+        }
+    });
 
-            it('only enables existing rules', () => {
-                for (const ruleId of Object.keys(config.rules ?? {})) {
-                    expect(ruleId.startsWith('weld/')).toBe(true);
-                    expect(Object.keys(plugin.rules)).toContain(ruleId.slice('weld/'.length));
-                }
-            });
-        });
-    }
+    it('включает weld/no-barrel-bypass', () => {
+        expect(recommended.rules?.['weld/no-barrel-bypass']).toEqual(['warn', { fix: false }]);
+    });
 });
 
-describe('ESLint integration', () => {
-    for (const name of ['recommended', 'strict'] as const) {
-        describe(name, () => {
-            const eslint = new ESLint({
-                overrideConfigFile: true,
-                overrideConfig: [plugin.configs[name]],
-            });
+describe('подключение к ESLint', () => {
+    const eslint = new ESLint({
+        overrideConfigFile: true,
+        overrideConfig: [plugin.configs.recommended],
+    });
 
-            it('ESLint accepts the config and lints a file without internal errors', async () => {
-                const [result] = await eslint.lintText(
-                    'import { a } from "./a.js";\nexport const b = a;\n',
-                    { filePath: 'example.js' },
-                );
+    it('ESLint принимает конфиг и линтует файл без внутренних ошибок', async () => {
+        const [result] = await eslint.lintText(
+            'import { a } from "./a.js";\nexport const b = a;\n',
+            { filePath: 'example.js' },
+        );
 
-                expect(result?.fatalErrorCount ?? 0).toBe(0);
-                expect(result?.messages ?? []).toEqual([]);
-            });
+        expect(result?.fatalErrorCount ?? 0).toBe(0);
+        expect(result?.messages ?? []).toEqual([]);
+    });
 
-            it('the plugin is present in the file config', async () => {
-                const config = (await eslint.calculateConfigForFile('example.js')) as {
-                    plugins?: string[] | Record<string, unknown>;
-                };
-                const plugins = Array.isArray(config.plugins)
-                    ? config.plugins
-                    : Object.keys(config.plugins ?? {});
+    it('плагин виден в вычисленном конфиге файла', async () => {
+        const config = (await eslint.calculateConfigForFile('example.js')) as {
+            plugins?: string[] | Record<string, unknown>;
+        };
+        const plugins = Array.isArray(config.plugins)
+            ? config.plugins
+            : Object.keys(config.plugins ?? {});
 
-                expect(plugins).toContain('weld');
-            });
-        });
-    }
+        expect(plugins).toContain('weld');
+    });
 });

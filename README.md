@@ -15,9 +15,9 @@ WELD описывает, как разложить frontend-приложение
 
 ## Статус
 
-Ранняя стадия. Документация пишется; ESLint-плагин опубликован как основа — пакет собирается,
-подключается и проходит CI, но правил в нём пока нет. Правила и их именование могут меняться без
-обратной совместимости.
+Ранняя стадия. Документация пишется; в ESLint-плагине пока одно правило —
+[`weld/no-barrel-bypass`](docs/rules/no-barrel-bypass.md). Правила и их именование могут меняться
+без обратной совместимости.
 
 ## ESLint-плагин
 
@@ -35,7 +35,10 @@ import weld from 'eslint-plugin-weld';
 export default [weld.configs.recommended];
 ```
 
-Плагин предоставляет готовые наборы правил `recommended` и `strict`:
+Плагин предоставляет готовые наборы правил `recommended` и `strict`. `recommended` включает
+`weld/no-barrel-bypass` как `warn` с выключенным автофиксом (`fix: false`) — только suggestion,
+применяемый вручную и по одному месту за раз. `strict` включает то же правило как `error` с
+автофиксом по умолчанию (см. [опцию `fix`](docs/rules/no-barrel-bypass.md#опция-fix)):
 
 ```js
 import weld from 'eslint-plugin-weld';
@@ -52,11 +55,39 @@ export default [
     {
         plugins: { weld },
         rules: {
-            // правила появятся здесь по мере реализации
+            'weld/no-barrel-bypass': 'error',
         },
     },
 ];
 ```
+
+### Правила
+
+- [`weld/no-barrel-bypass`](docs/rules/no-barrel-bypass.md) — ловит импорты, входящие внутрь модуля
+  (директории с файлом `index.<ext>`) в обход его точки входа, и предлагает исправленный путь через
+  баррель.
+
+Алиасы (`@src/*` и подобные) правило понимает через `settings.weld`, формат близок к `paths` из
+`tsconfig.json`:
+
+```js
+export default [
+    {
+        plugins: { weld },
+        settings: {
+            weld: {
+                baseUrl: 'packages/app', // необязательно, по умолчанию '.'
+                aliases: { '@src/*': ['src/*'] },
+            },
+        },
+        rules: {
+            'weld/no-barrel-bypass': 'error',
+        },
+    },
+];
+```
+
+Подробности — в [документации правила](docs/rules/no-barrel-bypass.md).
 
 ## Разработка
 

@@ -11,12 +11,21 @@ const { name, version } = createRequire(import.meta.url)('../package.json') as {
 
 const recommended: Linter.Config = {
     name: 'weld/recommended',
-    rules: {},
+    rules: {
+        'weld/no-barrel-bypass': [
+            'warn',
+            {
+                fix: false,
+            },
+        ],
+    },
 };
 
 const strict: Linter.Config = {
     name: 'weld/strict',
-    rules: {},
+    rules: {
+        'weld/no-barrel-bypass': 'error',
+    },
 };
 
 const plugin = {
