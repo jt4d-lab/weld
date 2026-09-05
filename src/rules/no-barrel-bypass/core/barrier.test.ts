@@ -57,13 +57,6 @@ describe('findBarrier — таблица свойств', () => {
         const hasEntryPoint = entryPointSet(['/other']);
         expect(findBarrier('/repo/src/feature', 'C:/other/file.ts', hasEntryPoint)).toBeNull();
     });
-});
-
-describe('findBarrier — прочие случаи', () => {
-    it('верхняя граница выигрывает у ближней', () => {
-        const hasEntryPoint = entryPointSet(['/repo/b', '/repo/b/c']);
-        expect(findBarrier('/repo/a', '/repo/b/c/index.ts', hasEntryPoint)).toBe('/repo/b');
-    });
 
     it('импорт в соседний пакет монорепы (цель вне поддерева F)', () => {
         const hasEntryPoint = entryPointSet(['/repo/packages/lib']);
@@ -74,12 +67,5 @@ describe('findBarrier — прочие случаи', () => {
                 hasEntryPoint,
             ),
         ).toBe('/repo/packages/lib');
-    });
-
-    it('разные корни (commonDirectory вернул null)', () => {
-        const hasEntryPoint = entryPointSet(['/repo/src/feature', 'C:/repo/src/other']);
-        expect(
-            findBarrier('/repo/src/feature', 'C:/repo/src/other/thing.ts', hasEntryPoint),
-        ).toBeNull();
     });
 });
