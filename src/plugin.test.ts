@@ -4,7 +4,7 @@ import { ESLint } from 'eslint';
 import type { Rule } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
-import plugin from '../src/index.js';
+import plugin from '@/index.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
     name: string;
