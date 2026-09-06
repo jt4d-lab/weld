@@ -4,7 +4,9 @@ import { ESLint } from 'eslint';
 import type { Rule } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
+import { resetFsHostCaches } from '@/host/index.js';
 import plugin from '@/index.js';
+import { consumerJsFile, fixtureRoot } from '@/testing/index.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
     name: string;
@@ -18,6 +20,10 @@ describe('plugin metadata', () => {
 });
 
 describe('rule registry', () => {
+    it('is not empty', () => {
+        expect(Object.keys(plugin.rules).length).toBeGreaterThan(0);
+    });
+
     it('every rule has documentation and messages', () => {
         for (const [name, rule] of Object.entries<Rule.RuleModule>(plugin.rules)) {
             expect(rule.meta, `${name}: missing meta`).toBeDefined();
@@ -31,6 +37,12 @@ describe('rule configs', () => {
     it('exports the recommended and strict configs', () => {
         expect(plugin.configs?.recommended).toBeDefined();
         expect(plugin.configs?.strict).toBeDefined();
+    });
+
+    it('recommended includes no-barrel-bypass', () => {
+        expect(plugin.configs.recommended.rules).toMatchObject({
+            'weld/no-barrel-bypass': 'error',
+        });
     });
 
     for (const [name, config] of Object.entries(plugin.configs ?? {})) {
@@ -76,6 +88,26 @@ describe('ESLint integration', () => {
                     : Object.keys(config.plugins ?? {});
 
                 expect(plugins).toContain('weld');
+            });
+
+            it('flags a real barrel-bypass violation through the plugin config', async () => {
+                resetFsHostCaches();
+
+                const violationEslint = new ESLint({
+                    overrideConfigFile: true,
+                    overrideConfig: [
+                        plugin.configs[name],
+                        { settings: { weld: { root: fixtureRoot } } },
+                    ],
+                });
+
+                const [result] = await violationEslint.lintText(
+                    "import { a } from './feature/internal.ts';\nexport const b = a;\n",
+                    { filePath: consumerJsFile },
+                );
+
+                expect(result?.fatalErrorCount ?? 0).toBe(0);
+                expect(result?.messages.map((m) => m.ruleId)).toContain('weld/no-barrel-bypass');
             });
         });
     }

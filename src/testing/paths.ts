@@ -21,3 +21,6 @@ export const fixtureRoot = dirFromUrl('./fixtures/project');
 
 /** Файл-потребитель внутри фикстуры. На диске его нет — это только `filename` для линтера. */
 export const consumerFile = `${fixtureRoot}/src/consumer.ts`;
+
+/** Тот же потребитель для конфигов без парсера TS — раскладка фикстуры описана только здесь. */
+export const consumerJsFile = `${fixtureRoot}/src/consumer.js`;
