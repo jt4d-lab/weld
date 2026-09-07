@@ -3,7 +3,7 @@
  * `fromDir` в `targetPath`, поднимаясь от их общей директории вниз к цели.
  */
 
-import { ENTRY_BASENAME } from '@/extensions.js';
+import { isEntryBasename } from '@/extensions.js';
 import {
     basename,
     commonDirectory,
@@ -14,7 +14,7 @@ import {
 } from '@/path/index.js';
 
 function isIndexFile(targetPath: string): boolean {
-    return splitExtension(basename(targetPath)).name === ENTRY_BASENAME;
+    return isEntryBasename(splitExtension(basename(targetPath)).name);
 }
 
 /**

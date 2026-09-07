@@ -36,9 +36,22 @@ export function entryFileName(ext: string): string {
     return `${ENTRY_BASENAME}.${ext}`;
 }
 
+/** Все имена файлов точки входа — перебор при поиске границы модуля на диске. */
+export const ENTRY_FILE_NAMES: readonly string[] = ENTRY_EXTENSIONS.map(entryFileName);
+
 /** Имя файла (без директории) — точка входа? Расширение обязано входить в {@link ENTRY_EXTENSIONS}. */
 export function isEntryFileName(name: string, ext: string): boolean {
     return name === ENTRY_BASENAME && isEntryExtension(ext);
+}
+
+/**
+ * Имя без расширения — точка входа? В отличие от {@link isEntryFileName} расширение не
+ * спрашивается: специфаер может быть записан и без него (`./other/index`), а вопрос «пробивает ли
+ * импорт границу» от расширения не зависит. Ответ живёт здесь, а не у спрашивающего: иначе «что
+ * делает директорию модулем» знали бы два слоя и разъехались бы при первой же правке.
+ */
+export function isEntryBasename(name: string): boolean {
+    return name === ENTRY_BASENAME;
 }
 
 /** Входит ли расширение (без точки) в {@link MODULE_EXTENSIONS}. */
