@@ -8,6 +8,12 @@ import { ENTRY_EXTENSIONS } from '@/extensions.js';
 import { createFsHost, getFsHost, resetFsHostCaches } from '@/host/fs.js';
 import { createFakeFsHost } from '@/host/fs.testing.js';
 
+/** Фейк `exists`: существует ровно то, что в списке. */
+function existing(realPaths: string[]): (realPath: string) => boolean {
+    const set = new Set(realPaths);
+    return (realPath) => set.has(realPath);
+}
+
 describe('createFsHost.toVirtual', () => {
     it('путь внутри root → виртуальный от /', () => {
         const fsHost = createFsHost('/repo');
@@ -84,7 +90,7 @@ describe('createFsHost: нормализация root', () => {
 describe('createFsHost.hasEntryPoint', () => {
     it('директория с index.ts — точка входа', () => {
         const fsHost = createFsHost('/repo', {
-            exists: (realPath) => realPath === '/repo/src/feature/index.ts',
+            exists: existing(['/repo/src/feature', '/repo/src/feature/index.ts']),
         });
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(true);
@@ -92,7 +98,7 @@ describe('createFsHost.hasEntryPoint', () => {
 
     it('index с другим известным расширением тоже считается точкой входа', () => {
         const fsHost = createFsHost('/repo', {
-            exists: (realPath) => realPath === '/repo/src/feature/index.mjs',
+            exists: existing(['/repo/src/feature', '/repo/src/feature/index.mjs']),
         });
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(true);
@@ -100,10 +106,41 @@ describe('createFsHost.hasEntryPoint', () => {
 
     it('директория без index — не точка входа', () => {
         const fsHost = createFsHost('/repo', {
-            exists: (realPath) => realPath === '/repo/src/feature/other.ts',
+            exists: existing(['/repo/src/feature', '/repo/src/feature/other.ts']),
         });
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+    });
+
+    it('несуществующая директория — один вызов exists, без перебора расширений', () => {
+        const exists = vi.fn(() => false);
+        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+
+        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+        expect(exists).toHaveBeenCalledTimes(1);
+        expect(exists).toHaveBeenCalledWith('/repo/src/feature');
+    });
+
+    it('спуск в отсутствующую ветку: диск спрашивается только про первую директорию', () => {
+        const exists = vi.fn(() => false);
+        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+
+        expect(fsHost.hasEntryPoint('/src/src')).toBe(false);
+        expect(fsHost.hasEntryPoint('/src/src/client')).toBe(false);
+        expect(fsHost.hasEntryPoint('/src/src/client/modules')).toBe(false);
+
+        expect(exists).toHaveBeenCalledTimes(1);
+        expect(exists).toHaveBeenCalledWith('/repo/src/src');
+    });
+
+    it('ответ «директории нет» кэшируется: повторный вызов не дёргает exists снова', () => {
+        const exists = vi.fn(() => false);
+        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+
+        fsHost.hasEntryPoint('/src/feature');
+        fsHost.hasEntryPoint('/src/feature');
+
+        expect(exists).toHaveBeenCalledTimes(1);
     });
 
     it('dir не начинающийся с / → false без вызова нативного exists', () => {
@@ -126,27 +163,28 @@ describe('createFsHost.hasEntryPoint', () => {
     });
 
     it('отрицательный ответ кэшируется одной записью на директорию', () => {
-        const exists = vi.fn(() => false);
+        const exists = vi.fn(existing(['/repo/src/feature']));
         const fsHost = createFsHost('/repo', { exists, now: () => 0 });
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
-        // Отрицательный ответ стоит перебора всех расширений — но ровно одного, на первый вызов.
-        expect(exists).toHaveBeenCalledTimes(ENTRY_EXTENSIONS.length);
+        // Отрицательный ответ стоит проверки директории плюс перебора всех расширений — но ровно
+        // одного, на первый вызов.
+        expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length);
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
-        expect(exists).toHaveBeenCalledTimes(ENTRY_EXTENSIONS.length);
+        expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length);
     });
 
     it('после сдвига часов за 10 минут — перепроверяет диск', () => {
         let time = 0;
-        const exists = vi.fn(() => false);
+        const exists = vi.fn(existing(['/repo/src/feature']));
         const fsHost = createFsHost('/repo', { exists, now: () => time });
 
         fsHost.hasEntryPoint('/src/feature');
         time = 600_001;
         fsHost.hasEntryPoint('/src/feature');
 
-        expect(exists).toHaveBeenCalledTimes(ENTRY_EXTENSIONS.length * 2);
+        expect(exists).toHaveBeenCalledTimes((1 + ENTRY_EXTENSIONS.length) * 2);
     });
 });
 
@@ -160,7 +198,8 @@ describe('createFsHost: TTL-кэш', () => {
         time = 599_999;
         fsHost.hasEntryPoint('/src/feature');
 
-        expect(exists).toHaveBeenCalledTimes(1);
+        // Директория и первое расширение — на первый вызов; второй обходится кэшем.
+        expect(exists).toHaveBeenCalledTimes(2);
     });
 
     it('два инстанса createFsHost не делят кэш', () => {
@@ -173,7 +212,7 @@ describe('createFsHost: TTL-кэш', () => {
         a.hasEntryPoint('/src/feature');
         b.hasEntryPoint('/src/feature');
 
-        expect(exists).toHaveBeenCalledTimes(2);
+        expect(exists).toHaveBeenCalledTimes(4);
     });
 });
 

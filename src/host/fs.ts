@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { createLogger } from '@/debug.js';
 import { ENTRY_EXTENSIONS, entryFileName } from '@/extensions.js';
-import { segments, toPosix } from '@/path/index.js';
+import { dirname, segments, toPosix } from '@/path/index.js';
 import { getRoot } from '@/settings/index.js';
 
 import { findRepoRoot } from '@/host/root.js';
@@ -98,6 +98,12 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
     const now = options.now ?? Date.now;
     const nativeExists = options.exists ?? existsSync;
     const entryPointCache = new Map<string, CacheEntry>();
+    const directoryCache = new Map<string, CacheEntry>();
+
+    /** Реальный путь директории по виртуальному. Для root-как-корня-ФС `''` — это `/`. */
+    function toRealDir(dir: string): string {
+        return `${normalizedRoot}${dir}` || '/';
+    }
 
     function toVirtual(realPath: string): string | null {
         const posixPath = toPosix(realPath);
@@ -119,6 +125,48 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
         return remaining.length === 0 ? '/' : `/${remaining.join('/')}`;
     }
 
+    /**
+     * Существует ли сама директория. Отдельный кэш и отдельный вопрос: несуществующие пути приходят
+     * не поодиночке, а целыми ветками (промах алиаса, опечатка в специфаере, чужой корень) — и
+     * каждая такая директория стоила бы перебора всех {@link ENTRY_EXTENSIONS} вместо одного
+     * обращения к ФС.
+     */
+    function directoryExists(dir: string): boolean {
+        const time = now();
+        const entry = directoryCache.get(dir);
+        if (entry && entry.expiresAt > time) {
+            return entry.value;
+        }
+
+        if (missingParent(dir, time)) {
+            // Родителя нет — значит нет и потомка, спрашивать диск не о чем.
+            directoryCache.set(dir, { value: false, expiresAt: time + TTL_MS });
+            return false;
+        }
+
+        const found = nativeExists(toRealDir(dir));
+        debug('check directory %s: %o', dir, found);
+        directoryCache.set(dir, { value: found, expiresAt: time + TTL_MS });
+        return found;
+    }
+
+    /**
+     * Известно ли уже, что родителя `dir` нет. Только по кэшу, без обращения к диску: спуск к цели
+     * идёт сверху вниз, поэтому про родителя ответ к этому моменту есть — а несуществующие пути
+     * приходят ветками, и без этого каждый сегмент отсутствующей ветки стоил бы своего обращения к
+     * ФС. Отвечать на промах кэша рекурсивной проверкой предков не годится: она стоила бы обращения
+     * на каждого предка там, где хватало одного.
+     */
+    function missingParent(dir: string, time: number): boolean {
+        const parent = dirname(dir);
+        if (parent === dir) {
+            return false;
+        }
+
+        const entry = directoryCache.get(parent);
+        return entry !== undefined && entry.expiresAt > time && !entry.value;
+    }
+
     /** Кэш по директории, с TTL: диск опрашивается на промахе или после истечения записи. */
     function hasEntryPoint(dir: string): boolean {
         if (!dir.startsWith('/')) {
@@ -131,8 +179,12 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
             return entry.value;
         }
 
+        if (!directoryExists(dir)) {
+            return false;
+        }
+
         const found = ENTRY_EXTENSIONS.some((ext) =>
-            nativeExists(`${normalizedRoot}${dir}/${entryFileName(ext)}`),
+            nativeExists(`${toRealDir(dir)}/${entryFileName(ext)}`),
         );
         debug('check entry point %s: %o', dir, found);
         entryPointCache.set(dir, { value: found, expiresAt: time + TTL_MS });

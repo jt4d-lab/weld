@@ -252,7 +252,8 @@ describe('weld/no-barrel-bypass', () => {
 
     it('Windows filename нормализуется настоящим createFsHost в границе', () => {
         const windowsFsHost = createFsHost('C:\\proj', {
-            exists: (realPath) => realPath === 'C:/proj/src/other/index.ts',
+            exists: (realPath) =>
+                realPath === 'C:/proj/src/other' || realPath === 'C:/proj/src/other/index.ts',
         });
         const windowsRule = createRule(windowsFsHost);
 
