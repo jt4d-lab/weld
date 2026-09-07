@@ -39,11 +39,17 @@ export type WeldOptions = {
 };
 
 /** Всё, что правило берёт из контекста до обхода AST. */
-export type WeldContext = {
+export type WeldContext<TOptions extends WeldOptions = WeldOptions> = {
     /** Файл, который сейчас линтуется, — виртуальный путь от корня репозитория. */
     fromFile: string;
     aliases: Alias[];
     fsHost: FsHost;
+    /**
+     * Опции правила, уже разобранные и приведённые к его типу — включая свои, не общие. Правило
+     * читает их отсюда, а не из `context.options[0]`: иначе каждое повторяло бы каст и дефолт, и
+     * форма опций знала бы о себе в двух местах.
+     */
+    options: TOptions;
 };
 
 /**
@@ -53,11 +59,11 @@ export type WeldContext = {
  * тогда опция `root` ни на что не влияет. Шов именно параметром, а не модульным состоянием, чтобы
  * тесты не зависели от порядка запуска.
  */
-export function resolveWeldContext(
+export function resolveWeldContext<TOptions extends WeldOptions = WeldOptions>(
     context: Rule.RuleContext,
     fsHostOverride?: FsHost,
-): WeldContext | null {
-    const options = (context.options[0] ?? {}) as WeldOptions;
+): WeldContext<TOptions> | null {
+    const options = (context.options[0] ?? {}) as TOptions;
     const fsHost = fsHostOverride ?? getFsHost(context.settings, context.cwd, options.root);
 
     const fromFile = fsHost.toVirtual(context.filename);
@@ -69,5 +75,6 @@ export function resolveWeldContext(
         fromFile,
         aliases: getAliases(context.settings, options.aliases, options.baseUrl),
         fsHost,
+        options,
     };
 }
