@@ -10,5 +10,5 @@
 
 export type { FsHost } from './fs.js';
 export { createFsHost, getFsHost, resetFsHostCaches } from './fs.js';
-export { createFakeFsHost, fakeHasEntryPoint } from './fs.testing.js';
+export { createFakeFsHost } from './fs.testing.js';
 export { findRepoRoot } from './root.js';

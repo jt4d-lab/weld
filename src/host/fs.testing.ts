@@ -1,4 +1,4 @@
-import { ENTRY_EXTENSIONS, entryFileName } from '@/extensions.js';
+import { ENTRY_FILE_NAMES } from '@/extensions.js';
 
 import type { FsHost } from '@/host/fs.js';
 
@@ -11,13 +11,7 @@ export function createFakeFsHost(files: string[]): FsHost {
     const set = new Set(files);
 
     return {
-        hasEntryPoint: (dir) =>
-            ENTRY_EXTENSIONS.some((ext) => set.has(`${dir}/${entryFileName(ext)}`)),
+        hasEntryPoint: (dir) => ENTRY_FILE_NAMES.some((name) => set.has(`${dir}/${name}`)),
         toVirtual: (realPath) => (realPath.startsWith('/') ? realPath : null),
     };
-}
-
-/** `hasEntryPoint` фейкового `FsHost` отдельно — тестам ядра остального от `FsHost` не нужно. */
-export function fakeHasEntryPoint(files: string[]): (dir: string) => boolean {
-    return createFakeFsHost(files).hasEntryPoint;
 }

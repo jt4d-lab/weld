@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fakeHasEntryPoint } from '@/host/index.js';
+import { createFakeFsHost } from '@/host/index.js';
 import type { Alias } from '@/settings/index.js';
 
 import { createChecker } from '@/rules/no-barrel-bypass/pipeline.js';
@@ -9,7 +9,7 @@ const fromFile = '/repo/src/feature/util.ts';
 
 /** Проверка поверх фейкового диска: список файлов + необязательные алиасы. */
 function checker(files: string[], aliases: Alias[] = []): (specifier: string) => string | null {
-    return createChecker({ fromFile, aliases }, { hasEntryPoint: fakeHasEntryPoint(files) });
+    return createChecker({ fromFile, aliases }, createFakeFsHost(files));
 }
 
 const barrelFiles = ['/repo/src/other/index.ts'];
