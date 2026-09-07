@@ -1,11 +1,17 @@
 import { existsSync } from 'node:fs';
-import path from 'node:path';
 
 import { createLogger } from '@/debug.js';
-import { ENTRY_EXTENSIONS, entryFileName } from '@/extensions.js';
-import { dirname, segments, toPosix } from '@/path/index.js';
+import { ENTRY_FILE_NAMES } from '@/extensions.js';
+import { dirname, joinSegments, segments, toPosix } from '@/path/index.js';
 import { getRoot } from '@/settings/index.js';
 
+import {
+    joinReal,
+    normalizeRoot,
+    resolveRealPath,
+    sameSegment,
+    isAbsoluteRealPath,
+} from '@/host/real-path.js';
 import { findRepoRoot } from '@/host/root.js';
 
 const debug = createLogger('fs');
@@ -14,7 +20,7 @@ const debug = createLogger('fs');
 export type FsHost = {
     /**
      * Есть ли в директории `dir` (виртуальный путь) точка входа — файл `index.<ext>` с одним из
-     * {@link ENTRY_EXTENSIONS}. Именно этот вопрос, а не сырое «существует ли файл»: ответ на
+     * `ENTRY_EXTENSIONS`. Именно этот вопрос, а не сырое «существует ли файл»: ответ на
      * директорию один, и кэшируется он одной записью вместо записи на каждое расширение.
      *
      * Границу намеренно держим узкой — примитив добавляется, когда его просит правило, а не
@@ -26,6 +32,7 @@ export type FsHost = {
 };
 
 type CacheEntry = { value: boolean; expiresAt: number };
+type Cache = Map<string, CacheEntry>;
 
 type CreateFsHostOptions = {
     now?: () => number;
@@ -39,53 +46,15 @@ type CreateFsHostOptions = {
  */
 const TTL_MS = 600_000;
 
-/** Ведущий Windows-диск (`C:`) реального пути после `toPosix`. */
-const DRIVE_PREFIX = /^[A-Za-z]:/;
-
-/**
- * Абсолютность реального пути: unix (`/…`) или Windows-диск (`C:…`) — уже после `toPosix`.
- *
- * `path.win32.isAbsolute` здесь не подходит: он считает неабсолютными drive-relative пути `C:` и
- * `C:foo`, а нам нужен признак «путь несёт диск или корень» — иначе `resolveRealPath` пытался бы
- * дорезолвить `C:` от `cwd`, и root `C:` (то, во что `normalizeRoot` превращает корень
- * Windows-ФС `C:/`) уехал бы в директорию запуска ESLint.
- */
-function isAbsoluteRealPath(realPath: string): boolean {
-    return realPath.startsWith('/') || DRIVE_PREFIX.test(realPath);
+/** Живое (непротухшее) значение кэша или `undefined`. */
+function peek(cache: Cache, key: string, time: number): boolean | undefined {
+    const entry = cache.get(key);
+    return entry !== undefined && entry.expiresAt > time ? entry.value : undefined;
 }
 
-/**
- * Нормализует root: `toPosix`, без завершающего слэша. Корень ФС (`/`, `C:/`) — как `''` / `C:`,
- * чтобы `root + vpath` не удваивал `/`.
- *
- * `node:path` тут не помощник: `normalize`/`resolve` сохраняют корень как `/` и `C:\`, а нужна
- * именно строка-префикс для склейки `root + vpath`, для корня ФС пустая.
- */
-function normalizeRoot(root: string): string {
-    const posix = toPosix(root);
-    if (posix === '/') {
-        return '';
-    }
-
-    return posix.endsWith('/') ? posix.slice(0, -1) : posix;
-}
-
-/**
- * Сравнение сегментов реального пути с сегментами root. Первый сегмент может быть Windows-диском —
- * тогда буква сравнивается без учёта регистра (`C:` и `c:` — один диск); остальные сегменты —
- * строго: регистрозависимость реальных ФС различается, и строгое сравнение — единственный ответ,
- * не зависящий от платформы запуска.
- */
-function sameSegment(left: string | undefined, right: string | undefined, index: number): boolean {
-    if (left === undefined || right === undefined) {
-        return left === right;
-    }
-
-    if (index === 0 && DRIVE_PREFIX.test(left) && DRIVE_PREFIX.test(right)) {
-        return left.toUpperCase() === right.toUpperCase();
-    }
-
-    return left === right;
+function remember(cache: Cache, key: string, time: number, value: boolean): boolean {
+    cache.set(key, { value, expiresAt: time + TTL_MS });
+    return value;
 }
 
 /**
@@ -97,8 +66,8 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
     const rootSegments = segments(normalizedRoot);
     const now = options.now ?? Date.now;
     const nativeExists = options.exists ?? existsSync;
-    const entryPointCache = new Map<string, CacheEntry>();
-    const directoryCache = new Map<string, CacheEntry>();
+    const entryPointCache: Cache = new Map();
+    const directoryCache: Cache = new Map();
 
     /** Реальный путь директории по виртуальному. Для root-как-корня-ФС `''` — это `/`. */
     function toRealDir(dir: string): string {
@@ -116,38 +85,34 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
             return null;
         }
         for (let i = 0; i < rootSegments.length; i += 1) {
-            if (!sameSegment(pathSegments[i], rootSegments[i], i)) {
+            if (!sameSegment(pathSegments[i] as string, rootSegments[i] as string, i)) {
                 return null;
             }
         }
 
-        const remaining = pathSegments.slice(rootSegments.length);
-        return remaining.length === 0 ? '/' : `/${remaining.join('/')}`;
+        return joinSegments(pathSegments.slice(rootSegments.length));
     }
 
     /**
      * Существует ли сама директория. Отдельный кэш и отдельный вопрос: несуществующие пути приходят
      * не поодиночке, а целыми ветками (промах алиаса, опечатка в специфаере, чужой корень) — и
-     * каждая такая директория стоила бы перебора всех {@link ENTRY_EXTENSIONS} вместо одного
-     * обращения к ФС.
+     * каждая такая директория стоила бы перебора всех точек входа вместо одного обращения к ФС.
      */
     function directoryExists(dir: string): boolean {
         const time = now();
-        const entry = directoryCache.get(dir);
-        if (entry && entry.expiresAt > time) {
-            return entry.value;
+        const cached = peek(directoryCache, dir, time);
+        if (cached !== undefined) {
+            return cached;
         }
 
         if (missingParent(dir, time)) {
             // Родителя нет — значит нет и потомка, спрашивать диск не о чем.
-            directoryCache.set(dir, { value: false, expiresAt: time + TTL_MS });
-            return false;
+            return remember(directoryCache, dir, time, false);
         }
 
         const found = nativeExists(toRealDir(dir));
         debug('check directory %s: %o', dir, found);
-        directoryCache.set(dir, { value: found, expiresAt: time + TTL_MS });
-        return found;
+        return remember(directoryCache, dir, time, found);
     }
 
     /**
@@ -163,8 +128,7 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
             return false;
         }
 
-        const entry = directoryCache.get(parent);
-        return entry !== undefined && entry.expiresAt > time && !entry.value;
+        return peek(directoryCache, parent, time) === false;
     }
 
     /** Кэш по директории, с TTL: диск опрашивается на промахе или после истечения записи. */
@@ -174,49 +138,22 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
         }
 
         const time = now();
-        const entry = entryPointCache.get(dir);
-        if (entry && entry.expiresAt > time) {
-            return entry.value;
+        const cached = peek(entryPointCache, dir, time);
+        if (cached !== undefined) {
+            return cached;
         }
 
         if (!directoryExists(dir)) {
             return false;
         }
 
-        const found = ENTRY_EXTENSIONS.some((ext) =>
-            nativeExists(`${toRealDir(dir)}/${entryFileName(ext)}`),
-        );
+        const realDir = toRealDir(dir);
+        const found = ENTRY_FILE_NAMES.some((name) => nativeExists(joinReal(realDir, name)));
         debug('check entry point %s: %o', dir, found);
-        entryPointCache.set(dir, { value: found, expiresAt: time + TTL_MS });
-        return found;
+        return remember(entryPointCache, dir, time, found);
     }
 
     return { hasEntryPoint, toVirtual };
-}
-
-/**
- * Резолвит `target` от `base` — оба реальные пути. `target` абсолютный (unix или Windows-диск) —
- * возвращается как есть; иначе схлопывается с `base` силами `node:path`.
- *
- * Ветка `node:path` выбирается по форме `base`, а не по текущей платформе: `win32.resolve` знает
- * про диски, `posix.resolve` — про unix-пути, и на абсолютном `base` обе чистые (к `process.cwd()`
- * они обращаются, только когда ни один аргумент не абсолютен). Один `win32.resolve` на оба случая
- * не годится: unix-путь без диска он достраивает диском из `process.cwd()`, и под Windows `/repo`
- * стал бы `C:/repo` — результат зависел бы от платформы, на которой запущен ESLint.
- *
- * Голый диск `C:` для `win32` — не корень, а «текущая директория диска C», поэтому перед резолвом
- * он дополняется до `C:/` (в таком виде root и приходит из `normalizeRoot`).
- */
-function resolveRealPath(base: string, target: string): string {
-    const posixTarget = toPosix(target);
-    if (isAbsoluteRealPath(posixTarget)) {
-        return posixTarget;
-    }
-
-    const posixBase = toPosix(base).replace(/^([A-Za-z]:)$/, '$1/');
-    const resolve = DRIVE_PREFIX.test(posixBase) ? path.win32.resolve : path.posix.resolve;
-
-    return toPosix(resolve(posixBase, posixTarget));
 }
 
 const instanceCache = new Map<string, FsHost>();

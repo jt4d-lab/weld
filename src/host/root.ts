@@ -1,33 +1,9 @@
 import { createLogger } from '@/debug.js';
 import { toPosix } from '@/path/index.js';
 
+import { joinReal, parentOf } from '@/host/real-path.js';
+
 const debug = createLogger('root');
-
-/** Соединяет директорию (в т.ч. корень `/` или `C:/`) с именем файла, не удваивая `/`. */
-function join(dir: string, name: string): string {
-    return dir.endsWith('/') ? `${dir}${name}` : `${dir}/${name}`;
-}
-
-/**
- * Директория выше `dir`. У корня ФС (`/`, `C:/`) родителя нет — возвращает сам корень, по чему
- * вызывающий код и определяет достижение верха.
- */
-function parentOf(dir: string): string {
-    const idx = dir.lastIndexOf('/');
-    if (idx === -1) {
-        return dir;
-    }
-
-    const head = dir.slice(0, idx);
-    if (head === '') {
-        return '/';
-    }
-    if (/^[A-Za-z]:$/.test(head)) {
-        return `${head}/`;
-    }
-
-    return head;
-}
 
 /**
  * Подъём от `startDir` вверх, запоминает последнюю (самую верхнюю) директорию с `package.json`.
@@ -43,12 +19,12 @@ export function findRepoRoot(startDir: string, exists: (path: string) => boolean
     debug('searching repo root from %s', current);
 
     for (;;) {
-        if (exists(join(current, 'package.json'))) {
+        if (exists(joinReal(current, 'package.json'))) {
             found = current;
             debug('found package.json at %s', current);
         }
 
-        if (exists(join(current, '.git'))) {
+        if (exists(joinReal(current, '.git'))) {
             debug('found .git at %s, stopping', current);
             break;
         }
