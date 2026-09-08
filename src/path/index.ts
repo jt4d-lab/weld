@@ -2,7 +2,7 @@
 
 export {
     basename,
-    commonDirectory,
+    commonDepth,
     dirname,
     joinSegments,
     relativePath,

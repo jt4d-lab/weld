@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     basename,
-    commonDirectory,
+    commonDepth,
     dirname,
     relativePath,
     resolvePath,
@@ -99,17 +99,17 @@ describe('resolvePath', () => {
     });
 });
 
-describe('commonDirectory', () => {
+describe('commonDepth', () => {
     it('общий префикс существует', () => {
-        expect(commonDirectory('/src/feature/a.ts', '/src/feature/b.ts')).toBe('/src/feature');
+        expect(commonDepth('/src/feature/a.ts', '/src/feature/b.ts')).toBe(2);
     });
 
     it('пути совпадают', () => {
-        expect(commonDirectory('/src/feature', '/src/feature')).toBe('/src/feature');
+        expect(commonDepth('/src/feature', '/src/feature')).toBe(2);
     });
 
-    it('общего нет — корень "/"', () => {
-        expect(commonDirectory('/src/feature/a.ts', '/pkg/other/b.ts')).toBe('/');
+    it('общего нет — глубина 0 (корень)', () => {
+        expect(commonDepth('/src/feature/a.ts', '/pkg/other/b.ts')).toBe(0);
     });
 });
 

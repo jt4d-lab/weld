@@ -6,7 +6,7 @@
 import { isEntryBasename } from '@/extensions.js';
 import {
     basename,
-    commonDirectory,
+    commonDepth,
     dirname,
     joinSegments,
     segments,
@@ -31,11 +31,12 @@ export function findBarrier(
     const targetDirSegments = segments(targetDir);
 
     // Глубина общей директории — она же индекс первого сегмента ниже неё.
-    const depth = segments(commonDirectory(fromDir, targetDir)).length;
+    const depth = commonDepth(fromDir, targetDir);
 
-    // Спуск от общей директории вниз к цели.
+    // Спуск от общей директории вниз к цели: путь наращивается посегментно, а не пересобирается.
+    let dir = joinSegments(targetDirSegments.slice(0, depth));
     for (let i = depth; i < targetDirSegments.length; i += 1) {
-        const dir = joinSegments(targetDirSegments.slice(0, i + 1));
+        dir = dir === '/' ? `/${targetDirSegments[i]}` : `${dir}/${targetDirSegments[i]}`;
         if (hasEntryPoint(dir)) {
             const atTargetDir = i === targetDirSegments.length - 1;
             return atTargetDir && isIndexFile(targetPath) ? null : dir;

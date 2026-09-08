@@ -70,19 +70,25 @@ export function resolvePath(base: string, path: string): string | null {
     return joinSegments(segs);
 }
 
-/** Самая глубокая общая директория. У виртуальных путей общий корень `/` есть всегда. */
-export function commonDirectory(a: string, b: string): string {
-    const segsA = segments(a);
-    const segsB = segments(b);
-
-    const common: string[] = [];
+/** Длина общего префикса двух списков сегментов. */
+function commonPrefixLength(segsA: string[], segsB: string[]): number {
     let i = 0;
     while (i < segsA.length && i < segsB.length && segsA[i] === segsB[i]) {
-        common.push(segsA[i] as string);
         i += 1;
     }
 
-    return joinSegments(common);
+    return i;
+}
+
+/**
+ * Глубина самой глубокой общей директории в сегментах. У виртуальных путей общий корень `/` есть
+ * всегда, поэтому глубина — от `0`.
+ *
+ * Отдаётся числом, а не путём: спрашивают об общей директории только чтобы отсчитать от неё
+ * сегменты, и собранная строка тут же разбиралась бы обратно.
+ */
+export function commonDepth(a: string, b: string): number {
+    return commonPrefixLength(segments(a), segments(b));
 }
 
 /**
@@ -93,10 +99,7 @@ export function relativePath(from: string, to: string): string {
     const segsFrom = segments(from);
     const segsTo = segments(to);
 
-    let i = 0;
-    while (i < segsFrom.length && i < segsTo.length && segsFrom[i] === segsTo[i]) {
-        i += 1;
-    }
+    const i = commonPrefixLength(segsFrom, segsTo);
 
     const ups = Array<string>(segsFrom.length - i).fill('..');
     const downs = segsTo.slice(i);
