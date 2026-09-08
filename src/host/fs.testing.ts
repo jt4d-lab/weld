@@ -15,3 +15,14 @@ export function createFakeFsHost(files: string[]): FsHost {
         toVirtual: (realPath) => (realPath.startsWith('/') ? realPath : null),
     };
 }
+
+/**
+ * Фейковый предикат `exists` над списком реальных путей: существует ровно то, что в списке. Его
+ * спрашивают и `createFsHost` (опция `exists`), и `findRepoRoot` — форма вопроса одна, поэтому и
+ * фейк один, а не по копии на тест каждого из них. Через баррель наружу не выходит: подделывать
+ * диск помимо `FsHost` нужно только самому слою.
+ */
+export function createFakeExists(realPaths: string[]): (realPath: string) => boolean {
+    const set = new Set(realPaths);
+    return (realPath) => set.has(realPath);
+}

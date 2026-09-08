@@ -6,13 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ENTRY_EXTENSIONS } from '@/extensions.js';
 
 import { createFsHost, getFsHost, resetFsHostCaches } from '@/host/fs.js';
-import { createFakeFsHost } from '@/host/fs.testing.js';
-
-/** Фейк `exists`: существует ровно то, что в списке. */
-function existing(realPaths: string[]): (realPath: string) => boolean {
-    const set = new Set(realPaths);
-    return (realPath) => set.has(realPath);
-}
+import { createFakeExists, createFakeFsHost } from '@/host/fs.testing.js';
 
 describe('createFsHost.toVirtual', () => {
     it('путь внутри root → виртуальный от /', () => {
@@ -90,7 +84,7 @@ describe('createFsHost: нормализация root', () => {
 describe('createFsHost.hasEntryPoint', () => {
     it('директория с index.ts — точка входа', () => {
         const fsHost = createFsHost('/repo', {
-            exists: existing(['/repo/src/feature', '/repo/src/feature/index.ts']),
+            exists: createFakeExists(['/repo/src/feature', '/repo/src/feature/index.ts']),
         });
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(true);
@@ -98,7 +92,7 @@ describe('createFsHost.hasEntryPoint', () => {
 
     it('index с другим известным расширением тоже считается точкой входа', () => {
         const fsHost = createFsHost('/repo', {
-            exists: existing(['/repo/src/feature', '/repo/src/feature/index.mjs']),
+            exists: createFakeExists(['/repo/src/feature', '/repo/src/feature/index.mjs']),
         });
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(true);
@@ -106,7 +100,7 @@ describe('createFsHost.hasEntryPoint', () => {
 
     it('директория без index — не точка входа', () => {
         const fsHost = createFsHost('/repo', {
-            exists: existing(['/repo/src/feature', '/repo/src/feature/other.ts']),
+            exists: createFakeExists(['/repo/src/feature', '/repo/src/feature/other.ts']),
         });
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
@@ -163,7 +157,7 @@ describe('createFsHost.hasEntryPoint', () => {
     });
 
     it('отрицательный ответ кэшируется одной записью на директорию', () => {
-        const exists = vi.fn(existing(['/repo/src/feature']));
+        const exists = vi.fn(createFakeExists(['/repo/src/feature']));
         const fsHost = createFsHost('/repo', { exists, now: () => 0 });
 
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
@@ -177,7 +171,7 @@ describe('createFsHost.hasEntryPoint', () => {
 
     it('после сдвига часов за 10 минут — перепроверяет диск', () => {
         let time = 0;
-        const exists = vi.fn(existing(['/repo/src/feature']));
+        const exists = vi.fn(createFakeExists(['/repo/src/feature']));
         const fsHost = createFsHost('/repo', { exists, now: () => time });
 
         fsHost.hasEntryPoint('/src/feature');
