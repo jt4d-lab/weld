@@ -69,9 +69,12 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
     const entryPointCache: Cache = new Map();
     const directoryCache: Cache = new Map();
 
-    /** Реальный путь директории по виртуальному. Для root-как-корня-ФС `''` — это `/`. */
+    /**
+     * Реальный путь директории по виртуальному. Виртуальный путь всегда начинается с `/`, поэтому
+     * для root-как-корня-ФС (`normalizedRoot === ''`) склейка сама даёт корректный путь от `/`.
+     */
     function toRealDir(dir: string): string {
-        return `${normalizedRoot}${dir}` || '/';
+        return `${normalizedRoot}${dir}`;
     }
 
     function toVirtual(realPath: string): string | null {
