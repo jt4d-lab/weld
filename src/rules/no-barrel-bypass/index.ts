@@ -59,9 +59,9 @@ export function createRule(fsHost?: FsHost): Rule.RuleModule {
                 return {};
             }
 
-            const { fromFile, aliases } = weld;
+            const { fromFile } = weld;
             const applyFix = weld.options.fix ?? true;
-            const checkImport = createChecker({ fromFile, aliases }, weld.fsHost);
+            const checkImport = createChecker(weld, weld.fsHost);
 
             return createSpecifierVisitor((sourceNode: SpecifierNode) => {
                 const original = sourceNode.value;
