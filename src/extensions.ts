@@ -41,7 +41,7 @@ export const ENTRY_FILE_NAMES: readonly string[] = ENTRY_EXTENSIONS.map(entryFil
 
 /** Имя файла (без директории) — точка входа? Расширение обязано входить в {@link ENTRY_EXTENSIONS}. */
 export function isEntryFileName(name: string, ext: string): boolean {
-    return name === ENTRY_BASENAME && isEntryExtension(ext);
+    return isEntryBasename(name) && isEntryExtension(ext);
 }
 
 /**
