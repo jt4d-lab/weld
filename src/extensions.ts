@@ -12,7 +12,7 @@
  * Имя файла точки входа без расширения. Ответ на тот же вопрос, что и {@link ENTRY_EXTENSIONS} —
  * какой файл делает директорию модулем, — поэтому живёт рядом с ним, а не литералом по слоям.
  */
-export const ENTRY_BASENAME = 'index';
+const ENTRY_BASENAME = 'index';
 
 /** Расширения файла точки входа (`index.<ext>`) — по ним ищутся границы модулей. */
 export const ENTRY_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs'] as const;
@@ -21,13 +21,13 @@ export const ENTRY_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 
  * Расширения, при которых специфаер считается импортом кода внутрь репозитория. Специфаер с чужим
  * расширением (`./styles.css`, `./logo.svg`) правила не проверяют.
  */
-export const MODULE_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs'] as const;
+const MODULE_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs'] as const;
 
 const ENTRY_EXTENSION_SET: ReadonlySet<string> = new Set(ENTRY_EXTENSIONS);
 const MODULE_EXTENSION_SET: ReadonlySet<string> = new Set(MODULE_EXTENSIONS);
 
 /** Входит ли расширение (без точки) в {@link ENTRY_EXTENSIONS}. */
-export function isEntryExtension(ext: string): boolean {
+function isEntryExtension(ext: string): boolean {
     return ENTRY_EXTENSION_SET.has(ext);
 }
 

@@ -1,19 +1,35 @@
-import { ENTRY_FILE_NAMES } from '@/extensions.js';
+import { dirname } from '@/path/index.js';
 
-import type { FsHost } from '@/host/fs.js';
+import { createFsHost, type FsHost } from '@/host/fs.js';
 
 /**
- * Фейковый `FsHost` над списком виртуальных путей — без обращения к диску. `toVirtual` — identity
- * для путей, начинающихся с `/` (уже виртуальные), иначе `null`. Кэш не нужен: список путей
- * неизменен, а обращений к диску нет.
+ * Фейковый `FsHost` над списком виртуальных путей — без обращения к диску. Это настоящий
+ * `createFsHost` с root в корне ФС (виртуальный путь тогда совпадает с реальным, а `toVirtual`
+ * становится identity для путей от `/`) поверх поддельного `exists`: подделывается только диск, а
+ * поиск точки входа остаётся тем же, что и у правил в бою. Своя реализация `hasEntryPoint` здесь
+ * разъезжалась бы со слоем на первой же правке правил поиска границы.
  */
 export function createFakeFsHost(files: string[]): FsHost {
-    const set = new Set(files);
+    return createFsHost('/', { exists: createFakeExists(withAncestorDirectories(files)) });
+}
 
-    return {
-        hasEntryPoint: (dir) => ENTRY_FILE_NAMES.some((name) => set.has(`${dir}/${name}`)),
-        toVirtual: (realPath) => (realPath.startsWith('/') ? realPath : null),
-    };
+/** Файлы плюс все их директории: `exists` слоя спрашивают и про директорию, и про файл в ней. */
+function withAncestorDirectories(files: string[]): string[] {
+    const paths = new Set(files);
+
+    for (const file of files) {
+        let dir = dirname(file);
+        while (!paths.has(dir)) {
+            paths.add(dir);
+            const parent = dirname(dir);
+            if (parent === dir) {
+                break;
+            }
+            dir = parent;
+        }
+    }
+
+    return [...paths];
 }
 
 /**

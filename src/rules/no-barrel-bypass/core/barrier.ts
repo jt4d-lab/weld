@@ -8,6 +8,7 @@ import {
     basename,
     commonDepth,
     dirname,
+    joinPath,
     joinSegments,
     segments,
     splitExtension,
@@ -36,7 +37,7 @@ export function findBarrier(
     // Спуск от общей директории вниз к цели: путь наращивается посегментно, а не пересобирается.
     let dir = joinSegments(targetDirSegments.slice(0, depth));
     for (let i = depth; i < targetDirSegments.length; i += 1) {
-        dir = dir === '/' ? `/${targetDirSegments[i]}` : `${dir}/${targetDirSegments[i]}`;
+        dir = joinPath(dir, targetDirSegments[i] as string);
         if (hasEntryPoint(dir)) {
             const atTargetDir = i === targetDirSegments.length - 1;
             return atTargetDir && isIndexFile(targetPath) ? null : dir;

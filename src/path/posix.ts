@@ -21,6 +21,15 @@ export function joinSegments(segs: string[]): string {
     return segs.length === 0 ? '/' : `/${segs.join('/')}`;
 }
 
+/**
+ * Дописывает сегмент к виртуальной директории, не удваивая `/` у корня. Спуск по дереву наращивает
+ * путь этой функцией вместо `joinSegments` от среза — знание «у корня разделителя не нужно» живёт
+ * здесь, а не у каждого, кто идёт вниз.
+ */
+export function joinPath(dir: string, segment: string): string {
+    return dir === '/' ? `/${segment}` : `${dir}/${segment}`;
+}
+
 /** Последний сегмент виртуального пути после последнего `/`. Корень даёт пустую строку. */
 export function basename(path: string): string {
     return path.slice(path.lastIndexOf('/') + 1);
@@ -28,12 +37,13 @@ export function basename(path: string): string {
 
 /** Разбивает basename на имя и расширение (без точки). Расширения нет — `ext` пустой. */
 export function splitExtension(base: string): { name: string; ext: string } {
-    const match = /^(.+)\.([^./]+)$/.exec(base);
-    if (!match) {
+    // Точка в начале — не расширение (`.storybook`), точка в конце — пустое расширение (`x.`).
+    const dot = base.lastIndexOf('.');
+    if (dot <= 0 || dot === base.length - 1) {
         return { name: base, ext: '' };
     }
 
-    return { name: match[1] as string, ext: match[2] as string };
+    return { name: base.slice(0, dot), ext: base.slice(dot + 1) };
 }
 
 /** Директория выше `path`. У корня родителя нет — возвращает сам корень. */

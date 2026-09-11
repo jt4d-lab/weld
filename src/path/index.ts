@@ -4,6 +4,7 @@ export {
     basename,
     commonDepth,
     dirname,
+    joinPath,
     joinSegments,
     relativePath,
     resolvePath,

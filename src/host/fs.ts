@@ -147,7 +147,9 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
         }
 
         if (!directoryExists(dir)) {
-            return false;
+            // Ответ запоминается и здесь: иначе каждый повторный вопрос про ту же отсутствующую
+            // директорию заново проходил бы промах кэша точек входа, хотя ответ уже известен.
+            return remember(entryPointCache, dir, time, false);
         }
 
         const realDir = toRealDir(dir);
@@ -163,8 +165,10 @@ const instanceCache = new Map<string, FsHost>();
 const repoRootCache = new Map<string, string | null>();
 
 function findRepoRootCached(cwd: string): string | null {
-    if (repoRootCache.has(cwd)) {
-        return repoRootCache.get(cwd) as string | null;
+    // `findRepoRoot` возвращает `string | null`, поэтому `undefined` однозначно значит «не кэшировано».
+    const cached = repoRootCache.get(cwd);
+    if (cached !== undefined) {
+        return cached;
     }
 
     const found = findRepoRoot(cwd, existsSync);

@@ -39,10 +39,9 @@ export function parseSpecifier(
 
     const alias = matchAlias(specifier, aliases);
     if (alias !== null) {
-        const suffix =
-            specifier === alias.prefix
-                ? ''
-                : specifier.slice(alias.prefix.length + 1).replace(/^\/+/, '');
+        // `matchAlias` уже проверил границу по сегменту, поэтому хвост — либо пустой, либо `/…`;
+        // ведущие слэши снимаются, чтобы `resolvePath` не принял хвост за абсолютный путь.
+        const suffix = specifier.slice(alias.prefix.length).replace(/^\/+/, '');
         return finalize(resolvePath(alias.anchor, suffix), { kind: 'alias', alias });
     }
 
@@ -80,11 +79,7 @@ function pickLongest(aliases: Alias[], key: (alias: Alias) => string | null): Al
 
 /** Самый длинный подходящий префикс; при равных префиксах — первая запись по порядку. */
 function matchAlias(specifier: string, aliases: Alias[]): Alias | null {
-    return pickLongest(aliases, (alias) =>
-        specifier === alias.prefix || specifier.startsWith(`${alias.prefix}/`)
-            ? alias.prefix
-            : null,
-    );
+    return pickLongest(aliases, (alias) => (covers(alias.prefix, specifier) ? alias.prefix : null));
 }
 
 function finalize(path: string | null, form: Form): Target | null {
@@ -125,7 +120,7 @@ function renderDirectory(form: Form, fromDir: string, barrier: string, aliases: 
         return renderRelative(fromDir, barrier);
     }
 
-    if (coversDirectory(form.alias.anchor, barrier)) {
+    if (covers(form.alias.anchor, barrier)) {
         return renderAlias(form.alias, barrier);
     }
 
@@ -139,15 +134,18 @@ function withEntry(dir: string, extension: string): string {
     return `${dir}${separator}${entryFileName(extension)}`;
 }
 
-function coversDirectory(anchor: string, dir: string): boolean {
-    return dir === anchor || dir.startsWith(`${anchor}/`);
+/**
+ * `value` равен `prefix` или лежит под ним — граница проверяется по сегменту, а не по символам
+ * (`@/features` не покрывает `@/features-old`). Один вопрос на обе стороны алиаса: слева от него
+ * так сопоставляется префикс со специфаером, справа — якорь с директорией.
+ */
+function covers(prefix: string, value: string): boolean {
+    return value === prefix || value.startsWith(`${prefix}/`);
 }
 
 /** Самый длинный якорь, покрывающий `dir`; `null`, если ни один не покрывает. */
 function longestCoveringAlias(aliases: Alias[], dir: string): Alias | null {
-    return pickLongest(aliases, (alias) =>
-        coversDirectory(alias.anchor, dir) ? alias.anchor : null,
-    );
+    return pickLongest(aliases, (alias) => (covers(alias.anchor, dir) ? alias.anchor : null));
 }
 
 function renderAlias(alias: Alias, barrier: string): string {
