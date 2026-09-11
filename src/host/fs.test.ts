@@ -168,22 +168,10 @@ describe('createFsHost.hasEntryPoint', () => {
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
         expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length);
     });
-
-    it('после сдвига часов за 10 минут — перепроверяет диск', () => {
-        let time = 0;
-        const exists = vi.fn(createFakeExists(['/repo/src/feature']));
-        const fsHost = createFsHost('/repo', { exists, now: () => time });
-
-        fsHost.hasEntryPoint('/src/feature');
-        time = 600_001;
-        fsHost.hasEntryPoint('/src/feature');
-
-        expect(exists).toHaveBeenCalledTimes((1 + ENTRY_EXTENSIONS.length) * 2);
-    });
 });
 
 describe('createFsHost: TTL-кэш', () => {
-    it('в пределах 10 минут — кэш ещё живой', () => {
+    it('положительный ответ в пределах 10 минут — кэш ещё живой', () => {
         let time = 0;
         const exists = vi.fn(() => true);
         const fsHost = createFsHost('/repo', { exists, now: () => time });
@@ -194,6 +182,44 @@ describe('createFsHost: TTL-кэш', () => {
 
         // Директория и первое расширение — на первый вызов; второй обходится кэшем.
         expect(exists).toHaveBeenCalledTimes(2);
+    });
+
+    it('положительный ответ после 10 минут — перепроверяет диск', () => {
+        let time = 0;
+        const exists = vi.fn(() => true);
+        const fsHost = createFsHost('/repo', { exists, now: () => time });
+
+        fsHost.hasEntryPoint('/src/feature');
+        time = 600_001;
+        fsHost.hasEntryPoint('/src/feature');
+
+        expect(exists).toHaveBeenCalledTimes(4);
+    });
+
+    it('отрицательный ответ живёт своим, коротким сроком: 5 секунд — уже перепроверка', () => {
+        let time = 0;
+        const exists = vi.fn(createFakeExists(['/repo/src/feature']));
+        const fsHost = createFsHost('/repo', { exists, now: () => time });
+
+        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+        time = 5_001;
+        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+
+        // Дописанный за это время index.<ext> правило увидит, не дожидаясь десяти минут. Директорию
+        // при этом не перепроверяет: её наличие — положительный ответ, у него срок прежний.
+        expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length * 2);
+    });
+
+    it('отрицательный ответ в пределах 5 секунд — кэш ещё живой', () => {
+        let time = 0;
+        const exists = vi.fn(createFakeExists(['/repo/src/feature']));
+        const fsHost = createFsHost('/repo', { exists, now: () => time });
+
+        fsHost.hasEntryPoint('/src/feature');
+        time = 4_999;
+        fsHost.hasEntryPoint('/src/feature');
+
+        expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length);
     });
 
     it('два инстанса createFsHost не делят кэш', () => {
