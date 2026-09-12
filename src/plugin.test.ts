@@ -97,7 +97,7 @@ describe('ESLint integration', () => {
                     overrideConfigFile: true,
                     overrideConfig: [
                         plugin.configs[name],
-                        { settings: { weld: { root: fixtureRoot } } },
+                        { settings: { weld: { repoRoot: fixtureRoot } } },
                     ],
                 });
 

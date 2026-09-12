@@ -1,7 +1,7 @@
 /**
  * Единственная точка чтения `settings.weld`. Наружу слой отдаёт не сырую секцию, а геттер на каждую
- * настройку — `getRoot` / `getBaseUrl` / `getAliases`; формат конфига за пределами `src/settings/`
- * не знает никто.
+ * настройку — `getRepoRoot` / `getAliasesBaseUrl` / `getAliases`; формат конфига за пределами
+ * `src/settings/` не знает никто.
  *
  * Каждый геттер принимает необязательный `override` — значение этой настройки, подставляемое вместо
  * конфига. Оно тоже приходит из пользовательского конфига (опции правила), поэтому проверяется теми
@@ -12,8 +12,8 @@
 import type { Alias } from '@/settings/aliases.js';
 import { parseAliases } from '@/settings/aliases.js';
 
-/** `baseUrl` по умолчанию — сам корень репозитория. */
-const DEFAULT_BASE_URL = '.';
+/** `aliasesBaseUrl` по умолчанию — сам корень репозитория. */
+const DEFAULT_ALIASES_BASE_URL = '.';
 
 /** `settings.weld`, если задан. `undefined` без ошибки — секция необязательна. */
 function getWeldSettings(settings: unknown): Record<string, unknown> | undefined {
@@ -42,42 +42,42 @@ function requireString(value: unknown, source: string): string {
 }
 
 /**
- * `settings.weld.root` как он записан в конфиге — реальный путь, не виртуальный. Резолв
+ * `settings.weld.repoRoot` как он записан в конфиге — реальный путь, не виртуальный. Резолв
  * относительного значения и всё прочее знание о реальной ФС — за границей `src/host/`.
- * `undefined` — root не задан, вызывающий ищет его сам.
+ * `undefined` — корень не задан, вызывающий ищет его сам.
  */
-export function getRoot(settings: unknown, override?: unknown): string | undefined {
+export function getRepoRoot(settings: unknown, override?: unknown): string | undefined {
     if (override !== undefined) {
-        return requireString(override, 'options.root');
+        return requireString(override, 'options.repoRoot');
     }
 
-    const root = getWeldSettings(settings)?.root;
-    if (root === undefined) {
+    const repoRoot = getWeldSettings(settings)?.repoRoot;
+    if (repoRoot === undefined) {
         return undefined;
     }
 
-    return requireString(root, 'settings.weld.root');
+    return requireString(repoRoot, 'settings.weld.repoRoot');
 }
 
-/** `settings.weld.baseUrl`; не задан — `'.'` (сам root). */
-export function getBaseUrl(settings: unknown, override?: unknown): string {
+/** `settings.weld.aliasesBaseUrl`; не задан — `'.'` (сам корень репозитория). */
+export function getAliasesBaseUrl(settings: unknown, override?: unknown): string {
     if (override !== undefined) {
-        return requireString(override, 'options.baseUrl');
+        return requireString(override, 'options.aliasesBaseUrl');
     }
 
-    const baseUrl = getWeldSettings(settings)?.baseUrl;
-    if (baseUrl === undefined) {
-        return DEFAULT_BASE_URL;
+    const aliasesBaseUrl = getWeldSettings(settings)?.aliasesBaseUrl;
+    if (aliasesBaseUrl === undefined) {
+        return DEFAULT_ALIASES_BASE_URL;
     }
 
-    return requireString(baseUrl, 'settings.weld.baseUrl');
+    return requireString(aliasesBaseUrl, 'settings.weld.aliasesBaseUrl');
 }
 
 /**
  * Алиасы из `settings.weld`. Нет `aliases` — `[]`.
  *
- * `baseUrlOverride` — override той настройки, от которой отсчитываются якоря: алиасы без `baseUrl`
- * переопределить нельзя, эти два значения имеют смысл только в паре.
+ * `baseUrlOverride` — override той настройки, от которой отсчитываются якоря: алиасы без
+ * `aliasesBaseUrl` переопределить нельзя, эти два значения имеют смысл только в паре.
  */
 export function getAliases(
     settings: unknown,
@@ -91,5 +91,5 @@ export function getAliases(
     }
 
     const source = fromOverride ? 'options.aliases' : 'settings.weld.aliases';
-    return parseAliases(rawAliases, getBaseUrl(settings, baseUrlOverride), source);
+    return parseAliases(rawAliases, getAliasesBaseUrl(settings, baseUrlOverride), source);
 }

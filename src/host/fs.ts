@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { createLogger } from '@/debug.js';
 import { ENTRY_FILE_NAMES } from '@/extensions.js';
 import { dirname, joinSegments, segments, toPosix } from '@/path/index.js';
-import { getRoot } from '@/settings/index.js';
+import { getRepoRoot } from '@/settings/index.js';
 
 import {
     joinReal,
@@ -188,8 +188,8 @@ function findRepoRootCached(cwd: string): string | null {
     return found;
 }
 
-function resolveRoot(settings: unknown, cwd: string, rootOverride?: unknown): string {
-    const explicitRoot = getRoot(settings, rootOverride);
+function resolveRoot(settings: unknown, cwd: string, repoRootOverride?: unknown): string {
+    const explicitRoot = getRepoRoot(settings, repoRootOverride);
     if (explicitRoot !== undefined) {
         return resolveRealPath(cwd, explicitRoot);
     }
@@ -201,12 +201,12 @@ function resolveRoot(settings: unknown, cwd: string, rootOverride?: unknown): st
  * `resolveRoot` + кэш инстансов по root — иначе TTL-кэш обращений к диску обнулялся бы на каждом
  * файле.
  *
- * `rootOverride` — значение root из опций правила; разбирает и проверяет его всё тот же `getRoot`,
- * `src/host/` про формат конфига по-прежнему ничего не знает. Кэш инстансов ключуется уже
- * резолвнутым root, поэтому файлы с разным override не делят инстанс.
+ * `repoRootOverride` — значение repoRoot из опций правила; разбирает и проверяет его всё тот же
+ * `getRepoRoot`, `src/host/` про формат конфига по-прежнему ничего не знает. Кэш инстансов ключуется
+ * уже резолвнутым root, поэтому файлы с разным override не делят инстанс.
  */
-export function getFsHost(settings: unknown, cwd: string, rootOverride?: unknown): FsHost {
-    const root = resolveRoot(settings, cwd, rootOverride);
+export function getFsHost(settings: unknown, cwd: string, repoRootOverride?: unknown): FsHost {
+    const root = resolveRoot(settings, cwd, repoRootOverride);
 
     const cached = instanceCache.get(root);
     if (cached) {

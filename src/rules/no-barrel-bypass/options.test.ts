@@ -1,5 +1,5 @@
 /**
- * Опции правила `root` / `baseUrl` / `aliases` — те же настройки, что и в `settings.weld`, но
+ * Опции правила `repoRoot` / `aliasesBaseUrl` / `aliases` — те же настройки, что и в `settings.weld`, но
  * заданные на самом правиле. Здесь проверяется, что они действительно перекрывают секцию.
  */
 
@@ -29,7 +29,7 @@ describe('опции правила перекрывают settings.weld', () =>
                     code: "import { a } from '@other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
                     settings: {
-                        weld: { baseUrl: '/repo', aliases: { '@other/*': ['nowhere/*'] } },
+                        weld: { aliasesBaseUrl: '/repo', aliases: { '@other/*': ['nowhere/*'] } },
                     },
                     options: [{ aliases: { '@other/*': ['src/other/*'] } }],
                     output: "import { a } from '@other/index.ts';",
@@ -39,18 +39,21 @@ describe('опции правила перекрывают settings.weld', () =>
         });
     });
 
-    it('options.baseUrl переносит якоря алиасов из settings.weld', () => {
-        ruleTester.run('no-barrel-bypass options.baseUrl', rule, {
+    it('options.aliasesBaseUrl переносит якоря алиасов из settings.weld', () => {
+        ruleTester.run('no-barrel-bypass options.aliasesBaseUrl', rule, {
             valid: [],
             invalid: [
                 {
-                    name: 'алиасы из settings, якорь считается от baseUrl из опций',
+                    name: 'алиасы из settings, якорь считается от aliasesBaseUrl из опций',
                     code: "import { a } from '@other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
                     settings: {
-                        weld: { baseUrl: '/nowhere', aliases: { '@other/*': ['src/other/*'] } },
+                        weld: {
+                            aliasesBaseUrl: '/nowhere',
+                            aliases: { '@other/*': ['src/other/*'] },
+                        },
                     },
-                    options: [{ baseUrl: '/repo' }],
+                    options: [{ aliasesBaseUrl: '/repo' }],
                     output: "import { a } from '@other/index.ts';",
                     errors: [aliasError],
                 },
@@ -58,8 +61,8 @@ describe('опции правила перекрывают settings.weld', () =>
         });
     });
 
-    it('пара options.aliases + options.baseUrl работает вместе', () => {
-        ruleTester.run('no-barrel-bypass options.aliases+baseUrl', rule, {
+    it('пара options.aliases + options.aliasesBaseUrl работает вместе', () => {
+        ruleTester.run('no-barrel-bypass options.aliases+aliasesBaseUrl', rule, {
             valid: [],
             invalid: [
                 {
@@ -67,9 +70,14 @@ describe('опции правила перекрывают settings.weld', () =>
                     code: "import { a } from '@other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
                     settings: {
-                        weld: { baseUrl: '/nowhere', aliases: { '@other/*': ['nowhere/*'] } },
+                        weld: {
+                            aliasesBaseUrl: '/nowhere',
+                            aliases: { '@other/*': ['nowhere/*'] },
+                        },
                     },
-                    options: [{ baseUrl: '/repo', aliases: { '@other/*': ['src/other/*'] } }],
+                    options: [
+                        { aliasesBaseUrl: '/repo', aliases: { '@other/*': ['src/other/*'] } },
+                    ],
                     output: "import { a } from '@other/index.ts';",
                     errors: [aliasError],
                 },
@@ -82,10 +90,10 @@ describe('опции правила перекрывают settings.weld', () =>
             ruleTester.run('no-barrel-bypass options schema', rule, {
                 valid: [
                     {
-                        name: 'root не строка',
+                        name: 'repoRoot не строка',
                         code: "import { a } from '../other/internal.ts';",
                         filename: '/repo/src/feature/file.ts',
-                        options: [{ root: 42 }],
+                        options: [{ repoRoot: 42 }],
                     },
                 ],
                 invalid: [],
@@ -94,21 +102,21 @@ describe('опции правила перекрывают settings.weld', () =>
     });
 });
 
-describe('опция root на настоящем диске', () => {
+describe('опция repoRoot на настоящем диске', () => {
     afterEach(() => {
         resetFsHostCaches();
     });
 
-    it('options.root выигрывает у settings.weld.root', () => {
-        ruleTester.run('no-barrel-bypass options.root', createRule(), {
+    it('options.repoRoot выигрывает у settings.weld.repoRoot', () => {
+        ruleTester.run('no-barrel-bypass options.repoRoot', createRule(), {
             valid: [],
             invalid: [
                 {
-                    name: 'root фикстуры задан опцией, в settings.weld — несуществующая директория',
+                    name: 'repoRoot фикстуры задан опцией, в settings.weld — несуществующая директория',
                     code: "import { a } from './feature/internal.ts';",
                     filename: consumerFile,
-                    settings: { weld: { root: '/nowhere' } },
-                    options: [{ root: fixtureRoot }],
+                    settings: { weld: { repoRoot: '/nowhere' } },
+                    options: [{ repoRoot: fixtureRoot }],
                     output: "import { a } from './feature/index.ts';",
                     errors: [
                         {

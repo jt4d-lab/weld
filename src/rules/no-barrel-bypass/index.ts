@@ -29,7 +29,8 @@ type RuleOptions = WeldOptions & { fix?: boolean };
 
 /**
  * `fsHost` — для инъекции в тестах; без него файловую систему собирает `resolveWeldContext` из
- * `context.settings`/`context.cwd` и опции `root`. При инъекции опция `root` ни на что не влияет.
+ * `context.settings`/`context.cwd` и опции `repoRoot`. При инъекции опция `repoRoot` ни на что не
+ * влияет.
  */
 export function createRule(fsHost?: FsHost): Rule.RuleModule {
     return {

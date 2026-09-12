@@ -10,15 +10,16 @@ export type Alias = { prefix: string; anchor: string };
  * Разбирает значение `settings.weld.aliases` (формат `paths` из tsconfig) в список алиасов, готовых
  * для `parseSpecifier`/`renderSpecifier`. Обе настройки приходят уже добытыми — читает их
  * `src/settings/weld.ts`; он же решает, что делать с отсутствующей настройкой, поэтому `undefined`
- * сюда не доходит. `<base>` — виртуальный путь от корня репозитория, не от `cwd`: `baseUrl`
- * отсчитывается от root. `source` называет место значения в конфиге в сообщениях об ошибках.
+ * сюда не доходит. `<base>` — виртуальный путь от корня репозитория, не от `cwd`: `aliasesBaseUrl`
+ * отсчитывается от корня репозитория. `source` называет место значения в конфиге в сообщениях об
+ * ошибках.
  */
-export function parseAliases(rawAliases: unknown, baseUrl: string, source: string): Alias[] {
+export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source: string): Alias[] {
     if (typeof rawAliases !== 'object' || rawAliases === null || Array.isArray(rawAliases)) {
         throw new Error(`${source} must be an object`);
     }
 
-    const base = resolvePath('/', baseUrl) ?? '/';
+    const base = resolvePath('/', aliasesBaseUrl) ?? '/';
 
     const result: Alias[] = [];
     const seen = new Set<string>();
@@ -62,7 +63,9 @@ export function parseAliases(rawAliases: unknown, baseUrl: string, source: strin
     }
 
     if (debug.enabled) {
-        debug(`${source} (baseUrl ${baseUrl}) resolved to:\n${formatAliases(result)}`);
+        debug(
+            `${source} (aliasesBaseUrl ${aliasesBaseUrl}) resolved to:\n${formatAliases(result)}`,
+        );
     }
     return result;
 }

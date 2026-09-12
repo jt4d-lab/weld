@@ -241,31 +241,31 @@ describe('getFsHost', () => {
         resetFsHostCaches();
     });
 
-    it('settings.weld.root выигрывает у авто-поиска', () => {
-        const settings = { weld: { root: '/explicit-root' } };
+    it('settings.weld.repoRoot выигрывает у авто-поиска', () => {
+        const settings = { weld: { repoRoot: '/explicit-root' } };
         const fsHost = getFsHost(settings, '/some/cwd');
 
         expect(fsHost.toVirtual('/explicit-root/x.ts')).toBe('/x.ts');
     });
 
     it('относительный root резолвится от cwd', () => {
-        const settings = { weld: { root: './packages/app' } };
+        const settings = { weld: { repoRoot: './packages/app' } };
         const fsHost = getFsHost(settings, '/home/user/repo');
 
         expect(fsHost.toVirtual('/home/user/repo/packages/app/x.ts')).toBe('/x.ts');
     });
 
     it('относительный root с подъёмом ..', () => {
-        const settings = { weld: { root: '../shared' } };
+        const settings = { weld: { repoRoot: '../shared' } };
         const fsHost = getFsHost(settings, '/home/user/repo/packages/app');
 
         expect(fsHost.toVirtual('/home/user/repo/packages/shared/x.ts')).toBe('/x.ts');
     });
 
-    it('settings.weld.root не строка → исключение', () => {
-        const settings = { weld: { root: 123 } };
+    it('settings.weld.repoRoot не строка → исключение', () => {
+        const settings = { weld: { repoRoot: 123 } };
 
-        expect(() => getFsHost(settings, '/some/cwd')).toThrow(/settings\.weld\.root/);
+        expect(() => getFsHost(settings, '/some/cwd')).toThrow(/settings\.weld\.repoRoot/);
     });
 
     it('без настройки — findRepoRoot находит директорию с package.json', () => {
@@ -294,7 +294,7 @@ describe('getFsHost', () => {
     });
 
     it('повторный вызов с тем же root возвращает тот же инстанс', () => {
-        const settings = { weld: { root: '/same-root' } };
+        const settings = { weld: { repoRoot: '/same-root' } };
 
         const a = getFsHost(settings, '/cwd');
         const b = getFsHost(settings, '/cwd');
@@ -303,7 +303,7 @@ describe('getFsHost', () => {
     });
 
     it('resetFsHostCaches сбрасывает кэш инстансов', () => {
-        const settings = { weld: { root: '/same-root' } };
+        const settings = { weld: { repoRoot: '/same-root' } };
 
         const a = getFsHost(settings, '/cwd');
         resetFsHostCaches();

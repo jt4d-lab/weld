@@ -6,4 +6,4 @@
  */
 
 export type { Alias } from './aliases.js';
-export { getAliases, getBaseUrl, getRoot } from './weld.js';
+export { getAliases, getAliasesBaseUrl, getRepoRoot } from './weld.js';

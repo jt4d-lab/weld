@@ -19,7 +19,7 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
         resetFsHostCaches();
     });
 
-    it('настоящий createFsHost (root фикстуры через settings.weld.root) находит нарушение по относительному импорту', () => {
+    it('настоящий createFsHost (root фикстуры через settings.weld.repoRoot) находит нарушение по относительному импорту', () => {
         const rule = createRule();
 
         ruleTester.run('no-barrel-bypass integration relative', rule, {
@@ -29,7 +29,7 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
                     name: 'относительный импорт мимо барьера фикстуры',
                     code: "import { a } from './feature/internal.ts';",
                     filename: consumerFile,
-                    settings: { weld: { root: fixtureRoot } },
+                    settings: { weld: { repoRoot: fixtureRoot } },
                     output: "import { a } from './feature/index.ts';",
                     errors: [
                         {
@@ -57,8 +57,8 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
                     filename: consumerFile,
                     settings: {
                         weld: {
-                            root: fixtureRoot,
-                            baseUrl: '/',
+                            repoRoot: fixtureRoot,
+                            aliasesBaseUrl: '/',
                             aliases: { '@src/*': ['src/*'] },
                         },
                     },
@@ -79,7 +79,7 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
 
     it('повторный прогон на том же входе стабилен и переиспользует инстанс/кэш FsHost в пределах TTL', () => {
         const rule = createRule();
-        const settings = { weld: { root: fixtureRoot } };
+        const settings = { weld: { repoRoot: fixtureRoot } };
 
         const runOnce = (): void =>
             ruleTester.run('no-barrel-bypass integration repeat', rule, {
@@ -118,7 +118,7 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
         expect(foundRoot).toBe(repoRoot);
     });
 
-    it('getFsHost без явного settings.weld.root авто-находит корень репозитория и резолвит виртуальные пути от него', () => {
+    it('getFsHost без явного settings.weld.repoRoot авто-находит корень репозитория и резолвит виртуальные пути от него', () => {
         const fsHost = getFsHost(undefined, fixtureRoot);
 
         expect(fsHost.toVirtual(`${repoRoot}/package.json`)).toBe('/package.json');

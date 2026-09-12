@@ -5,8 +5,8 @@ import { parseAliases } from '@/settings/aliases.js';
 const SOURCE = 'settings.weld.aliases';
 
 /** `source` у `parseAliases` обязателен — в тестах он везде один и тот же. */
-function parse(rawAliases: unknown, baseUrl: string) {
-    return parseAliases(rawAliases, baseUrl, SOURCE);
+function parse(rawAliases: unknown, aliasesBaseUrl: string) {
+    return parseAliases(rawAliases, aliasesBaseUrl, SOURCE);
 }
 
 describe('parseAliases — таблица нормализации', () => {
@@ -76,14 +76,14 @@ describe('parseAliases — дубликаты и массивы', () => {
     });
 });
 
-describe('parseAliases — baseUrl', () => {
-    it('baseUrl задан → якоря относительно него', () => {
+describe('parseAliases — aliasesBaseUrl', () => {
+    it('aliasesBaseUrl задан → якоря относительно него', () => {
         expect(parse({ '@src/*': ['src/*'] }, 'packages/app')).toEqual([
             { prefix: '@src', anchor: '/packages/app/src' },
         ]);
     });
 
-    it("baseUrl '.' → якоря от корня /", () => {
+    it("aliasesBaseUrl '.' → якоря от корня /", () => {
         expect(parse({ '@src/*': ['src/*'] }, '.')).toEqual([{ prefix: '@src', anchor: '/src' }]);
     });
 });

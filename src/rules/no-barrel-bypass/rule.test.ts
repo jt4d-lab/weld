@@ -137,7 +137,9 @@ describe('weld/no-barrel-bypass', () => {
                     name: 'нарушение и правка приходят в форме алиаса',
                     code: "import { a } from '@src/other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
-                    settings: { weld: { baseUrl: '/repo', aliases: { '@src/*': ['src/*'] } } },
+                    settings: {
+                        weld: { aliasesBaseUrl: '/repo', aliases: { '@src/*': ['src/*'] } },
+                    },
                     output: "import { a } from '@src/other/index.ts';",
                     errors: [
                         {

@@ -22,8 +22,8 @@ function fakeContext(fields: {
 describe('WELD_OPTION_PROPERTIES', () => {
     it('объявляет три общие настройки — правило подмешивает их к своим', () => {
         expect(WELD_OPTION_PROPERTIES).toEqual({
-            root: { type: 'string' },
-            baseUrl: { type: 'string' },
+            repoRoot: { type: 'string' },
+            aliasesBaseUrl: { type: 'string' },
             aliases: { type: 'object' },
         });
     });
@@ -34,13 +34,15 @@ describe('resolveWeldContext', () => {
         resetFsHostCaches();
     });
 
-    it('файл внутри root → виртуальный путь, алиасы и та же файловая система', () => {
+    it('файл внутри корня репозитория → виртуальный путь, алиасы и та же файловая система', () => {
         const fsHost = createFakeFsHost(['/src/other/index.ts']);
 
         const weld = resolveWeldContext(
             fakeContext({
                 filename: '/src/feature/file.ts',
-                settings: { weld: { baseUrl: '/', aliases: { '@other/*': ['src/other/*'] } } },
+                settings: {
+                    weld: { aliasesBaseUrl: '/', aliases: { '@other/*': ['src/other/*'] } },
+                },
             }),
             fsHost,
         );
@@ -51,7 +53,7 @@ describe('resolveWeldContext', () => {
         expect(weld?.fsHost).toBe(fsHost);
     });
 
-    it('файл вне root → null', () => {
+    it('файл вне корня репозитория → null', () => {
         const weld = resolveWeldContext(
             fakeContext({ filename: 'relative/file.ts' }),
             createFakeFsHost([]),
@@ -69,12 +71,14 @@ describe('resolveWeldContext', () => {
         expect(weld?.aliases).toEqual([]);
     });
 
-    it('options.aliases и options.baseUrl перекрывают settings.weld', () => {
+    it('options.aliases и options.aliasesBaseUrl перекрывают settings.weld', () => {
         const weld = resolveWeldContext(
             fakeContext({
                 filename: '/src/feature/file.ts',
-                settings: { weld: { baseUrl: '/nowhere', aliases: { '@a/*': ['nowhere/*'] } } },
-                options: [{ baseUrl: '/', aliases: { '@a/*': ['src/a/*'] } }],
+                settings: {
+                    weld: { aliasesBaseUrl: '/nowhere', aliases: { '@a/*': ['nowhere/*'] } },
+                },
+                options: [{ aliasesBaseUrl: '/', aliases: { '@a/*': ['src/a/*'] } }],
             }),
             createFakeFsHost([]),
         );
@@ -82,34 +86,34 @@ describe('resolveWeldContext', () => {
         expect(weld?.aliases).toEqual([{ prefix: '@a', anchor: '/src/a' }]);
     });
 
-    it('без инъекции файловая система собирается из settings.weld.root', () => {
+    it('без инъекции файловая система собирается из settings.weld.repoRoot', () => {
         const weld = resolveWeldContext(
             fakeContext({
                 filename: '/repo/src/feature/file.ts',
-                settings: { weld: { root: '/repo' } },
+                settings: { weld: { repoRoot: '/repo' } },
             }),
         );
 
         expect(weld?.fromFile).toBe('/src/feature/file.ts');
     });
 
-    it('options.root выигрывает у settings.weld.root', () => {
+    it('options.repoRoot выигрывает у settings.weld.repoRoot', () => {
         const weld = resolveWeldContext(
             fakeContext({
                 filename: '/repo/src/feature/file.ts',
-                settings: { weld: { root: '/nowhere' } },
-                options: [{ root: '/repo' }],
+                settings: { weld: { repoRoot: '/nowhere' } },
+                options: [{ repoRoot: '/repo' }],
             }),
         );
 
         expect(weld?.fromFile).toBe('/src/feature/file.ts');
     });
 
-    it('при инъекции fsHost опция root ни на что не влияет', () => {
+    it('при инъекции fsHost опция repoRoot ни на что не влияет', () => {
         const weld = resolveWeldContext(
             fakeContext({
                 filename: '/src/feature/file.ts',
-                options: [{ root: '/nowhere' }],
+                options: [{ repoRoot: '/nowhere' }],
             }),
             createFakeFsHost([]),
         );
