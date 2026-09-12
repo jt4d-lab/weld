@@ -210,7 +210,6 @@ export function getFsHost(settings: unknown, cwd: string, repoRootOverride?: unk
 
     const cached = instanceCache.get(root);
     if (cached) {
-        debug('getFsHost: reusing cached instance for root %s', root);
         return cached;
     }
 

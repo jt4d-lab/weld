@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getAliases, getAliasesBaseUrl, getRepoRoot } from '@/settings/weld.js';
 
@@ -61,6 +61,62 @@ describe('getAliases', () => {
 
     it('settings.weld — массив → принимается как объект (typeof [] === "object")', () => {
         expect(getAliases({ weld: [] })).toEqual([]);
+    });
+});
+
+describe('getAliases — кэш', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('те же аргументы → тот же массив, без повторного разбора', () => {
+        const settings = { weld: { aliases: { '@src/*': ['src/*'] } } };
+
+        expect(getAliases(settings)).toBe(getAliases(settings));
+    });
+
+    it('другой settings → разбор заново', () => {
+        const aliases = { '@src/*': ['src/*'] };
+
+        expect(getAliases({ weld: { aliases } })).not.toBe(getAliases({ weld: { aliases } }));
+    });
+
+    it('тот же settings, но другой override → разбор заново', () => {
+        const settings = { weld: { aliases: { '@src/*': ['src/*'] } } };
+
+        expect(getAliases(settings, { '@lib/*': ['lib/*'] })).toEqual([
+            { prefix: '@lib', anchor: '/lib' },
+        ]);
+        expect(getAliases(settings)).toEqual([{ prefix: '@src', anchor: '/src' }]);
+    });
+
+    it('два конфига не вытесняют друг друга — записей в кэше несколько', () => {
+        const first = { weld: { aliases: { '@a/*': ['a/*'] } } };
+        const second = { weld: { aliases: { '@b/*': ['b/*'] } } };
+
+        const fromFirst = getAliases(first);
+        getAliases(second);
+
+        expect(getAliases(first)).toBe(fromFirst);
+    });
+
+    it('через минуту запись протухает — разбор заново', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(0);
+        const settings = { weld: { aliases: { '@src/*': ['src/*'] } } };
+
+        const fresh = getAliases(settings);
+        vi.setSystemTime(60_001);
+
+        expect(getAliases(settings)).not.toBe(fresh);
+        expect(getAliases(settings)).toEqual([{ prefix: '@src', anchor: '/src' }]);
+    });
+
+    it('сломанный конфиг бросает на каждом вызове, а не только на первом', () => {
+        const settings = { weld: { aliases: 'nope' } };
+
+        expect(() => getAliases(settings)).toThrow('settings.weld.aliases must be an object');
+        expect(() => getAliases(settings)).toThrow('settings.weld.aliases must be an object');
     });
 });
 
