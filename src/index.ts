@@ -2,26 +2,29 @@ import { createRequire } from 'node:module';
 
 import type { ESLint, Linter } from 'eslint';
 
-import { rules } from './rules/index.js';
+import { PACKAGE_NAME } from '@/debug.js';
+import { rules } from '@/rules/index.js';
 
-const { name, version } = createRequire(import.meta.url)('../package.json') as {
-    name: string;
-    version: string;
-};
+/** Версию проставляет release-workflow перед упаковкой, поэтому она читается из `package.json`. */
+const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
 
 const recommended: Linter.Config = {
     name: 'weld/recommended',
-    rules: {},
+    rules: {
+        'weld/no-barrel-bypass': 'error',
+    },
 };
 
 const strict: Linter.Config = {
     name: 'weld/strict',
-    rules: {},
+    rules: {
+        'weld/no-barrel-bypass': 'error',
+    },
 };
 
 const plugin = {
     meta: {
-        name,
+        name: PACKAGE_NAME,
         version,
     },
     rules,

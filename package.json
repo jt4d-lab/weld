@@ -56,8 +56,12 @@
         "*.{js,mjs,cjs,ts,tsx,json,md,mdx,yml,yaml}": "prettier --write",
         "*.{js,mjs,cjs,ts,tsx}": "eslint --fix"
     },
+    "dependencies": {
+        "debug": "^4.4.0"
+    },
     "devDependencies": {
         "@eslint/js": "^10.0.0",
+        "@types/debug": "^4.1.12",
         "@types/node": "^26.0.0",
         "eslint": "^10.0.0",
         "husky": "^9.1.7",

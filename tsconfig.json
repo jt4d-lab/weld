@@ -6,6 +6,12 @@
         ],
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "src/*"
+            ]
+        },
         "types": [
             "node"
         ],
@@ -25,7 +31,6 @@
     },
     "include": [
         "src",
-        "tests",
         "tsup.config.ts",
         "vitest.config.ts"
     ]

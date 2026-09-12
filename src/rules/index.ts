@@ -1,5 +1,7 @@
 import type { Rule } from 'eslint';
 
-export const rules = {} satisfies Record<string, Rule.RuleModule>;
+import { createRule as createNoBarrelBypassRule } from '@/rules/no-barrel-bypass/index.js';
 
-export type RuleName = keyof typeof rules;
+export const rules = {
+    'no-barrel-bypass': createNoBarrelBypassRule(),
+} satisfies Record<string, Rule.RuleModule>;
