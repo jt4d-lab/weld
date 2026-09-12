@@ -5,5 +5,3 @@ import { createRule as createNoBarrelBypassRule } from '@/rules/no-barrel-bypass
 export const rules = {
     'no-barrel-bypass': createNoBarrelBypassRule(),
 } satisfies Record<string, Rule.RuleModule>;
-
-export type RuleName = keyof typeof rules;
