@@ -146,9 +146,11 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 
 Общие настройки и связка «ESLint-контекст → всё, что правилу нужно до первого узла».
 `WELD_OPTION_PROPERTIES` — свойства `meta.schema`, которые правило подмешивает к своим спредом;
-`resolveWeldContext<TOptions>(context, fsHost?)` возвращает `{ fromFile, aliases, fsHost, options }`
-(`options` — уже разобранные опции правила, включая его собственные) либо `null`, если линтуемый
-файл вне корня репозитория. Правило не перечисляет `repoRoot`/`aliasesBaseUrl`/`aliases` у себя и не
+`resolveWeldContext<TOwnOptions>(context, fsHost?)` возвращает
+`{ fromFile, aliases, fsHost, options }` либо `null`, если линтуемый файл вне корня репозитория.
+Параметр — только собственные опции правила: общие известны самому `resolveWeldContext`, и в
+`options` он отдаёт их пересечение (`TOwnOptions & WeldOptions`, `WeldOptions` наружу не выходит).
+Правило не перечисляет `repoRoot`/`aliasesBaseUrl`/`aliases` ни в схеме, ни в типе опций и не
 собирает `FsHost` руками — иначе четвёртая общая настройка потребовала бы правки каждого правила
 порознь.
 

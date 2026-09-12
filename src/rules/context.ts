@@ -8,9 +8,9 @@
  * репозитория через `getRepoRoot` — осознанная односторонняя зависимость `host → settings`
  * (см. `getFsHost` в `src/host/fs.ts`).
  *
- * Правило не перечисляет `repoRoot`/`aliasesBaseUrl`/`aliases` у себя в `meta.schema` и не собирает
- * `FsHost` руками — иначе четвёртая общая настройка потребовала бы правки каждого правила по
- * отдельности.
+ * Правило не перечисляет `repoRoot`/`aliasesBaseUrl`/`aliases` ни у себя в `meta.schema`, ни в типе
+ * своих опций и не собирает `FsHost` руками — иначе четвёртая общая настройка потребовала бы правки
+ * каждого правила по отдельности.
  */
 
 import type { Rule } from 'eslint';
@@ -32,26 +32,27 @@ export const WELD_OPTION_PROPERTIES = {
 
 /**
  * Значения общих опций правила. Типы уже отсеяны `meta.schema` — в геттеры они идут как `unknown`,
- * а сюда попадают только чтобы правило могло объявить свой тип опций через пересечение.
+ * а здесь нужны, чтобы подмешать общие опции к собственным опциям правила. Наружу тип не выходит:
+ * правилу незачем его называть, пересечение делается здесь.
  */
-export type WeldOptions = {
+type WeldOptions = {
     repoRoot?: string;
     aliasesBaseUrl?: string;
     aliases?: Record<string, unknown>;
 };
 
 /** Всё, что правило берёт из контекста до обхода AST. */
-export type WeldContext<TOptions extends WeldOptions = WeldOptions> = {
+export type WeldContext<TOwnOptions = unknown> = {
     /** Файл, который сейчас линтуется, — виртуальный путь от корня репозитория. */
     fromFile: string;
     aliases: Alias[];
     fsHost: FsHost;
     /**
-     * Опции правила, уже разобранные и приведённые к его типу — включая свои, не общие. Правило
-     * читает их отсюда, а не из `context.options[0]`: иначе каждое повторяло бы каст и дефолт, и
-     * форма опций знала бы о себе в двух местах.
+     * Опции правила, уже разобранные: собственные опции правила плюс общие. Правило читает их
+     * отсюда, а не из `context.options[0]`: иначе каждое повторяло бы каст и дефолт, и форма опций
+     * знала бы о себе в двух местах.
      */
-    options: TOptions;
+    options: TOwnOptions & WeldOptions;
 };
 
 /**
@@ -61,12 +62,14 @@ export type WeldContext<TOptions extends WeldOptions = WeldOptions> = {
  * `fsHostOverride` — шов для тестов, общий на все правила: подменяет файловую систему целиком, и
  * тогда опция `repoRoot` ни на что не влияет. Шов именно параметром, а не модульным состоянием,
  * чтобы тесты не зависели от порядка запуска.
+ *
+ * `TOwnOptions` — только собственные опции правила: общие известны здесь и подмешиваются сами.
  */
-export function resolveWeldContext<TOptions extends WeldOptions = WeldOptions>(
+export function resolveWeldContext<TOwnOptions = unknown>(
     context: Rule.RuleContext,
     fsHostOverride?: FsHost,
-): WeldContext<TOptions> | null {
-    const options = (context.options[0] ?? {}) as TOptions;
+): WeldContext<TOwnOptions> | null {
+    const options = (context.options[0] ?? {}) as TOwnOptions & WeldOptions;
     const fsHost = fsHostOverride ?? getFsHost(context.settings, context.cwd, options.repoRoot);
 
     const fromFile = fsHost.toVirtual(context.filename);

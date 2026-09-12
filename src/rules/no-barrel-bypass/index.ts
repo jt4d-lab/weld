@@ -12,7 +12,6 @@ import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import type { SpecifierNode } from '@/imports/index.js';
 import { createSpecifierVisitor, replaceSpecifier } from '@/imports/index.js';
-import type { WeldOptions } from '@/rules/context.js';
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 
 import { createChecker } from '@/rules/no-barrel-bypass/pipeline.js';
@@ -24,8 +23,11 @@ const messages = {
     useBarrel: "Import through '{{suggestion}}'.",
 };
 
-/** Своя опция у правила одна — остальные общие, см. {@link WELD_OPTION_PROPERTIES}. */
-type RuleOptions = WeldOptions & { fix?: boolean };
+/**
+ * Своя опция у правила одна; общие к ней подмешивает `resolveWeldContext`, см.
+ * {@link WELD_OPTION_PROPERTIES}.
+ */
+type RuleOptions = { fix?: boolean };
 
 /**
  * `fsHost` — для инъекции в тестах; без него файловую систему собирает `resolveWeldContext` из
