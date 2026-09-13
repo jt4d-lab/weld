@@ -44,7 +44,7 @@ jobs:
     deploy:
         name: Deploy to GitHub Pages
         # На pull_request собираем, но не публикуем: форк бы получил права на прод-сайт.
-        if: github.event_name != 'pull_request'
+        #if: github.event_name != 'pull_request'
         needs: build
         runs-on: ubuntu-latest
         permissions:
