@@ -1,24 +1,28 @@
----
-# https://vitepress.dev/reference/default-theme-home-page
-layout: home
+# Well-Encapsulated Layered Design
 
-hero:
-    name: 'WELD — Well-Encapsulated Layered Design'
-    text: 'Подход к организации кода во frontend-приложениях'
-    tagline: My great project tagline
-    actions:
-        - theme: brand
-          text: Markdown Examples
-          link: /markdown-examples
-        - theme: alt
-          text: API Examples
-          link: /api-examples
+Подход к организации кода во frontend-приложениях, построенный на двух вещах:
 
-features:
-    - title: Feature A
-      details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-    - title: Feature B
-      details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-    - title: Feature C
-      details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
----
+- **строгая инкапсуляция** — модуль публикует наружу узкий, осознанно спроектированный интерфейс,
+  всё остальное остаётся его внутренним делом;
+- **слои задают направление зависимостей** — инкапсуляция не даёт зависимостям расползтись в обход
+  этого направления.
+
+## Простые идеи
+
+В основе лежат простые идеи:
+
+1. **Баррель = граница модуля**
+
+> `index` в директории явно указывает public API этой директории
+
+2. **Однонаправленность зависимостей**
+
+> Слой импортирует только из слоёв ниже себя
+
+3. **Слои задаёт проект**
+
+> Методология даёт форму, а набор и порядок слоев выбирает проект
+
+4. **Общие слои и фрактальность модулей**
+
+> Общие слои наверху, модули в `modules/` — со своими слоями и своими вложенными `modules/`
