@@ -41,3 +41,7 @@ pnpm-debug.log*
 .vscode/
 .DS_Store
 Thumbs.db
+
+# VitePress cache and production build
+docs/.vitepress/cache
+docs/.vitepress/dist
