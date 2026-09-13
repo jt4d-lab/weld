@@ -15,10 +15,15 @@
 
 import type { Rule } from 'eslint';
 
+import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import { getFsHost } from '@/host/index.js';
 import type { Alias } from '@/settings/index.js';
-import { getAliases } from '@/settings/index.js';
+import { getAliases, getAliasesFromPaths, getRepoRoot, hasAliases } from '@/settings/index.js';
+import type { TsconfigPaths } from '@/tsconfig/index.js';
+import { loadTsconfigPaths } from '@/tsconfig/index.js';
+
+const debug = createLogger('rules');
 
 /**
  * Свойства `meta.schema`, общие для всех правил: те же настройки, что и в `settings.weld`, но
@@ -70,17 +75,88 @@ export function resolveWeldContext<TOwnOptions = unknown>(
     fsHostOverride?: FsHost,
 ): WeldContext<TOwnOptions> | null {
     const options = (context.options[0] ?? {}) as TOwnOptions & WeldOptions;
-    const fsHost = fsHostOverride ?? getFsHost(context.settings, context.cwd, options.repoRoot);
+    const { fsHost, aliases } = resolveHostAndAliases(context, options, fsHostOverride);
 
     const fromFile = fsHost.toVirtual(context.filename);
     if (fromFile === null) {
         return null;
     }
 
-    return {
-        fromFile,
-        aliases: getAliases(context.settings, options.aliases, options.aliasesBaseUrl),
-        fsHost,
-        options,
-    };
+    return { fromFile, aliases, fsHost, options };
+}
+
+/** `FsHost` и алиасы — всё, что в `WeldContext` не зависит от виртуализуемости линтуемого файла. */
+function resolveHostAndAliases(
+    context: Rule.RuleContext,
+    options: WeldOptions,
+    fsHostOverride?: FsHost,
+): { fsHost: FsHost; aliases: Alias[] } {
+    // Приоритет источников алиасов: `options.aliases` → `settings.weld.aliases` → автопоиск
+    // tsconfig. «Заданы явно» — это присутствие ключа: пустой `{}` тоже выключает автопоиск.
+    if (hasAliases(context.settings, options.aliases)) {
+        return {
+            fsHost: fsHostOverride ?? getFsHost(context.settings, context.cwd, options.repoRoot),
+            aliases: getAliases(context.settings, options.aliases, options.aliasesBaseUrl),
+        };
+    }
+
+    // Инъекция `fsHostOverride` (шов тестов) автопоиск выключает тоже: тесты на фейковой ФС не
+    // должны зависеть от содержимого реального диска.
+    if (fsHostOverride !== undefined) {
+        return { fsHost: fsHostOverride, aliases: [] };
+    }
+
+    // Автопоиск: явных алиасов нет — `paths` ближайшего к линтуемому файлу tsconfig. При
+    // автоопределении root обязан покрыть якоря, иначе алиас молча не работал бы — отсюда
+    // `coverDirs`; при явном root их игнорирует сам `getFsHost`, а инвариант держит отбрасывание
+    // непокрытого (ниже и в `parseAliases`).
+    const found = loadTsconfigPaths(context.filename);
+    const hasExplicitRoot = getRepoRoot(context.settings, options.repoRoot) !== undefined;
+    const fsHost = getFsHost(
+        context.settings,
+        context.cwd,
+        options.repoRoot,
+        found?.realAnchors ?? [],
+    );
+
+    return { fsHost, aliases: aliasesFromTsconfig(found, fsHost, hasExplicitRoot) };
+}
+
+/**
+ * Алиасы из найденного tsconfig. Любая проблема — не алиасы, а debug: кривой или чужой tsconfig не
+ * должен валить линт (в отличие от явных `settings.weld.aliases`/`options.aliases`, где падение —
+ * намеренное).
+ */
+function aliasesFromTsconfig(
+    found: TsconfigPaths | null,
+    fsHost: FsHost,
+    hasExplicitRoot: boolean,
+): Alias[] {
+    if (found === null) {
+        return [];
+    }
+
+    // tsconfig, найденный вне явного root, отбрасывается целиком: иначе поведение зависело бы от
+    // содержимого директорий над root (например, tsconfig репозитория над тестовой фикстурой).
+    if (hasExplicitRoot && fsHost.toVirtual(found.configPath) === null) {
+        debug('discarding tsconfig %s: it is outside the explicit root', found.configPath);
+        return [];
+    }
+
+    const virtualBase = fsHost.toVirtual(found.realBaseDir);
+    if (virtualBase === null) {
+        debug(
+            'discarding tsconfig %s: base dir %s is outside the root',
+            found.configPath,
+            found.realBaseDir,
+        );
+        return [];
+    }
+
+    try {
+        return getAliasesFromPaths(found.paths, virtualBase, found.configPath);
+    } catch (error) {
+        debug('discarding tsconfig %s: %s', found.configPath, error);
+        return [];
+    }
 }
