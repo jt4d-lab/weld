@@ -7,6 +7,10 @@
  * конфига. Оно тоже приходит из пользовательского конфига (опции правила), поэтому проверяется теми
  * же правилами, что и `settings.weld`; в сообщении об ошибке называется источник — `options.<имя>`
  * вместо `settings.weld.<имя>`.
+ *
+ * Здесь же живёт кэш разобранных алиасов, поэтому и второй вход в тот же разбор — `paths` из
+ * tsconfig (`getAliasesFromPaths`) — идёт отсюда: решение «алиасы разбираются один раз на конфиг»
+ * должно быть одно на оба источника.
  */
 
 import type { Alias } from '@/settings/aliases.js';
@@ -93,19 +97,17 @@ function readAliases(settings: unknown, override: unknown, baseUrlOverride: unkn
  */
 const TTL_MS = 60_000;
 
-type AliasesCacheEntry = {
-    settings: unknown;
-    override: unknown;
-    baseUrlOverride: unknown;
-    result: Alias[];
-    expiresAt: number;
-};
+/** Ключ записи — тройка аргументов разбора, сравниваемых по ссылке. */
+type AliasesCacheKey = readonly [unknown, unknown, unknown];
+
+type AliasesCacheEntry = { key: AliasesCacheKey; result: Alias[]; expiresAt: number };
 
 /**
- * Кэш разобранных алиасов: правило спрашивает их на каждый линтуемый файл, а аргументы приходят те
- * же — в flat config объект `settings` у всех файлов одного конфиг-блока один и тот же, и опции
- * правила тоже. Попадание избавляет от повторного разбора `paths` и от повторного `debug`-лога о
- * нём.
+ * Кэш разобранных алиасов, общий на оба источника (`settings.weld.aliases` и `paths` tsconfig):
+ * правило спрашивает алиасы на каждый линтуемый файл, а аргументы приходят те же — в flat config
+ * объект `settings` у всех файлов одного конфиг-блока один и тот же, опции правила тоже, а `paths`
+ * отдаёт по ссылке кэш `src/tsconfig/`. Попадание избавляет от повторного разбора `paths` и от
+ * повторного `debug`-лога о нём.
  *
  * Список с линейным поиском, а не `Map`: ключ здесь — тройка ссылок, строкового ключа у неё нет, а
  * собирать его пришлось бы обходом тех же `paths`. Записей при этом единицы — по одной на
@@ -113,42 +115,29 @@ type AliasesCacheEntry = {
  */
 let aliasesCache: AliasesCacheEntry[] = [];
 
-function peekAliases(
-    settings: unknown,
-    override: unknown,
-    baseUrlOverride: unknown,
-    time: number,
-): Alias[] | undefined {
+function sameKey(left: AliasesCacheKey, right: AliasesCacheKey): boolean {
+    return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
+}
+
+/**
+ * Разбор через кэш. Запоминается только успешный разбор: на сломанном конфиге ESLint должен
+ * ругаться на каждом файле, а не на первом. Протухшие записи выбрасываются здесь, а не по таймеру:
+ * кэш растёт только на промахах, на промахе же и чистится.
+ */
+function cachedAliases(key: AliasesCacheKey, parse: () => Alias[]): Alias[] {
+    const time = Date.now();
     for (const entry of aliasesCache) {
-        if (
-            entry.expiresAt > time &&
-            entry.settings === settings &&
-            entry.override === override &&
-            entry.baseUrlOverride === baseUrlOverride
-        ) {
+        if (entry.expiresAt > time && sameKey(entry.key, key)) {
             return entry.result;
         }
     }
 
-    return undefined;
-}
-
-/**
- * Протухшие записи выбрасываются здесь, а не по таймеру: кэш растёт только на промахах, на промахе
- * же и чистится.
- */
-function rememberAliases(entry: AliasesCacheEntry, time: number): Alias[] {
+    const result = parse();
     aliasesCache = aliasesCache.filter(
-        (existing) =>
-            existing.expiresAt > time &&
-            !(
-                existing.settings === entry.settings &&
-                existing.override === entry.override &&
-                existing.baseUrlOverride === entry.baseUrlOverride
-            ),
+        (entry) => entry.expiresAt > time && !sameKey(entry.key, key),
     );
-    aliasesCache.push(entry);
-    return entry.result;
+    aliasesCache.push({ key, result, expiresAt: time + TTL_MS });
+    return result;
 }
 
 /**
@@ -165,18 +154,33 @@ export function getAliases(
     override?: unknown,
     baseUrlOverride?: unknown,
 ): Alias[] {
-    const time = Date.now();
+    return cachedAliases([settings, override, baseUrlOverride], () =>
+        readAliases(settings, override, baseUrlOverride),
+    );
+}
 
-    const cached = peekAliases(settings, override, baseUrlOverride, time);
-    if (cached !== undefined) {
-        return cached;
+/**
+ * Разбор внешних `paths` (формат `compilerOptions.paths` из tsconfig) в `Alias[]` — те же правила и
+ * тот же кэш, что у `settings.weld.aliases`. Параметры: сами `paths`, виртуальная директория, от
+ * которой отсчитываются записи, и `source` — имя источника значения в сообщениях об ошибках
+ * (реальный путь tsconfig). На кривых значениях бросает так же, как разбор `settings.weld.aliases`,
+ * — решение «глотать или падать» принадлежит вызывающему.
+ */
+export function getAliasesFromPaths(paths: unknown, virtualBase: string, source: string): Alias[] {
+    return cachedAliases([paths, virtualBase, source], () =>
+        parseAliases(paths, virtualBase, source),
+    );
+}
+
+/**
+ * Заданы ли алиасы явно — в `options.aliases` (`override`) или в `settings.weld.aliases`.
+ * «Заданы» — это присутствие ключа: пустой `{}` тоже считается (и выключает автопоиск tsconfig).
+ * При заданном `override` секция `settings` не читается — как в геттерах.
+ */
+export function hasAliases(settings: unknown, override?: unknown): boolean {
+    if (override !== undefined) {
+        return true;
     }
 
-    // Запоминается только успешный разбор: на сломанном конфиге ESLint должен ругаться на каждом
-    // файле, а не на первом.
-    const result = readAliases(settings, override, baseUrlOverride);
-    return rememberAliases(
-        { settings, override, baseUrlOverride, result, expiresAt: time + TTL_MS },
-        time,
-    );
+    return getWeldSettings(settings)?.aliases !== undefined;
 }

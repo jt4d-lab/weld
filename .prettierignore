@@ -1,5 +1,7 @@
 dist/
 node_modules/
+# tsconfig-фикстуры: JSONC и битый JSON, prettier их переформатирует или упадёт
+src/testing/fixtures/tsconfig/
 .yarn/
 yarn.lock
 CHANGELOG.md

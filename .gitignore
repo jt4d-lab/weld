@@ -2,6 +2,10 @@
 node_modules/
 .pnp.*
 
+# Поддельная node_modules внутри tsconfig-фикстур — данные тестов, а не зависимости
+!src/testing/fixtures/**/node_modules/
+!src/testing/fixtures/**/node_modules/**
+
 # Yarn (Berry)
 .yarn/*
 !.yarn/patches

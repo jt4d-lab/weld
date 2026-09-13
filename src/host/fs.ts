@@ -6,6 +6,7 @@ import { dirname, joinSegments, segments, toPosix } from '@/path/index.js';
 import { getRepoRoot } from '@/settings/index.js';
 
 import {
+    commonRealDirectory,
     joinReal,
     normalizeRoot,
     resolveRealPath,
@@ -188,13 +189,39 @@ function findRepoRootCached(cwd: string): string | null {
     return found;
 }
 
-function resolveRoot(settings: unknown, cwd: string, repoRootOverride?: unknown): string {
+function resolveRoot(
+    settings: unknown,
+    cwd: string,
+    repoRootOverride: unknown,
+    coverDirs: string[],
+): string {
     const explicitRoot = getRepoRoot(settings, repoRootOverride);
     if (explicitRoot !== undefined) {
+        // Явный root — воля пользователя; инвариант «root покрывает якоря» тут держит не подъём
+        // root, а отбрасывание непокрытых якорей существующей валидацией у вызывающего.
         return resolveRealPath(cwd, explicitRoot);
     }
 
-    return findRepoRootCached(cwd) ?? cwd;
+    const base = toPosix(findRepoRootCached(cwd) ?? cwd);
+    let root = base;
+    for (const coverDir of coverDirs) {
+        const combined = commonRealDirectory(root, toPosix(coverDir));
+        if (combined === null) {
+            debug(
+                'resolveRoot: cover dir %s shares no prefix with root %s, ignoring',
+                coverDir,
+                root,
+            );
+            continue;
+        }
+        root = combined;
+    }
+
+    if (root !== base) {
+        debug('resolveRoot: auto root raised from %s to %s to cover requested dirs', base, root);
+    }
+
+    return root;
 }
 
 /**
@@ -203,10 +230,20 @@ function resolveRoot(settings: unknown, cwd: string, repoRootOverride?: unknown)
  *
  * `repoRootOverride` — значение repoRoot из опций правила; разбирает и проверяет его всё тот же
  * `getRepoRoot`, `src/host/` про формат конфига по-прежнему ничего не знает. Кэш инстансов ключуется
- * уже резолвнутым root, поэтому файлы с разным override не делят инстанс.
+ * уже резолвнутым root, поэтому файлы с разным override (или разными `coverDirs`) не делят инстанс.
+ *
+ * `coverDirs` — реальные директории, которые root обязан покрыть (якоря алиасов из tsconfig).
+ * Действует только при автоопределении root: итог — общая директория `findRepoRoot(cwd) ?? cwd` и
+ * всех `coverDirs`; директория без общего префикса (другой диск) игнорируется с debug. Явный root
+ * побеждает и игнорирует параметр целиком.
  */
-export function getFsHost(settings: unknown, cwd: string, repoRootOverride?: unknown): FsHost {
-    const root = resolveRoot(settings, cwd, repoRootOverride);
+export function getFsHost(
+    settings: unknown,
+    cwd: string,
+    repoRootOverride?: unknown,
+    coverDirs: string[] = [],
+): FsHost {
+    const root = resolveRoot(settings, cwd, repoRootOverride, coverDirs);
 
     const cached = instanceCache.get(root);
     if (cached) {

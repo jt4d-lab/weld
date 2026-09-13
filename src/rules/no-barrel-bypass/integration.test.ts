@@ -10,13 +10,21 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { findRepoRoot, getFsHost, resetFsHostCaches } from '@/host/index.js';
 
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
-import { consumerFile, createRuleTester, fixtureRoot, repoRoot } from '@/testing/index.js';
+import {
+    consumerFile,
+    createRuleTester,
+    fixtureRoot,
+    repoRoot,
+    tsconfigBasicFixture,
+} from '@/testing/index.js';
+import { resetTsconfigCache } from '@/tsconfig/index.js';
 
 const ruleTester = createRuleTester();
 
 describe('weld/no-barrel-bypass: интеграционные тесты на реальной фикстуре', () => {
     afterEach(() => {
         resetFsHostCaches();
+        resetTsconfigCache();
     });
 
     it('настоящий createFsHost (root фикстуры через settings.weld.repoRoot) находит нарушение по относительному импорту', () => {
@@ -69,6 +77,32 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
                             data: {
                                 suggestion: '@src/feature/index.ts',
                                 original: '@src/feature/internal.ts',
+                            },
+                        },
+                    ],
+                },
+            ],
+        });
+    });
+
+    it('без явных алиасов правило работает на алиасе, добытом автопоиском из tsconfig', () => {
+        const rule = createRule();
+
+        ruleTester.run('no-barrel-bypass integration tsconfig autopick', rule, {
+            valid: [],
+            invalid: [
+                {
+                    name: 'нарушение и правка через @/-алиас из tsconfig фикстуры',
+                    code: "import { a } from '@/feature/internal.ts';",
+                    filename: `${tsconfigBasicFixture}/src/consumer.ts`,
+                    settings: { weld: { repoRoot: tsconfigBasicFixture } },
+                    output: "import { a } from '@/feature/index.ts';",
+                    errors: [
+                        {
+                            messageId: 'bypass',
+                            data: {
+                                suggestion: '@/feature/index.ts',
+                                original: '@/feature/internal.ts',
                             },
                         },
                     ],

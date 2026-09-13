@@ -1,0 +1,6 @@
+{
+    "extends": "@fixture/tsconfig",
+    "compilerOptions": {
+        "baseUrl": "."
+    }
+}

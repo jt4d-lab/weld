@@ -1,12 +1,14 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ENTRY_EXTENSIONS } from '@/extensions.js';
+import { basename } from '@/path/index.js';
+import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
 
 import { createFsHost, getFsHost, resetFsHostCaches } from '@/host/fs.js';
 import { createFakeExists, createFakeFsHost } from '@/host/fs.testing.js';
+import { commonRealDirectory } from '@/host/real-path.js';
 
 describe('createFsHost.toVirtual', () => {
     it('путь внутри root → виртуальный от /', () => {
@@ -239,6 +241,7 @@ describe('createFsHost: TTL-кэш', () => {
 describe('getFsHost', () => {
     afterEach(() => {
         resetFsHostCaches();
+        cleanupTmpProjects();
     });
 
     it('settings.weld.repoRoot выигрывает у авто-поиска', () => {
@@ -269,28 +272,19 @@ describe('getFsHost', () => {
     });
 
     it('без настройки — findRepoRoot находит директорию с package.json', () => {
-        const dir = mkdtempSync(`${tmpdir()}/weld-fs-test-`);
-        try {
-            writeFileSync(`${dir}/package.json`, '{}');
-            const sub = `${dir}/src`;
+        const dir = makeTmpProject({ 'package.json': '{}' });
 
-            const fsHost = getFsHost(undefined, sub);
+        const fsHost = getFsHost(undefined, `${dir}/src`);
 
-            expect(fsHost.toVirtual(`${dir}/package.json`)).toBe('/package.json');
-        } finally {
-            rmSync(dir, { recursive: true, force: true });
-        }
+        expect(fsHost.toVirtual(`${dir}/package.json`)).toBe('/package.json');
     });
 
     it('без настройки, ничего не найдено — фолбэк на cwd', () => {
-        const dir = mkdtempSync(`${tmpdir()}/weld-fs-test-`);
-        try {
-            const fsHost = getFsHost(undefined, dir);
+        const dir = makeTmpProject();
 
-            expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
-        } finally {
-            rmSync(dir, { recursive: true, force: true });
-        }
+        const fsHost = getFsHost(undefined, dir);
+
+        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
     });
 
     it('повторный вызов с тем же root возвращает тот же инстанс', () => {
@@ -310,6 +304,108 @@ describe('getFsHost', () => {
         const b = getFsHost(settings, '/cwd');
 
         expect(a).not.toBe(b);
+    });
+});
+
+describe('commonRealDirectory', () => {
+    it('обычные unix-пути: общий префикс — самая глубокая общая директория', () => {
+        expect(commonRealDirectory('/a/b/x', '/a/b/y')).toBe('/a/b');
+    });
+
+    it('один путь — предок другого', () => {
+        expect(commonRealDirectory('/a/b', '/a/b/c')).toBe('/a/b');
+    });
+
+    it('общего сегмента нет — общая директория корень ФС', () => {
+        expect(commonRealDirectory('/a', '/b')).toBe('/');
+    });
+
+    it('сегментная проверка: /repo и /repo-evil не делят /repo', () => {
+        expect(commonRealDirectory('/repo/src', '/repo-evil/src')).toBe('/');
+    });
+
+    it('Windows-пути с одним диском', () => {
+        expect(commonRealDirectory('C:/proj/src', 'C:/proj/lib')).toBe('C:/proj');
+    });
+
+    it('Windows-пути с одним диском без общих сегментов — корень диска', () => {
+        expect(commonRealDirectory('C:/a', 'C:/b')).toBe('C:/');
+    });
+
+    it('регистр буквы диска не важен: C: и c: — один диск', () => {
+        expect(commonRealDirectory('C:/proj/src', 'c:/proj/lib')).toBe('C:/proj');
+    });
+
+    it('разные диски → общего префикса нет', () => {
+        expect(commonRealDirectory('C:/a', 'D:/a')).toBeNull();
+    });
+
+    it('Windows-диск против unix-корня → общего префикса нет', () => {
+        expect(commonRealDirectory('C:/a', '/a')).toBeNull();
+    });
+});
+
+describe('getFsHost: coverDirs', () => {
+    afterEach(() => {
+        resetFsHostCaches();
+        cleanupTmpProjects();
+    });
+
+    it('авто-root поднимается до общей директории с coverDirs', () => {
+        const dir = makeTmpProject({ 'package.json': '{}' });
+        const sibling = `${tmpdir()}/weld-fs-sibling`;
+
+        const fsHost = getFsHost(undefined, dir, undefined, [sibling]);
+
+        // Общая директория dir и sibling — tmpdir, значит dir виден как /<basename(dir)>.
+        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe(`/${basename(dir)}/x.ts`);
+    });
+
+    it('coverDirs ниже найденного root ничего не меняют', () => {
+        const dir = makeTmpProject({ 'package.json': '{}' });
+
+        const fsHost = getFsHost(undefined, dir, undefined, [`${dir}/src`]);
+
+        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
+    });
+
+    it('coverDir без общего префикса (другой диск) игнорируется', () => {
+        const dir = makeTmpProject({ 'package.json': '{}' });
+
+        const fsHost = getFsHost(undefined, dir, undefined, ['D:/elsewhere']);
+
+        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
+    });
+
+    it('несколько coverDirs сразу: чужой диск игнорируется, поднимающая директория работает', () => {
+        const dir = makeTmpProject({ 'package.json': '{}' });
+        const sibling = `${tmpdir()}/weld-fs-sibling`;
+
+        const fsHost = getFsHost(undefined, dir, undefined, ['D:/elsewhere', sibling]);
+
+        // Как и в тесте с одним coverDir: общая директория dir и sibling — tmpdir.
+        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe(`/${basename(dir)}/x.ts`);
+    });
+
+    it('явный root игнорирует coverDirs целиком', () => {
+        const settings = { weld: { repoRoot: '/explicit-root' } };
+
+        const fsHost = getFsHost(settings, '/some/cwd', undefined, ['/some']);
+
+        expect(fsHost.toVirtual('/explicit-root/x.ts')).toBe('/x.ts');
+        expect(fsHost.toVirtual('/some/other.ts')).toBeNull();
+    });
+
+    it('кэш инстансов ключуется итоговым root: разные coverDirs → разные инстансы', () => {
+        const dir = makeTmpProject({ 'package.json': '{}' });
+        const sibling = `${tmpdir()}/weld-fs-sibling`;
+
+        const raised = getFsHost(undefined, dir, undefined, [sibling]);
+        const plain = getFsHost(undefined, dir);
+        const raisedAgain = getFsHost(undefined, dir, undefined, [sibling]);
+
+        expect(raised).not.toBe(plain);
+        expect(raisedAgain).toBe(raised);
     });
 });
 
