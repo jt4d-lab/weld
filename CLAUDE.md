@@ -189,10 +189,16 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 Фейки живут рядом с тем, что подделывают (`src/host/fs.testing.ts`), а не здесь: `src/testing/` —
 про инфраструктуру запуска тестов, `*.testing.ts` — про конкретный слой.
 
-Наружу модуль отдаёт `createRuleTester`, `repoRoot`, `fixtureRoot`, `consumerFile` и
-`consumerJsFile` (тот же потребитель для конфигов без TS-парсера) через `src/testing/index.ts`.
-Фикстура `fixtures/project/` через баррель не проходит и не может: тесты обращаются к ней как к
-путям на диске, а не как к модулям.
+Сценарии, которые фикстурой не выражаются (правка файла между вызовами, директория без `.git` над
+ней), собирает `tmp-project.ts`: `makeTmpProject(files)` создаёт временный проект из пар
+«относительный путь → содержимое», `cleanupTmpProjects()` убирает всё созданное и зовётся из
+`afterEach` теста. Уборка не на вызывающем намеренно: `try/finally` вокруг каждого сценария
+расползается по тестам и теряет директорию на упавшем assert.
+
+Наружу модуль отдаёт `createRuleTester`, `repoRoot`, `fixtureRoot`, `consumerFile`, `consumerJsFile`
+(тот же потребитель для конфигов без TS-парсера) и `makeTmpProject`/`cleanupTmpProjects` — через
+`src/testing/index.ts`. Фикстура `fixtures/project/` через баррель не проходит и не может: тесты
+обращаются к ней как к путям на диске, а не как к модулям.
 
 ## Добавление правила
 

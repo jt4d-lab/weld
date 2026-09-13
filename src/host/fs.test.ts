@@ -1,9 +1,7 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ENTRY_EXTENSIONS } from '@/extensions.js';
+import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
 
 import { createFsHost, getFsHost, resetFsHostCaches } from '@/host/fs.js';
 import { createFakeExists, createFakeFsHost } from '@/host/fs.testing.js';
@@ -239,6 +237,7 @@ describe('createFsHost: TTL-кэш', () => {
 describe('getFsHost', () => {
     afterEach(() => {
         resetFsHostCaches();
+        cleanupTmpProjects();
     });
 
     it('settings.weld.repoRoot выигрывает у авто-поиска', () => {
@@ -269,28 +268,19 @@ describe('getFsHost', () => {
     });
 
     it('без настройки — findRepoRoot находит директорию с package.json', () => {
-        const dir = mkdtempSync(`${tmpdir()}/weld-fs-test-`);
-        try {
-            writeFileSync(`${dir}/package.json`, '{}');
-            const sub = `${dir}/src`;
+        const dir = makeTmpProject({ 'package.json': '{}' });
 
-            const fsHost = getFsHost(undefined, sub);
+        const fsHost = getFsHost(undefined, `${dir}/src`);
 
-            expect(fsHost.toVirtual(`${dir}/package.json`)).toBe('/package.json');
-        } finally {
-            rmSync(dir, { recursive: true, force: true });
-        }
+        expect(fsHost.toVirtual(`${dir}/package.json`)).toBe('/package.json');
     });
 
     it('без настройки, ничего не найдено — фолбэк на cwd', () => {
-        const dir = mkdtempSync(`${tmpdir()}/weld-fs-test-`);
-        try {
-            const fsHost = getFsHost(undefined, dir);
+        const dir = makeTmpProject();
 
-            expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
-        } finally {
-            rmSync(dir, { recursive: true, force: true });
-        }
+        const fsHost = getFsHost(undefined, dir);
+
+        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
     });
 
     it('повторный вызов с тем же root возвращает тот же инстанс', () => {
