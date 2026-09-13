@@ -50,6 +50,9 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 - `yarn build` — сборка в `dist/`.
 - `yarn smoke [версия-eslint]` — собирает тарбол, ставит его во временный проект и запускает там
   ESLint. Прогоняй после изменений в `package.json` (`exports`, `files`, формат сборки).
+- `yarn docs:dev` / `yarn docs:build` / `yarn docs:preview` — сайт документации (VitePress, см.
+  «Документация и GitHub Pages»). В `yarn verify` сборка сайта не входит — её гоняет отдельный
+  workflow.
 
 Пакет — ESM-only и рассчитан на flat config ESLint 9+. `require()` из eslintrc не поддерживается
 осознанно; менять это — отдельное решение, а не побочный эффект правки сборки.
@@ -274,6 +277,30 @@ monorepo, extends-package, jsonc, broken, no-paths), по константе н�
    расхождением двух частей репозитория. До того как документация подхода WELD появится, парным
    разделом для правила считается его страница в `docs/rules/<имя>.md`.
 4. Решить, входит ли правило в `configs.recommended` (`src/index.ts`).
+
+## Документация и GitHub Pages
+
+Сайт документации — VitePress, исходники в `docs/` (`docs/.vitepress/config.ts` — конфиг сайта).
+Публикуется на project pages `https://jt4d-lab.github.io/weld/` — там сайт отдаётся из подпути, и
+без соответствующей базы ассеты уезжают в корень домена, а страница открывается пустой. Поэтому базу
+задаёт не конфиг, а деплоящий workflow: `base` читается из `BASE_URL` (по умолчанию `'/'`), и
+`/weld/` записан один раз — в шаге `yarn docs:build` в `docs.yml`. Локальные `docs:dev`,
+`docs:build` и `docs:preview` работают в корне, ссылки в них обычные. Свой домен (CNAME) снял бы
+подпуть — тогда убирается `BASE_URL` из workflow, конфиг не трогается.
+
+Деплой — `.github/workflows/docs.yml` через GitHub Pages Actions (`upload-pages-artifact` +
+`deploy-pages`), без ветки `gh-pages`: в настройках репозитория Pages должны стоять в режиме
+**GitHub Actions**, иначе деплой падает на «Pages not enabled». Сборка гоняется на каждом PR, а job
+`deploy` пропускается на `pull_request` (форк иначе получил бы права публикации на прод-сайт) — на
+`master` и ручном запуске выкатывается собранное. У `deploy` своя concurrency-группа `pages` с
+`cancel-in-progress: false`: прерванная выкатка оставила бы Pages на половине артефакта, поэтому
+общая группа workflow (она отменяет устаревшие сборки) на него не распространяется.
+
+Сборка сайта намеренно не входит в `yarn verify`: это отдельный от пакета артефакт, и держать в
+общем прогоне CI матрицу из трёх версий Node ради статики незачем. Собранный сайт
+(`docs/.vitepress/dist/`) и кэш выведены из-под eslint (`eslint.config.js`) и prettier
+(`.prettierignore`) — иначе локальный `yarn docs:build` ломает `yarn checks` на сгенерированных
+файлах.
 
 ## Релиз
 

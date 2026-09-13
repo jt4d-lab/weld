@@ -4,23 +4,13 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
     title: 'WELD — Well-Encapsulated Layered Design',
     description: 'Подход к организации кода во frontend-приложениях',
+    base: process.env.BASE_URL ?? '/',
     themeConfig: {
         // https://vitepress.dev/reference/default-theme-config
-        nav: [
-            { text: 'Home', link: '/' },
-            { text: 'Examples', link: '/markdown-examples' },
-        ],
+        nav: [{ text: 'WELD', link: '/' }],
 
-        sidebar: [
-            {
-                text: 'Examples',
-                items: [
-                    { text: 'Markdown Examples', link: '/markdown-examples' },
-                    { text: 'Runtime API Examples', link: '/api-examples' },
-                ],
-            },
-        ],
+        sidebar: [],
 
-        socialLinks: [{ icon: 'github', link: 'https://github.com/vuejs/vitepress' }],
+        socialLinks: [{ icon: 'github', link: 'https://github.com/jt4d-lab/weld' }],
     },
 });
