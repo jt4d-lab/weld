@@ -1,5 +1,8 @@
 dist/
 node_modules/
+# Сборка и кэш VitePress — генерация, а не исходники
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 # tsconfig-фикстуры: JSONC и битый JSON, prettier их переформатирует или упадёт
 src/testing/fixtures/tsconfig/
 .yarn/

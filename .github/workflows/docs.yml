@@ -1,0 +1,70 @@
+name: Docs
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: docs-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build:
+        name: Build site
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v5
+
+            - run: corepack enable
+
+            - uses: actions/setup-node@v5
+              with:
+                  node-version: '24'
+                  cache: yarn
+
+            - run: yarn install --immutable
+
+            - run: yarn docs:build
+              env:
+                  BASE_URL: /weld/
+
+            - uses: actions/upload-pages-artifact@v5
+              with:
+                  path: docs/.vitepress/dist
+
+    deploy:
+        name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request'
+        needs: build
+        runs-on: ubuntu-latest
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        concurrency:
+            group: pages
+            cancel-in-progress: false
+
+        steps:
+            - name: Deploy
+              id: deployment
+              uses: actions/deploy-pages@v5
+
+            - name: Summary
+              env:
+                  URL: ${{ steps.deployment.outputs.page_url }}
+              run: |
+                  {
+                    echo "## Docs deployed"
+                    echo
+                    echo "- Site: $URL"
+                    echo "- Commit: \`$GITHUB_SHA\`"
+                  } >> "$GITHUB_STEP_SUMMARY"
