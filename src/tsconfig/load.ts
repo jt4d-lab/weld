@@ -47,11 +47,20 @@ type LoadTsconfigOptions = {
 };
 
 /**
- * TTL мемоизации «директория файла → результат», то же значение, что `TTL_MS` в `src/host/fs.ts`:
- * tsconfig правят руками чаще, чем создают `index.ts`, а вечный кэш в долгоживущем ESLint
- * редактора неприемлем.
+ * TTL найденного результата в мемоизации «директория файла → результат», то же значение, что
+ * `TTL_MS` в `src/host/fs.ts`: tsconfig правят руками чаще, чем создают `index.ts`, а вечный кэш в
+ * долгоживущем ESLint редактора неприемлем.
  */
 const TTL_MS = 600_000;
+
+/**
+ * TTL отрицательного результата (`null`) — заметно короче, та же асимметрия, что у
+ * `NEGATIVE_TTL_MS` в `src/host/fs.ts`: «paths есть» опровергается их правкой раз в десять минут —
+ * терпимо, а «paths нет» — тем, что их дописали (или починили битый tsconfig), и именно это делает
+ * в редакторе пользователь, настраивающий алиасы. Долгий TTL заставлял бы автопоиск игнорировать
+ * только что созданный tsconfig ещё десять минут.
+ */
+const NEGATIVE_TTL_MS = 5_000;
 
 const cache = new Map<string, CacheEntry>();
 
@@ -87,7 +96,7 @@ export function loadTsconfigPaths(
         options.read ?? ((searchDir: string) => getTsconfig(searchDir, 'tsconfig.json', readCache));
 
     const value = readTsconfigPaths(dir, read);
-    cache.set(dir, { value, expiresAt: time + TTL_MS });
+    cache.set(dir, { value, expiresAt: time + (value ? TTL_MS : NEGATIVE_TTL_MS) });
     return value;
 }
 

@@ -234,14 +234,49 @@ describe('loadTsconfigPaths: TTL-кэш', () => {
         expect(read).toHaveBeenCalledTimes(1);
     });
 
-    it('отрицательный результат (null) тоже кэшируется', () => {
+    it('отрицательный результат (null) тоже кэшируется — в пределах своего короткого TTL', () => {
         const read = vi.fn(getTsconfig);
-        const now = () => 0;
+        let time = 0;
+        const now = () => time;
         const file = `${tsconfigNoPathsFixture}/src/consumer.ts`;
 
         expect(loadTsconfigPaths(file, { read, now })).toBeNull();
+        time = 4_999;
         expect(loadTsconfigPaths(file, { read, now })).toBeNull();
         expect(read).toHaveBeenCalledTimes(1);
+    });
+
+    it('отрицательный результат протухает раньше положительного — через 5 секунд', () => {
+        const read = vi.fn(getTsconfig);
+        let time = 0;
+        const now = () => time;
+        const file = `${tsconfigNoPathsFixture}/src/consumer.ts`;
+
+        loadTsconfigPaths(file, { read, now });
+        time = 5_001;
+        loadTsconfigPaths(file, { read, now });
+
+        expect(read).toHaveBeenCalledTimes(2);
+    });
+
+    it('добавленные в tsconfig paths подхватываются через негативный TTL (дефолтное чтение, без шва read)', () => {
+        const proj = makeTmpProject({
+            'tsconfig.json': JSON.stringify({ compilerOptions: { strict: true } }),
+            'src/consumer.ts': 'export {};\n',
+        });
+        let time = 0;
+        const now = () => time;
+        const file = `${proj}/src/consumer.ts`;
+
+        expect(loadTsconfigPaths(file, { now })).toBeNull();
+
+        writeFileSync(
+            `${proj}/tsconfig.json`,
+            JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }),
+        );
+        time = 5_001;
+
+        expect(loadTsconfigPaths(file, { now })?.paths).toEqual({ '@/*': ['./src/*'] });
     });
 
     it('после сдвига часов за 10 минут — перечитывает диск', () => {
