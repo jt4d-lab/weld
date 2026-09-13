@@ -24,3 +24,28 @@ export const consumerFile = `${fixtureRoot}/src/consumer.ts`;
 
 /** Тот же потребитель для конфигов без парсера TS — раскладка фикстуры описана только здесь. */
 export const consumerJsFile = `${fixtureRoot}/src/consumer.js`;
+
+/**
+ * Мини-проекты для автопоиска tsconfig (`fixtures/tsconfig/*`). Каждая константа — корень одного
+ * сценария; внутри каждого лежит `tsconfig.json` (или его отсутствие — сам сценарий) и файл-якорь
+ * `src/consumer.ts`, от которого тесты стартуют поиск.
+ */
+export const tsconfigFixturesRoot = dirFromUrl('./fixtures/tsconfig');
+
+/** Обычный проект: `baseUrl` + `paths` в одном tsconfig. */
+export const tsconfigBasicFixture = `${tsconfigFixturesRoot}/basic`;
+
+/** Монорепа: пакет с `extends` на `tsconfig.base.json` родителя, якоря — у корня фикстуры. */
+export const tsconfigMonorepoFixture = `${tsconfigFixturesRoot}/monorepo`;
+
+/** `extends` в пакет из локальной поддельной `node_modules`. */
+export const tsconfigExtendsPackageFixture = `${tsconfigFixturesRoot}/extends-package`;
+
+/** JSONC: комментарии и висячие запятые. */
+export const tsconfigJsoncFixture = `${tsconfigFixturesRoot}/jsonc`;
+
+/** Синтаксически битый JSON. */
+export const tsconfigBrokenFixture = `${tsconfigFixturesRoot}/broken`;
+
+/** Валидный tsconfig без `compilerOptions.paths`. */
+export const tsconfigNoPathsFixture = `${tsconfigFixturesRoot}/no-paths`;

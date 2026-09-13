@@ -201,6 +201,10 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 Фейки живут рядом с тем, что подделывают (`src/host/fs.testing.ts`), а не здесь: `src/testing/` —
 про инфраструктуру запуска тестов, `*.testing.ts` — про конкретный слой.
 
+Вторая группа фикстур — `fixtures/tsconfig/*`: мини-проекты для автопоиска tsconfig (basic,
+monorepo, extends-package, jsonc, broken, no-paths), по константе на сценарий в `paths.ts`
+(`tsconfigFixturesRoot` и `tsconfig*Fixture`).
+
 Сценарии, которые фикстурой не выражаются (правка файла между вызовами, директория без `.git` над
 ней), собирает `tmp-project.ts`: `makeTmpProject(files)` создаёт временный проект из пар
 «относительный путь → содержимое», `cleanupTmpProjects()` убирает всё созданное и зовётся из
@@ -208,9 +212,15 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 расползается по тестам и теряет директорию на упавшем assert.
 
 Наружу модуль отдаёт `createRuleTester`, `repoRoot`, `fixtureRoot`, `consumerFile`, `consumerJsFile`
-(тот же потребитель для конфигов без TS-парсера) и `makeTmpProject`/`cleanupTmpProjects` — через
-`src/testing/index.ts`. Фикстура `fixtures/project/` через баррель не проходит и не может: тесты
-обращаются к ней как к путям на диске, а не как к модулям.
+(тот же потребитель для конфигов без TS-парсера), константы tsconfig-фикстур и
+`makeTmpProject`/`cleanupTmpProjects` — через `src/testing/index.ts`. Сами фикстуры через баррель не
+проходят и не могут: тесты обращаются к ним как к путям на диске, а не как к модулям.
+
+Инфраструктурные соглашения по фикстурам: поддельная `node_modules` внутри фикстур коммитится через
+исключение `!src/testing/fixtures/**/node_modules/` в `.gitignore`, а вся
+`src/testing/fixtures/tsconfig/` выведена из-под prettier строкой в `.prettierignore` (фикстуры —
+данные, их формат — часть сценария). Новая фикстура вне этих путей молча сломает `yarn checks` —
+добавляй её рядом либо расширь исключения.
 
 ## Добавление правила
 
