@@ -7,12 +7,12 @@ const debug = createLogger('aliases');
 export type Alias = { prefix: string; anchor: string };
 
 /**
- * Разбирает значение `settings.weld.aliases` (формат `paths` из tsconfig) в список алиасов, готовых
- * для `parseSpecifier`/`renderSpecifier`. Обе настройки приходят уже добытыми — читает их
- * `src/settings/weld.ts`; он же решает, что делать с отсутствующей настройкой, поэтому `undefined`
- * сюда не доходит. `<base>` — виртуальный путь от корня репозитория, не от `cwd`: `aliasesBaseUrl`
- * отсчитывается от корня репозитория. `source` называет место значения в конфиге в сообщениях об
- * ошибках.
+ * Разбирает значение формата `paths` из tsconfig — `settings.weld.aliases` или сами `paths` — в
+ * список алиасов, готовых для `parseSpecifier`/`renderSpecifier`. Значение и база приходят уже
+ * добытыми: их находит и кэширует `src/settings/weld.ts` (`getAliases` / `getAliasesFromPaths`), он
+ * же решает, что делать с отсутствующей настройкой, поэтому `undefined` сюда не доходит.
+ * `aliasesBaseUrl` — виртуальный путь от корня репозитория, не от `cwd`. `source` называет место
+ * значения в сообщениях об ошибках.
  */
 export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source: string): Alias[] {
     if (typeof rawAliases !== 'object' || rawAliases === null || Array.isArray(rawAliases)) {
@@ -103,7 +103,7 @@ function toAnchorList(key: string, value: unknown, source: string): string[] {
  * строка — префикс любого абсолютного специфайера (`''` + `/` — начало любого `/foo`), из-за чего
  * запись стала бы вести себя как алиас на абсолютные пути, которые правило не обрабатывает.
  */
-function hasValidStarShape(value: string): boolean {
+export function hasValidStarShape(value: string): boolean {
     const starCount = value.split('*').length - 1;
     if (starCount > 1 || (starCount === 1 && !value.endsWith('/*'))) {
         return false;
@@ -112,7 +112,7 @@ function hasValidStarShape(value: string): boolean {
     return stripStarSuffix(value) !== '';
 }
 
-function stripStarSuffix(value: string): string {
+export function stripStarSuffix(value: string): string {
     return value.endsWith('/*') ? value.slice(0, -2) : value;
 }
 

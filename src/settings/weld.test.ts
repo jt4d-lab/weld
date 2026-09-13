@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAliases, getAliasesBaseUrl, getRepoRoot } from '@/settings/weld.js';
+import { getAliasesFromPaths } from '@/settings/index.js';
+import { getAliases, getAliasesBaseUrl, getRepoRoot, hasAliases } from '@/settings/weld.js';
 
 describe('getRepoRoot', () => {
     it('repoRoot задан → возвращается как есть, без резолва', () => {
@@ -117,6 +118,66 @@ describe('getAliases — кэш', () => {
 
         expect(() => getAliases(settings)).toThrow('settings.weld.aliases must be an object');
         expect(() => getAliases(settings)).toThrow('settings.weld.aliases must be an object');
+    });
+});
+
+describe('getAliasesFromPaths', () => {
+    it('валидные paths дают те же Alias[], что settings.weld.aliases с тем же базовым путём', () => {
+        const paths = { '@src/*': ['src/*'], '@lib': ['lib/index.ts'] };
+
+        const fromPaths = getAliasesFromPaths(paths, '/packages/app', 'tsconfig.json');
+        const fromSettings = getAliases({
+            weld: { aliasesBaseUrl: 'packages/app', aliases: paths },
+        });
+
+        expect(fromPaths).toEqual(fromSettings);
+        expect(fromPaths).toEqual([
+            { prefix: '@src', anchor: '/packages/app/src' },
+            { prefix: '@lib', anchor: '/packages/app/lib' },
+        ]);
+    });
+
+    it('база — виртуальный корень', () => {
+        expect(getAliasesFromPaths({ '@src/*': ['src/*'] }, '/', 'tsconfig.json')).toEqual([
+            { prefix: '@src', anchor: '/src' },
+        ]);
+    });
+
+    it('source попадает в текст ошибки', () => {
+        expect(() => getAliasesFromPaths({ '@bad': 42 }, '/', '/repo/tsconfig.json')).toThrow(
+            "/repo/tsconfig.json['@bad'] must be a string or an array of strings",
+        );
+    });
+
+    it('кривое значение paths бросает так же, как settings.weld.aliases', () => {
+        expect(() => getAliasesFromPaths('nope', '/', 'tsconfig.json')).toThrow(
+            'tsconfig.json must be an object',
+        );
+    });
+});
+
+describe('hasAliases', () => {
+    it('ключ aliases отсутствует → false', () => {
+        expect(hasAliases({}, undefined)).toBe(false);
+        expect(hasAliases({ weld: {} }, undefined)).toBe(false);
+        expect(hasAliases({ weld: { repoRoot: '/repo' } }, undefined)).toBe(false);
+    });
+
+    it('пустой объект {} в settings.weld.aliases → true', () => {
+        expect(hasAliases({ weld: { aliases: {} } }, undefined)).toBe(true);
+    });
+
+    it('непустые aliases в settings.weld → true', () => {
+        expect(hasAliases({ weld: { aliases: { '@src/*': ['src/*'] } } }, undefined)).toBe(true);
+    });
+
+    it('override учитывается: задан → true, даже без settings', () => {
+        expect(hasAliases({}, {})).toBe(true);
+        expect(hasAliases({}, { '@src/*': ['src/*'] })).toBe(true);
+    });
+
+    it('при заданном override settings не читается — сломанный settings.weld не мешает', () => {
+        expect(hasAliases({ weld: 'nope' }, {})).toBe(true);
     });
 });
 

@@ -9,7 +9,7 @@
 
 import path from 'node:path';
 
-import { toPosix } from '@/path/index.js';
+import { commonDepth, joinSegments, segments, toPosix } from '@/path/index.js';
 
 /** Ведущий Windows-диск (`C:`) реального пути после `toPosix`. */
 const DRIVE_PREFIX = /^[A-Za-z]:/;
@@ -85,6 +85,28 @@ export function sameSegment(left: string, right: string, index: number): boolean
     }
 
     return left === right;
+}
+
+/**
+ * Самая глубокая общая директория двух реальных posix-путей. Первым сегментом может быть
+ * Windows-диск (буква сравнивается без учёта регистра — тот же `sameSegment`): пути с разными
+ * префиксами (разные диски, диск против unix-корня) общей директории не имеют — `null`.
+ *
+ * Диск снимается до сравнения сегментов, поэтому остаток — обычный posix-путь, и общую глубину
+ * считает `commonDepth` из `src/path/`; про диски знает только код выше.
+ */
+export function commonRealDirectory(left: string, right: string): string | null {
+    const prefixOf = (candidate: string): string => DRIVE_PREFIX.exec(candidate)?.[0] ?? '';
+    const prefix = prefixOf(left);
+    const rightPrefix = prefixOf(right);
+    if (!sameSegment(prefix, rightPrefix, 0)) {
+        return null;
+    }
+
+    const leftRest = left.slice(prefix.length);
+    const depth = commonDepth(leftRest, right.slice(rightPrefix.length));
+
+    return `${prefix}${joinSegments(segments(leftRest).slice(0, depth))}`;
 }
 
 /**
