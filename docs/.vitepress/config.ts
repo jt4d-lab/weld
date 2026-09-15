@@ -39,5 +39,7 @@ export default defineConfig({
             label: 'На этой странице',
             level: [2, 3],
         },
+
+        docFooter: { prev: 'Предыдущая', next: 'Следующая' },
     },
 });
