@@ -7,10 +7,30 @@ export default defineConfig({
     base: process.env.BASE_URL ?? '/',
     themeConfig: {
         // https://vitepress.dev/reference/default-theme-config
-        nav: [{ text: 'WELD', link: '/' }],
+        nav: [
+            { text: 'Документация', link: '/get-started/overview' },
+        ],
 
-        sidebar: [],
+        sidebar: [
+            {
+                text: 'Быстрый старт',
+                items: [
+                    { text: 'Обзор', link: '/get-started/overview' },
+                ],
+            },
+            {
+                text: 'ES Lint',
+                items: [
+                    { text: 'no-barrel-bypass', link: '/rules/no-barrel-bypass' },
+                ],
+            },
+        ],
 
         socialLinks: [{ icon: 'github', link: 'https://github.com/jt4d-lab/weld' }],
+
+        outline: {
+            label: 'На этой странице',
+            level: [2, 3],
+        },
     },
 });
