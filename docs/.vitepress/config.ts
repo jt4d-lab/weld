@@ -19,6 +19,12 @@ export default defineConfig({
                 ],
             },
             {
+                text: 'Концепции',
+                items: [
+                    { text: 'Public API', link: '/core-concepts/public-api' },
+                ],
+            },
+            {
                 text: 'ES Lint',
                 items: [
                     { text: 'no-barrel-bypass', link: '/rules/no-barrel-bypass' },
