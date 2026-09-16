@@ -9,6 +9,7 @@ export default defineConfig({
         // https://vitepress.dev/reference/default-theme-config
         nav: [
             { text: 'Документация', link: '/get-started/overview' },
+            { text: 'Концепции', link: '/core-concepts' },
         ],
 
         sidebar: [
@@ -16,6 +17,12 @@ export default defineConfig({
                 text: 'Быстрый старт',
                 items: [
                     { text: 'Обзор', link: '/get-started/overview' },
+                ],
+            },
+            {
+                text: 'Концепции',
+                items: [
+                    { text: 'Публичный API директории', link: '/core-concepts/public-api' },
                 ],
             },
             {
@@ -32,5 +39,7 @@ export default defineConfig({
             label: 'На этой странице',
             level: [2, 3],
         },
+
+        docFooter: { prev: 'Предыдущая', next: 'Следующая' },
     },
 });
