@@ -28,6 +28,7 @@ export default withMermaid(
                             text: 'Однонаправленность зависимостей',
                             link: '/core-concepts/direction',
                         },
+                        { text: 'Слои задаёт проект', link: '/core-concepts/layers' },
                     ],
                 },
                 {
