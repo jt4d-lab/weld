@@ -37,6 +37,10 @@ export default withMermaid(
                         { text: 'Установка', link: '/rules/install' },
                         { text: 'settings', link: '/rules/settings' },
                         { text: 'no-barrel-bypass', link: '/rules/no-barrel-bypass' },
+                        {
+                            text: 'no-illegal-layer-dependency',
+                            link: '/rules/no-illegal-layer-dependency',
+                        },
                     ],
                 },
             ],
