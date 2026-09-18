@@ -22,6 +22,10 @@ export default withMermaid(
                     text: 'Концепции',
                     items: [
                         { text: 'Публичный API директории', link: '/core-concepts/public-api' },
+                        {
+                            text: 'Однонаправленность зависимостей',
+                            link: '/core-concepts/direction',
+                        },
                     ],
                 },
                 {
