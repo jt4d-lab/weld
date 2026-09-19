@@ -3,6 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid';
 
 export default withMermaid(
     defineConfig({
+        lang: 'ru-RU',
         title: 'WELD — Well-Encapsulated Layered Design',
         description: 'Подход к организации кода во frontend-приложениях',
         base: process.env.BASE_URL ?? '/',
