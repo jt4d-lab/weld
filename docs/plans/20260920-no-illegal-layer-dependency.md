@@ -521,23 +521,38 @@ type WeldOverrides = {
 - Create: `src/rules/no-illegal-layer-dependency/rule.test.ts`
 - Create: `src/rules/no-illegal-layer-dependency/options.test.ts`
 
-- [ ] написать `rule.test.ts` на `createRuleTester` с фейковой ФС: valid-набор (features → entities,
+- [x] написать `rule.test.ts` на `createRuleTester` с фейковой ФС: valid-набор (features → entities,
       widgets → legacy, внутренний импорт, баррель слоя, баррель чужого модуля), invalid-набор на
       `illegalDependency` и `horizontalDependency` с проверкой `messageId` и данных
-- [ ] написать тесты на остальные три сообщения: `undeclaredLayer` репортится один раз на файл и
+- [x] написать тесты на остальные три сообщения: `undeclaredLayer` репортится один раз на файл и
       импорты при этом не проверяются, `moduleInternals` на импорте во внутренности чужого модуля,
       `undeclaredTargetLayer` во всех трёх его формах (`'@unknown' in layers`,
       `'@unknown' in moduleLayers`, `'@modules' in layers`)
-- [ ] написать тесты на границы: `export ... from` не репортится, `import type` и `require()`
+- [x] написать тесты на границы: `export ... from` не репортится, `import type` и `require()`
       репортятся, файл вне корня репозитория молчит, отсутствие `layers` — исключение на каждом
       файле, `layers: []` исключением не является
-- [ ] написать `options.test.ts` по образцу соседа: `options.layers`/`moduleLayers`/`moduleDir`
+- [x] написать `options.test.ts` по образцу соседа: `options.layers`/`moduleLayers`/`moduleDir`
       перекрывают секцию, лишние ключи отвергаются схемой, общие опции (`repoRoot`, `aliases`)
       принимаются
-- [ ] реализовать правило: `createRule(fsHost?)` (шов для тестов), `meta` с пятью сообщениями и
+- [x] реализовать правило: `createRule(fsHost?)` (шов для тестов), `meta` с пятью сообщениями и
       схемой из собственных и общих опций, `resolveWeldContext` → `hasLayers` → `getLayerSchema`,
       репорт на `Program`, обход через `createSpecifierVisitor`, `debug`-лог по образцу соседа
-- [ ] run tests - must pass before task 8
+- [x] run tests - must pass before task 8
+
+➕ совет «как объявить слой» нужен обоим концам импорта: цели его выдаёт `decide`, а самому
+линтуемому файлу — правило (шаг 4 живёт вне вердикта). Поэтому формулировка вынесена в
+экспортируемую `declareHint(layer)` в `core/verdict.ts` (файл добавлен к правкам задачи), а не
+продублирована в `index.ts` второй копией тех же строк.
+
+➕ собственных опций у правила три, но отдельный тип для них не заводится: `WeldOverrides` из
+`src/settings/` объявляет все шесть настроек, и `resolveWeldContext` отдаёт `options` уже в нужной
+форме. Правило объявляет схемные опции только в `meta.schema` (`SCHEMA_OPTION_PROPERTIES`) — именно
+это и отличает его от соседа.
+
+➕ в тестах правила схема дополнена слоем проекта `legacy` (между `common` и `@unknown`): пункт
+«widgets → legacy» требует слоя проекта ниже диапазона модулей, а в схеме из Solution Overview такой
+слой один — `common`, и он же используется как «баррель слоя». Остальные наборы (`strictSettings`,
+`noModulesSettings`) — те же схемы, что в тестах вердикта.
 
 ### Task 8: Регистрация в плагине
 
