@@ -58,9 +58,13 @@ export default [
 ### Правила
 
 - [`weld/no-barrel-bypass`](docs/rules/no-barrel-bypass.md) — запрещает импорты, которые входят
-  внутрь модуля мимо его точки входа (`index.*`), минуя баррель.
+  внутрь модуля мимо его точки входа (`index.*`), минуя баррель. Входит в `recommended` и `strict`;
+- [`weld/no-illegal-layer-dependency`](docs/rules/no-illegal-layer-dependency.md) — запрещает
+  импорты, идущие против порядка слоёв, который проект объявил в `settings.weld.layers`. В готовые
+  наборы не входит: без схемы слоёв проверять нечего, а схемы по умолчанию у плагина нет — включать
+  правило нужно вручную, вместе со схемой.
 
-Правило учитывает алиасы путей и корень репозитория. Если алиасы не заданы в конфиге, они
+Правила учитывают алиасы путей и корень репозитория. Если алиасы не заданы в конфиге, они
 автоматически подхватываются из `compilerOptions.paths` ближайшего `tsconfig.json` (с резолвом
 `extends`); задать их явно можно через `settings.weld`:
 
@@ -78,8 +82,26 @@ export default [
 ];
 ```
 
-Формат и разбор этих настроек описаны в [документации настроек](docs/rules/settings.md); подробности
-самого правила — в [документации правила](docs/rules/no-barrel-bypass.md).
+Там же, в `settings.weld`, живёт схема слоёв, которую читает `no-illegal-layer-dependency`:
+
+```js
+export default [
+    {
+        settings: {
+            weld: {
+                layers: ['common', '@modules', 'pages', 'app'],
+                moduleLayers: ['entities', 'features', 'widgets'],
+                moduleDir: 'modules', // по умолчанию
+            },
+        },
+        rules: { 'weld/no-illegal-layer-dependency': 'error' },
+    },
+];
+```
+
+Формат и разбор всех настроек описаны в [документации настроек](docs/rules/settings.md); подробности
+правил — на их страницах: [`no-barrel-bypass`](docs/rules/no-barrel-bypass.md),
+[`no-illegal-layer-dependency`](docs/rules/no-illegal-layer-dependency.md).
 
 ### Отладка
 
