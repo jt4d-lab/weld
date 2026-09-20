@@ -391,16 +391,21 @@ type WeldOverrides = {
 - Create: `src/settings/layers.ts`
 - Create: `src/settings/layers.test.ts`
 
-- [ ] написать таблицу «конфиг → `order`»: пример из Solution Overview, `@modules` с пустым
+- [x] написать таблицу «конфиг → `order`»: пример из Solution Overview, `@modules` с пустым
       `moduleLayers` (`module, module`), `@unknown` в `moduleLayers`, `@unknown` в обоих списках
       одновременно, схема без `@modules` вовсе, смежные и разнесённые повторы
-- [ ] написать тесты на `first`/`last` для повторяющихся имён (`module` получает диапазон) и на
+- [x] написать тесты на `first`/`last` для повторяющихся имён (`module` получает диапазон) и на
       состав `projectLayers`/`moduleLayers`/`moduleDir` (включая дефолт `'modules'`)
-- [ ] написать по тесту на каждую ошибку валидации из таблицы Technical Details, включая проверку
+- [x] написать по тесту на каждую ошибку валидации из таблицы Technical Details, включая проверку
       текста (называет `settings.weld.layers[3]`) и **отсутствие** ошибки на `@unknown` в обоих
       списках
-- [ ] реализовать тип `LayerSchema`, разворачивание и валидацию в `src/settings/layers.ts`
-- [ ] run tests - must pass before task 3
+- [x] реализовать тип `LayerSchema`, разворачивание и валидацию в `src/settings/layers.ts`
+- [x] run tests - must pass before task 3
+
+➕ источник значения у каждой из трёх настроек свой (`layers` из секции, `moduleLayers` из опций и
+наоборот), поэтому `parseLayerSchema` принимает не тройку значений, а тройку `{ value, source }`
+(`SettingValue`): имя места в конфиге нужно тексту ошибки, а собрать его внутри разбор не может.
+Геттеры задачи 3 передают эту тройку.
 
 ### Task 3: Геттеры `getLayerSchema` и `hasLayers`
 
