@@ -103,6 +103,27 @@ describe('checkImport — легальные импорты', () => {
     });
 });
 
+describe('checkImport — специфаеры `.` и `..`', () => {
+    // Путь директорией, без единого имени файла: цель — сама директория, и слой у неё обычный.
+    const inLayer = '/src/modules/order/entities/user/x.ts';
+
+    it('указывают внутрь своей же директории слоя — внутренний импорт', () => {
+        expect(check('.', inLayer)).toBeNull();
+        expect(check('..', inLayer)).toBeNull();
+    });
+
+    it('`..` из корня слоя попадает в баррель своего модуля', () => {
+        expect(check('..', '/src/modules/order/entities/x.ts')).toBeNull();
+    });
+
+    it('`..` вверх по слоям модуля — нарушение, специфаер подставляется как есть', () => {
+        expect(check('..', '/src/modules/order/widgets/card/entities/x.ts')).toEqual({
+            messageId: 'illegalDependency',
+            data: { fromLayer: 'entities', toLayer: 'widgets', target: '..' },
+        });
+    });
+});
+
 describe('checkImport — нарушения с подстановкой специфаера', () => {
     it('внутренности чужого модуля', () => {
         expect(check('@/modules/other/lib/x')).toEqual({
