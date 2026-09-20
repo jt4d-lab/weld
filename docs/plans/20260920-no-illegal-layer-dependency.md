@@ -368,19 +368,21 @@ type WeldOverrides = {
 - Modify: `src/host/fs.test.ts`
 - Modify: `src/rules/no-barrel-bypass/integration.test.ts`
 
-- [ ] переписать тесты `weld.test.ts` под новую форму вызова: `getRepoRoot(settings, { repoRoot })`,
+- [x] переписать тесты `weld.test.ts` под новую форму вызова: `getRepoRoot(settings, { repoRoot })`,
       `getAliases(settings, { aliases, aliasesBaseUrl })`, `hasAliases(settings, { aliases })`
-- [ ] добавить тест: кэш алиасов попадает при одной и той же ссылке на `overrides` и промахивается
+- [x] добавить тест: кэш алиасов попадает при одной и той же ссылке на `overrides` и промахивается
       при новой (страховка от возврата `?? {}`)
-- [ ] объявить в `src/settings/` тип `WeldOverrides`, отдать через баррель
-- [ ] перевести `getRepoRoot`, `getAliasesBaseUrl`, `getAliases`, `hasAliases` на
+- [x] объявить в `src/settings/` тип `WeldOverrides`, отдать через баррель
+- [x] перевести `getRepoRoot`, `getAliasesBaseUrl`, `getAliases`, `hasAliases` на
       `(settings, overrides)`; ключ кэша алиасов остаётся кортежем из трёх ссылок (`getAliases`
       передаёт третьим `undefined`)
-- [ ] перевести `getFsHost` и `resolveRoot` на `overrides` вместо позиционного `repoRootOverride`
-- [ ] в `resolveWeldContext` ввести `EMPTY_OPTIONS`, удалить локальный `WeldOptions`, передавать
+- [x] перевести `getFsHost` и `resolveRoot` на `overrides` вместо позиционного `repoRootOverride`
+- [x] в `resolveWeldContext` ввести `EMPTY_OPTIONS`, удалить локальный `WeldOptions`, передавать
       `options` в геттеры целиком
-- [ ] обновить `fs.test.ts` и `no-barrel-bypass/integration.test.ts` под новые сигнатуры
-- [ ] run tests - must pass before task 2
+- [x] обновить `fs.test.ts` и `no-barrel-bypass/integration.test.ts` под новые сигнатуры —
+      `integration.test.ts` правки не потребовал: он зовёт `getFsHost` только в двухаргументной
+      форме
+- [x] run tests - must pass before task 2
 
 ### Task 2: Компиляция и валидация схемы слоёв
 
