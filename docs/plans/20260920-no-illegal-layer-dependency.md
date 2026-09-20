@@ -561,11 +561,11 @@ type WeldOverrides = {
 - Modify: `src/rules/index.ts`
 - Modify: `src/plugin.test.ts`
 
-- [ ] написать тест: правило присутствует в `rules`, и при этом **не** входит ни в
+- [x] написать тест: правило присутствует в `rules`, и при этом **не** входит ни в
       `configs.recommended`, ни в `configs.strict` (инвариант про `meta.docs`/`meta.messages`
       применится к нему автоматически)
-- [ ] зарегистрировать `no-illegal-layer-dependency` в `src/rules/index.ts`
-- [ ] run tests - must pass before task 9
+- [x] зарегистрировать `no-illegal-layer-dependency` в `src/rules/index.ts`
+- [x] run tests - must pass before task 9
 
 ### Task 9: Документация правила и настроек
 
