@@ -27,6 +27,25 @@ export type Verdict =
 const OK: Verdict = { ok: true };
 
 /**
+ * Как объявить в схеме слой, которого в ней нет. Совет один и тот же на обоих концах импорта: цель
+ * без объявленного слоя разбирает `decide`, а сам линтуемый файл — правило (репорт на файл целиком
+ * живёт вне вердикта), и формулировка не должна расходиться между ними.
+ */
+export function declareHint(layer: Qualified): string {
+    if (layer === MODULE) {
+        return `'@modules' in layers`;
+    }
+
+    if (layer === MODULE_UNKNOWN) {
+        return `'@unknown' in moduleLayers`;
+    }
+
+    // Обычные имена слоёв в схеме есть всегда — `layerOf` берёт их из её же наборов, — поэтому
+    // остаётся `root:unknown`: единственный слой, которому совет и нужен.
+    return `'@unknown' in layers`;
+}
+
+/**
  * Права источника: неразмеченный код модуля получает права модуля целиком. Такой файл — часть
  * модуля, и импортировать он вправе всё, что вправе модуль; объявленный `@unknown` в `moduleLayers`
  * управляет только доступом к такому коду извне, то есть целью, а не источником.
@@ -75,18 +94,14 @@ function undeclaredTarget(from: LayerLocation, to: LayerLocation, fromLayer: Qua
         if (to.moduleRoot !== null && to.moduleRoot === from.moduleRoot) {
             // Неразмеченный файл своего же модуля: совет «иди через баррель» был бы здесь советом
             // импортировать самого себя, поэтому остаётся разметка.
-            return declareTarget(to.layer, `'@unknown' in moduleLayers`);
+            return declareTarget(to.layer);
         }
 
         return violation('moduleInternals', { fromLayer: plainLayerName(fromLayer) });
     }
 
-    if (to.layer === ROOT_UNKNOWN) {
-        return declareTarget(to.layer, `'@unknown' in layers`);
-    }
-
-    if (to.layer === MODULE) {
-        return declareTarget(to.layer, `'@modules' in layers`);
+    if (to.layer === ROOT_UNKNOWN || to.layer === MODULE) {
+        return declareTarget(to.layer);
     }
 
     // Обычные имена слоёв в индексах есть всегда: `layerOf` берёт их из тех же наборов, которые
@@ -94,8 +109,11 @@ function undeclaredTarget(from: LayerLocation, to: LayerLocation, fromLayer: Qua
     return illegal(fromLayer, to.layer);
 }
 
-function declareTarget(layer: Qualified, declare: string): Verdict {
-    return violation('undeclaredTargetLayer', { layer: plainLayerName(layer), declare });
+function declareTarget(layer: Qualified): Verdict {
+    return violation('undeclaredTargetLayer', {
+        layer: plainLayerName(layer),
+        declare: declareHint(layer),
+    });
 }
 
 function illegal(fromLayer: Qualified, toLayer: Qualified): Verdict {
