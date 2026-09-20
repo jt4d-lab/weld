@@ -44,6 +44,19 @@ describe('rule configs', () => {
         });
     });
 
+    // Правило зарегистрировано, но в пресеты не входит: без схемы слоёв оно падает на каждом файле,
+    // а схему знает только проект. Пресет включал бы его всем, у кого схемы нет.
+    it('registers no-illegal-layer-dependency outside the presets', () => {
+        expect(Object.keys(plugin.rules)).toContain('no-illegal-layer-dependency');
+
+        for (const [name, config] of Object.entries(plugin.configs)) {
+            expect(
+                Object.keys(config.rules ?? {}),
+                `${name}: must not enable the rule`,
+            ).not.toContain('weld/no-illegal-layer-dependency');
+        }
+    });
+
     for (const [name, config] of Object.entries(plugin.configs ?? {})) {
         describe(name, () => {
             it('registers the plugin under the weld namespace', () => {
