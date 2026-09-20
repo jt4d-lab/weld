@@ -455,20 +455,39 @@ type WeldOverrides = {
 
 - Create: `src/rules/no-illegal-layer-dependency/core/verdict.ts`
 - Create: `src/rules/no-illegal-layer-dependency/core/verdict.test.ts`
+- Modify: `src/settings/layers.ts`
+- Modify: `src/settings/layers.test.ts`
+- Modify: `src/settings/index.ts`
 
-- [ ] написать матрицу прав для схемы из Solution Overview: для каждой пары слоёв ожидание
+- [x] написать матрицу прав для схемы из Solution Overview: для каждой пары слоёв ожидание
       разрешено/нарушение, включая `module` (диапазон), `root:unknown`, горизонталь одноимённых
       слоёв
-- [ ] написать тесты на пропуски: равные владельцы (внутренний импорт), схлопывание источника
+- [x] написать тесты на пропуски: равные владельцы (внутренний импорт), схлопывание источника
       `module:unknown` → `module`
-- [ ] написать тесты на классификацию каждого случая шага 7: свой модуль против чужого
+- [x] написать тесты на классификацию каждого случая шага 7: свой модуль против чужого
       (`undeclaredTargetLayer` с `'@unknown' in moduleLayers` против `moduleInternals`), цель
       `root:unknown`, цель `module` при схеме без `@modules`
-- [ ] написать тесты на `horizontalDependency` для двух форм: одноимённые слои разных модулей и
+- [x] написать тесты на `horizontalDependency` для двух форм: одноимённые слои разных модулей и
       одноимённые `root:*` (следствие deepest)
-- [ ] реализовать `decide(schema, from, to) → { ok: true } | { messageId, data }`, где `from`/`to` —
+- [x] реализовать `decide(schema, from, to) → { ok: true } | { messageId, data }`, где `from`/`to` —
       результаты `layerOf`; здесь же рендер простых имён слоёв по таблице из Technical Details
-- [ ] run tests - must pass before task 6
+- [x] run tests - must pass before task 6
+
+➕ рендер простых имён требует снять квалификатор, то есть знать его формат, — поэтому обратная
+операция добавлена к вокабуляру `src/settings/` (`plainLayerName`, баррель слоя), а не собрана в
+`verdict.ts` вторым знанием об одном формате. Продолжение решения задачи 4 про сборку имён.
+
+➕ схлопывание источника вынесено в экспортируемую `sourceRights(layer)`: тот же ответ нужен шагу 4
+(проверка позиции источника на файле), который живёт вне `decide`.
+
+➕ вердикт не знает специфаера, как он записан в исходнике, поэтому `{{target}}` в данные сообщений
+`undeclaredTargetLayer`/`moduleInternals` подставляет вызывающий (задача 6): `decide` отдаёт
+остальные поля.
+
+➕ неразмеченный код одного модуля (`module:unknown` → `module:unknown` того же модуля) отсекается
+равными владельцами раньше шага 7 — у такого слоя владелец это директория модуля. Поэтому
+`undeclaredTargetLayer` с `'@unknown' in moduleLayers` достижим только из размеченного слоя своего
+модуля (либо из его барреля), и в схеме без `@modules` он недостижим вовсе.
 
 ### Task 6: `pipeline.ts` — проверка одного импорта
 
