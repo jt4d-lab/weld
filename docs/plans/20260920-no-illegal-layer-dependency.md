@@ -415,13 +415,13 @@ type WeldOverrides = {
 - Modify: `src/settings/index.ts`
 - Modify: `src/settings/weld.test.ts`
 
-- [ ] написать тесты: приоритет `overrides.layers` над секцией, `hasLayers` различает отсутствие
+- [x] написать тесты: приоритет `overrides.layers` над секцией, `hasLayers` различает отсутствие
       ключа и `layers: []`, дефолт `moduleDir`, источник в тексте ошибки называется `options.layers`
       при значении из опций
-- [ ] реализовать `getLayerSchema(settings, overrides)` и `hasLayers(settings, overrides)` (кэша
+- [x] реализовать `getLayerSchema(settings, overrides)` и `hasLayers(settings, overrides)` (кэша
       нет, см. Technical Details)
-- [ ] отдать через `src/settings/index.ts` `getLayerSchema`, `hasLayers` и тип `LayerSchema`
-- [ ] run tests - must pass before task 4
+- [x] отдать через `src/settings/index.ts` `getLayerSchema`, `hasLayers` и тип `LayerSchema`
+- [x] run tests - must pass before task 4
 
 ### Task 4: `layerOf` — путь в квалифицированный слой, владельца и модуль
 
