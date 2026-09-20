@@ -429,18 +429,25 @@ type WeldOverrides = {
 
 - Create: `src/rules/no-illegal-layer-dependency/core/layer-of.ts`
 - Create: `src/rules/no-illegal-layer-dependency/core/layer-of.test.ts`
+- Modify: `src/settings/index.ts`
 
-- [ ] перенести в тест обе таблицы из Technical Details целиком — по строке на случай, отдельными
+- [x] перенести в тест обе таблицы из Technical Details целиком — по строке на случай, отдельными
       наборами для `kind: 'file'` и `kind: 'target'`
-- [ ] добавить тесты на краевые случаи: `moduleDir` последним сегментом, `moduleDir` сразу внутри
+- [x] добавить тесты на краевые случаи: `moduleDir` последним сегментом, `moduleDir` сразу внутри
       модуля (`modules/order/modules/x.ts`), имя модуля, совпадающее с именем слоя, путь без
       директорий (`/x.ts`), цель равная корню (`/`)
-- [ ] добавить тесты на `moduleRoot`: совпадает у файлов одного модуля, различается у вложенного
+- [x] добавить тесты на `moduleRoot`: совпадает у файлов одного модуля, различается у вложенного
       модуля, `null` вне модулей
-- [ ] реализовать `layerOf` одним проходом по сегментам: вход в модуль со сбросом слоя, deepest по
+- [x] реализовать `layerOf` одним проходом по сегментам: вход в модуль со сбросом слоя, deepest по
       набору контекста, владелец от найденного слоя либо от `moduleRoot`, предикат публичного
       интерфейса модуля
-- [ ] run tests - must pass before task 5
+- [x] run tests - must pass before task 5
+
+➕ квалифицированное имя слоя собирается снаружи `src/settings/`, поэтому словарь имён выходит через
+баррель слоя: `src/settings/index.ts` дополнен типом `Qualified` и вокабуляром `rootLayer`,
+`moduleLayer`, `MODULE`, `ROOT_UNKNOWN`, `MODULE_UNKNOWN`. Иначе `layerOf` собирал бы ключи
+`first`/`last` собственными литералами, и формат квалификатора знали бы два слоя. Задаче 5
+(`verdict.ts`) этот же вокабуляр нужен для рендера простых имён.
 
 ### Task 5: Вердикт по схеме
 
