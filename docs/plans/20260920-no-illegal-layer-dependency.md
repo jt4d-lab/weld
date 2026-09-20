@@ -496,14 +496,22 @@ type WeldOverrides = {
 - Create: `src/rules/no-illegal-layer-dependency/pipeline.ts`
 - Create: `src/rules/no-illegal-layer-dependency/pipeline.test.ts`
 
-- [ ] написать тесты на `createChecker`: голый пакет и не-JS ресурс дают `null`, алиасный и
+- [x] написать тесты на `createChecker`: голый пакет и не-JS ресурс дают `null`, алиасный и
       относительный специфаер одной цели дают одинаковый вердикт, импорт барреля слоя (`@/common`) и
       барреля модуля (`@/modules/order`) не репортится, внутренний импорт даёт `null`, нарушение
       возвращает `messageId` и данные сообщения
-- [ ] реализовать `createChecker({ fromFile, aliases, schema })`: `layerOf(fromFile, 'file')`
+- [x] реализовать `createChecker({ fromFile, aliases, schema })`: `layerOf(fromFile, 'file')`
       считается один раз на файл, `checkImport(specifier)` делает `parseSpecifier` →
       `layerOf(target, 'target')` → `decide`
-- [ ] run tests - must pass before task 7
+- [x] run tests - must pass before task 7
+
+➕ `createChecker` отдаёт не голую функцию (как у соседа), а `{ from, checkImport }`: слой
+линтуемого файла нужен ещё и шагу 4 (репорт `undeclaredLayer` на `Program`, задача 7), а считать его
+там второй раз значило бы опознавать один путь дважды.
+
+➕ `{{target}}` подставляется всем сообщениям без разбора, а не только двум, которые его показывают:
+какие сообщения его печатают, знает `meta.messages`, и повторять этот список в `pipeline.ts` значило
+бы держать его в двух местах. Лишний ключ в `data` ESLint игнорирует.
 
 ### Task 7: Само правило
 
