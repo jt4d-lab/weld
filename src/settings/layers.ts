@@ -79,6 +79,25 @@ export const ROOT_UNKNOWN: Qualified = rootLayer('unknown');
 export const MODULE_UNKNOWN: Qualified = moduleLayer('unknown');
 
 /**
+ * Простое имя слоя — то, как слой назван в конфиге: `root:common` и `module:entities` дают `common`
+ * и `entities`, оба неразмеченных слоя — `@unknown`, модуль как целое — `module`. Нужно сообщениям
+ * правил: квалификатор различает слои, а пользователь писал в конфиг простые имена и узнаёт в тексте
+ * именно их.
+ *
+ * Обратный разбор живёт здесь по той же причине, что и сборка: формат квалификатора знает только
+ * `src/settings/`, и снятие префикса во втором месте развело бы два знания об одном формате.
+ */
+export function plainLayerName(layer: Qualified): string {
+    if (layer === ROOT_UNKNOWN || layer === MODULE_UNKNOWN) {
+        return UNKNOWN;
+    }
+
+    const separator = layer.indexOf(':');
+
+    return separator === -1 ? layer : layer.slice(separator + 1);
+}
+
+/**
  * Разворачивает и проверяет схему слоёв. Любая проблема значения — исключение с указанием места в
  * конфиге: схема задана явно, и подставленная вместо неё пустая схема означала бы зелёный линт без
  * единой проверки направления.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { LayerSchema } from '@/settings/layers.js';
-import { parseLayerSchema } from '@/settings/layers.js';
+import { parseLayerSchema, plainLayerName } from '@/settings/layers.js';
 
 /**
  * Разбор с источниками из секции: имена мест в конфиге проверяются отдельно (см. «источник
@@ -248,6 +248,22 @@ describe('parseLayerSchema — валидация', () => {
         expect(() => compile(['common'], undefined, 'src/modules')).toThrow(
             "settings.weld.moduleDir must be a directory name, not a path: 'src/modules'",
         );
+    });
+});
+
+describe('plainLayerName', () => {
+    it.each([
+        ['root:common', 'common'],
+        ['module:entities', 'entities'],
+        ['module', 'module'],
+        ['root:unknown', '@unknown'],
+        ['module:unknown', '@unknown'],
+    ])('%s → %s', (layer, plain) => {
+        expect(plainLayerName(layer)).toBe(plain);
+    });
+
+    it('слой проекта с именем unknown неотличим от @unknown — совпадение безобидное', () => {
+        expect(plainLayerName('root:unknown')).toBe('@unknown');
     });
 });
 
