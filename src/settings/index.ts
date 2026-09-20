@@ -19,7 +19,15 @@ export { hasValidStarShape, stripStarSuffix } from './aliases.js';
  * для опознания слоя по пути. Сами `layers`/`moduleLayers`/`moduleDir` наружу не выходят — их формат
  * остаётся внутренним делом слоя, как и формат алиасов.
  */
-export type { LayerSchema } from './layers.js';
+export type { LayerSchema, Qualified } from './layers.js';
+/**
+ * Словарь квалифицированных имён: как собрать имя слоя (`rootLayer`/`moduleLayer`) и готовые имена
+ * спец-слоёв (`MODULE` — модуль как целое, `ROOT_UNKNOWN`/`MODULE_UNKNOWN` — код без слоя на своём
+ * уровне). Наружу выходят потому, что ключи `first`/`last` — это они: опознать слой по пути и
+ * спросить его позицию нельзя, не собрав имя по тем же правилам, по которым его собрал разбор. Сам
+ * формат квалификатора при этом остаётся внутри слоя — снаружи имя только собирается и сравнивается.
+ */
+export { MODULE, MODULE_UNKNOWN, moduleLayer, ROOT_UNKNOWN, rootLayer } from './layers.js';
 /**
  * Значения, перекрывающие секцию `settings.weld` (опции правила). Форма у всех геттеров одна —
  * `(settings, overrides)`, поэтому вызывающий передаёт опции целиком и не знает, какая настройка
