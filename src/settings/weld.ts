@@ -1,7 +1,7 @@
 /**
  * Единственная точка чтения `settings.weld`. Наружу слой отдаёт не сырую секцию, а геттер на каждую
- * настройку — `getRepoRoot` / `getAliasesBaseUrl` / `getAliases`; формат конфига за пределами
- * `src/settings/` не знает никто.
+ * настройку — `getRepoRoot` / `getAliasesBaseUrl` / `getAliases` / `getLayerSchema`; формат конфига
+ * за пределами `src/settings/` не знает никто.
  *
  * Каждый геттер принимает необязательный `overrides` — значения настроек, подставляемые вместо
  * конфига. Они тоже приходят из пользовательского конфига (опции правила), поэтому проверяются теми
@@ -16,6 +16,8 @@
 
 import type { Alias } from '@/settings/aliases.js';
 import { parseAliases } from '@/settings/aliases.js';
+import type { LayerSchema, SettingValue } from '@/settings/layers.js';
+import { parseLayerSchema } from '@/settings/layers.js';
 
 /**
  * Значения настроек, подставляемые вместо секции `settings.weld`: опции правила из пользовательского
@@ -197,4 +199,53 @@ export function hasAliases(settings: unknown, overrides?: WeldOverrides): boolea
     }
 
     return getWeldSettings(settings)?.aliases !== undefined;
+}
+
+/**
+ * Значение настройки вместе с именем её места в конфиге: опция правила, если задана, иначе поле
+ * секции. Имя нужно тексту ошибки разбора — собрать его там нельзя, источник знает только геттер.
+ * При заданном override секция не читается, как и в остальных геттерах.
+ */
+function pickSetting(
+    name: keyof WeldOverrides,
+    settings: unknown,
+    overrides: WeldOverrides | undefined,
+): SettingValue {
+    const override = overrides?.[name];
+    if (override !== undefined) {
+        return { value: override, source: `options.${name}` };
+    }
+
+    return { value: getWeldSettings(settings)?.[name], source: `settings.weld.${name}` };
+}
+
+/**
+ * Схема слоёв: `layers`, `moduleLayers` и `moduleDir`, развёрнутые в плоский порядок
+ * квалифицированных слоёв. Три настройки перекрываются порознь (схему можно задать секцией, а
+ * `moduleDir` — опцией правила), поэтому источник считается у каждой свой.
+ *
+ * Кэша нет намеренно (см. `parseLayerSchema`): разбор не читает диск, не логирует и не отдаёт
+ * наружу ничего, что сравнивалось бы по ссылке, — проход по десятку строк дешевле поиска в кэше.
+ * Кривая схема бросает на каждом файле, как и кривые алиасы.
+ */
+export function getLayerSchema(settings: unknown, overrides?: WeldOverrides): LayerSchema {
+    return parseLayerSchema({
+        layers: pickSetting('layers', settings, overrides),
+        moduleLayers: pickSetting('moduleLayers', settings, overrides),
+        moduleDir: pickSetting('moduleDir', settings, overrides),
+    });
+}
+
+/**
+ * Задана ли схема слоёв явно — в `options.layers` (`overrides.layers`) или в `settings.weld.layers`.
+ * «Задана» — это присутствие ключа, как у `hasAliases`: пустой `layers: []` тоже считается заданным
+ * и схемой без единого слоя. Правило спрашивает это до `getLayerSchema`, чтобы отличить «схемы нет»
+ * (правило включено зря) от «схема пустая».
+ */
+export function hasLayers(settings: unknown, overrides?: WeldOverrides): boolean {
+    if (overrides?.layers !== undefined) {
+        return true;
+    }
+
+    return getWeldSettings(settings)?.layers !== undefined;
 }

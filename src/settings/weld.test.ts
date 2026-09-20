@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getAliasesFromPaths } from '@/settings/index.js';
-import { getAliases, getAliasesBaseUrl, getRepoRoot, hasAliases } from '@/settings/weld.js';
+import {
+    getAliases,
+    getAliasesBaseUrl,
+    getLayerSchema,
+    getRepoRoot,
+    hasAliases,
+    hasLayers,
+} from '@/settings/weld.js';
 
 describe('getRepoRoot', () => {
     it('repoRoot задан → возвращается как есть, без резолва', () => {
@@ -195,6 +202,145 @@ describe('hasAliases', () => {
 
     it('при заданном override settings не читается — сломанный settings.weld не мешает', () => {
         expect(hasAliases({ weld: 'nope' }, { aliases: {} })).toBe(true);
+    });
+});
+
+describe('getLayerSchema', () => {
+    it('схема из секции разворачивается в порядок квалифицированных слоёв', () => {
+        const settings = {
+            weld: { layers: ['common', '@modules', 'app'], moduleLayers: ['entities'] },
+        };
+
+        expect(getLayerSchema(settings).order).toEqual([
+            'root:common',
+            'module',
+            'module:entities',
+            'module',
+            'root:app',
+        ]);
+    });
+
+    it('override layers выигрывает у секции', () => {
+        const settings = { weld: { layers: ['common', 'app'] } };
+
+        expect(getLayerSchema(settings, { layers: ['app'] }).order).toEqual(['root:app']);
+    });
+
+    it('каждая настройка перекрывается порознь: layers из секции, moduleLayers из опций', () => {
+        const settings = { weld: { layers: ['@modules', 'app'], moduleLayers: ['entities'] } };
+
+        expect(getLayerSchema(settings, { moduleLayers: ['features'] }).order).toEqual([
+            'module',
+            'module:features',
+            'module',
+            'root:app',
+        ]);
+    });
+
+    it("moduleDir не задан нигде → 'modules'", () => {
+        expect(getLayerSchema({ weld: { layers: ['app'] } }).moduleDir).toBe('modules');
+    });
+
+    it('moduleDir берётся из секции, а override перекрывает его', () => {
+        const settings = { weld: { layers: ['app'], moduleDir: 'packages' } };
+
+        expect(getLayerSchema(settings).moduleDir).toBe('packages');
+        expect(getLayerSchema(settings, { moduleDir: 'features' }).moduleDir).toBe('features');
+    });
+
+    it('чужие поля overrides схему не трогают', () => {
+        const settings = { weld: { layers: ['common', 'app'] } };
+
+        expect(getLayerSchema(settings, { aliases: { '@src/*': ['src/*'] } }).order).toEqual([
+            'root:common',
+            'root:app',
+        ]);
+    });
+
+    it('layers не задан нигде → исключение называет settings.weld.layers', () => {
+        expect(() => getLayerSchema({})).toThrow('settings.weld.layers must be an array');
+        expect(() => getLayerSchema({ weld: {} })).toThrow('settings.weld.layers must be an array');
+    });
+
+    it('значение из секции называется в ошибке settings.weld.<имя>', () => {
+        expect(() => getLayerSchema({ weld: { layers: ['common', 42] } })).toThrow(
+            'settings.weld.layers[1] must be a non-empty string, got number',
+        );
+    });
+
+    it('значение из опций называется в ошибке options.<имя>', () => {
+        expect(() => getLayerSchema({}, { layers: ['common', 42] })).toThrow(
+            'options.layers[1] must be a non-empty string, got number',
+        );
+        expect(() => getLayerSchema({}, { layers: ['app'], moduleDir: 42 })).toThrow(
+            'options.moduleDir must be a string, got number',
+        );
+    });
+
+    it('смешанные источники называются каждый своим именем', () => {
+        const settings = { weld: { layers: ['common', 'app'] } };
+
+        expect(() => getLayerSchema(settings, { moduleLayers: ['entities'] })).toThrow(
+            "options.moduleLayers is set, but settings.weld.layers has no '@modules' to put it into",
+        );
+    });
+
+    it('все три настройки из опций → секция не читается, сломанный settings.weld не мешает', () => {
+        const overrides = { layers: ['@modules'], moduleLayers: ['entities'], moduleDir: 'pkg' };
+
+        expect(getLayerSchema({ weld: 'nope' }, overrides).order).toEqual([
+            'module',
+            'module:entities',
+            'module',
+        ]);
+    });
+
+    it('settings.weld не объект → исключение', () => {
+        expect(() => getLayerSchema({ weld: 'nope' })).toThrow('settings.weld must be an object');
+    });
+
+    it('кэша нет: те же аргументы разбираются заново', () => {
+        const settings = { weld: { layers: ['common', 'app'] } };
+
+        expect(getLayerSchema(settings)).not.toBe(getLayerSchema(settings));
+        expect(getLayerSchema(settings)).toEqual(getLayerSchema(settings));
+    });
+
+    it('сломанная схема бросает на каждом вызове, а не только на первом', () => {
+        const settings = { weld: { layers: 'nope' } };
+
+        expect(() => getLayerSchema(settings)).toThrow('settings.weld.layers must be an array');
+        expect(() => getLayerSchema(settings)).toThrow('settings.weld.layers must be an array');
+    });
+});
+
+describe('hasLayers', () => {
+    it('ключ layers отсутствует → false', () => {
+        expect(hasLayers({})).toBe(false);
+        expect(hasLayers({ weld: {} })).toBe(false);
+        expect(hasLayers({ weld: { moduleLayers: ['entities'] } })).toBe(false);
+    });
+
+    it('пустой layers: [] → true: схема задана, просто без слоёв', () => {
+        expect(hasLayers({ weld: { layers: [] } })).toBe(true);
+        expect(hasLayers({}, { layers: [] })).toBe(true);
+    });
+
+    it('непустой layers в settings.weld → true', () => {
+        expect(hasLayers({ weld: { layers: ['common', 'app'] } })).toBe(true);
+    });
+
+    it('override учитывается: задан → true, даже без settings', () => {
+        expect(hasLayers({}, { layers: ['app'] })).toBe(true);
+    });
+
+    it('overrides без ключа layers секцию не отменяет', () => {
+        expect(hasLayers({}, { moduleLayers: ['entities'] })).toBe(false);
+        expect(hasLayers({ weld: { layers: [] } }, { moduleDir: 'pkg' })).toBe(true);
+    });
+
+    it('при заданном override settings не читается — сломанный settings.weld не мешает', () => {
+        expect(hasLayers({ weld: 'nope' }, { layers: [] })).toBe(true);
     });
 });
 

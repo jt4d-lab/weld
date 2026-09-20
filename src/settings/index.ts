@@ -15,6 +15,12 @@ export type { Alias } from './aliases.js';
  */
 export { hasValidStarShape, stripStarSuffix } from './aliases.js';
 /**
+ * Развёрнутая схема слоёв: плоский порядок квалифицированных имён, границы диапазонов и наборы имён
+ * для опознания слоя по пути. Сами `layers`/`moduleLayers`/`moduleDir` наружу не выходят — их формат
+ * остаётся внутренним делом слоя, как и формат алиасов.
+ */
+export type { LayerSchema } from './layers.js';
+/**
  * Значения, перекрывающие секцию `settings.weld` (опции правила). Форма у всех геттеров одна —
  * `(settings, overrides)`, поэтому вызывающий передаёт опции целиком и не знает, какая настройка
  * какому геттеру нужна.
@@ -24,6 +30,8 @@ export {
     getAliases,
     getAliasesBaseUrl,
     getAliasesFromPaths,
+    getLayerSchema,
     getRepoRoot,
     hasAliases,
+    hasLayers,
 } from './weld.js';
