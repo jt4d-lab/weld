@@ -18,7 +18,7 @@ import type { Rule } from 'eslint';
 import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import { getFsHost } from '@/host/index.js';
-import type { Alias } from '@/settings/index.js';
+import type { Alias, WeldOverrides } from '@/settings/index.js';
 import { getAliases, getAliasesFromPaths, getRepoRoot, hasAliases } from '@/settings/index.js';
 import type { TsconfigPaths } from '@/tsconfig/index.js';
 import { loadTsconfigPaths } from '@/tsconfig/index.js';
@@ -36,15 +36,11 @@ export const WELD_OPTION_PROPERTIES = {
 } as const;
 
 /**
- * Значения общих опций правила. Типы уже отсеяны `meta.schema` — в геттеры они идут как `unknown`,
- * а здесь нужны, чтобы подмешать общие опции к собственным опциям правила. Наружу тип не выходит:
- * правилу незачем его называть, пересечение делается здесь.
+ * Опции правила без единой заданной: одна и та же ссылка на все файлы. Не `?? {}` — кэш разобранных
+ * алиасов ключуется ссылкой на объект опций, а новый литерал на каждый файл промахивался бы мимо
+ * него всегда.
  */
-type WeldOptions = {
-    repoRoot?: string;
-    aliasesBaseUrl?: string;
-    aliases?: Record<string, unknown>;
-};
+const EMPTY_OPTIONS: WeldOverrides = {};
 
 /** Всё, что правило берёт из контекста до обхода AST. */
 export type WeldContext<TOwnOptions = unknown> = {
@@ -55,9 +51,10 @@ export type WeldContext<TOwnOptions = unknown> = {
     /**
      * Опции правила, уже разобранные: собственные опции правила плюс общие. Правило читает их
      * отсюда, а не из `context.options[0]`: иначе каждое повторяло бы каст и дефолт, и форма опций
-     * знала бы о себе в двух местах.
+     * знала бы о себе в двух местах. Общие поля типизованы как `unknown` (`WeldOverrides`) — их
+     * значения проверяют геттеры `src/settings/`, а не этот каст.
      */
-    options: TOwnOptions & WeldOptions;
+    options: TOwnOptions & WeldOverrides;
 };
 
 /**
@@ -74,7 +71,7 @@ export function resolveWeldContext<TOwnOptions = unknown>(
     context: Rule.RuleContext,
     fsHostOverride?: FsHost,
 ): WeldContext<TOwnOptions> | null {
-    const options = (context.options[0] ?? {}) as TOwnOptions & WeldOptions;
+    const options = (context.options[0] ?? EMPTY_OPTIONS) as TOwnOptions & WeldOverrides;
     const { fsHost, aliases } = resolveHostAndAliases(context, options, fsHostOverride);
 
     const fromFile = fsHost.toVirtual(context.filename);
@@ -88,15 +85,15 @@ export function resolveWeldContext<TOwnOptions = unknown>(
 /** `FsHost` и алиасы — всё, что в `WeldContext` не зависит от виртуализуемости линтуемого файла. */
 function resolveHostAndAliases(
     context: Rule.RuleContext,
-    options: WeldOptions,
+    options: WeldOverrides,
     fsHostOverride?: FsHost,
 ): { fsHost: FsHost; aliases: Alias[] } {
     // Приоритет источников алиасов: `options.aliases` → `settings.weld.aliases` → автопоиск
     // tsconfig. «Заданы явно» — это присутствие ключа: пустой `{}` тоже выключает автопоиск.
-    if (hasAliases(context.settings, options.aliases)) {
+    if (hasAliases(context.settings, options)) {
         return {
-            fsHost: fsHostOverride ?? getFsHost(context.settings, context.cwd, options.repoRoot),
-            aliases: getAliases(context.settings, options.aliases, options.aliasesBaseUrl),
+            fsHost: fsHostOverride ?? getFsHost(context.settings, context.cwd, options),
+            aliases: getAliases(context.settings, options),
         };
     }
 
@@ -111,13 +108,8 @@ function resolveHostAndAliases(
     // `coverDirs`; при явном root их игнорирует сам `getFsHost`, а инвариант держит отбрасывание
     // непокрытого (ниже и в `parseAliases`).
     const found = loadTsconfigPaths(context.filename);
-    const hasExplicitRoot = getRepoRoot(context.settings, options.repoRoot) !== undefined;
-    const fsHost = getFsHost(
-        context.settings,
-        context.cwd,
-        options.repoRoot,
-        found?.realAnchors ?? [],
-    );
+    const hasExplicitRoot = getRepoRoot(context.settings, options) !== undefined;
+    const fsHost = getFsHost(context.settings, context.cwd, options, found?.realAnchors ?? []);
 
     return { fsHost, aliases: aliasesFromTsconfig(found, fsHost, hasExplicitRoot) };
 }

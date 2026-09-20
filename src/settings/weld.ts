@@ -3,10 +3,11 @@
  * настройку — `getRepoRoot` / `getAliasesBaseUrl` / `getAliases`; формат конфига за пределами
  * `src/settings/` не знает никто.
  *
- * Каждый геттер принимает необязательный `override` — значение этой настройки, подставляемое вместо
- * конфига. Оно тоже приходит из пользовательского конфига (опции правила), поэтому проверяется теми
+ * Каждый геттер принимает необязательный `overrides` — значения настроек, подставляемые вместо
+ * конфига. Они тоже приходят из пользовательского конфига (опции правила), поэтому проверяются теми
  * же правилами, что и `settings.weld`; в сообщении об ошибке называется источник — `options.<имя>`
- * вместо `settings.weld.<имя>`.
+ * вместо `settings.weld.<имя>`. Форма у всех геттеров одна (`settings, overrides`), чтобы вызывающий
+ * передавал опции правила целиком и не знал, какая настройка какому геттеру нужна.
  *
  * Здесь же живёт кэш разобранных алиасов, поэтому и второй вход в тот же разбор — `paths` из
  * tsconfig (`getAliasesFromPaths`) — идёт отсюда: решение «алиасы разбираются один раз на конфиг»
@@ -15,6 +16,21 @@
 
 import type { Alias } from '@/settings/aliases.js';
 import { parseAliases } from '@/settings/aliases.js';
+
+/**
+ * Значения настроек, подставляемые вместо секции `settings.weld`: опции правила из пользовательского
+ * конфига. Тип объявляет `src/settings/` — набор перекрываемых настроек это и есть набор полей
+ * секции, а знает его только этот слой. Значения — `unknown`: они пришли из конфига и проверяются
+ * теми же геттерами, что и сама секция.
+ */
+export type WeldOverrides = {
+    repoRoot?: unknown;
+    aliasesBaseUrl?: unknown;
+    aliases?: unknown;
+    layers?: unknown;
+    moduleLayers?: unknown;
+    moduleDir?: unknown;
+};
 
 /** `aliasesBaseUrl` по умолчанию — сам корень репозитория. */
 const DEFAULT_ALIASES_BASE_URL = '.';
@@ -50,7 +66,8 @@ function requireString(value: unknown, source: string): string {
  * относительного значения и всё прочее знание о реальной ФС — за границей `src/host/`.
  * `undefined` — корень не задан, вызывающий ищет его сам.
  */
-export function getRepoRoot(settings: unknown, override?: unknown): string | undefined {
+export function getRepoRoot(settings: unknown, overrides?: WeldOverrides): string | undefined {
+    const override = overrides?.repoRoot;
     if (override !== undefined) {
         return requireString(override, 'options.repoRoot');
     }
@@ -64,7 +81,8 @@ export function getRepoRoot(settings: unknown, override?: unknown): string | und
 }
 
 /** `settings.weld.aliasesBaseUrl`; не задан — `'.'` (сам корень репозитория). */
-export function getAliasesBaseUrl(settings: unknown, override?: unknown): string {
+export function getAliasesBaseUrl(settings: unknown, overrides?: WeldOverrides): string {
+    const override = overrides?.aliasesBaseUrl;
     if (override !== undefined) {
         return requireString(override, 'options.aliasesBaseUrl');
     }
@@ -77,7 +95,8 @@ export function getAliasesBaseUrl(settings: unknown, override?: unknown): string
     return requireString(aliasesBaseUrl, 'settings.weld.aliasesBaseUrl');
 }
 
-function readAliases(settings: unknown, override: unknown, baseUrlOverride: unknown): Alias[] {
+function readAliases(settings: unknown, overrides: WeldOverrides | undefined): Alias[] {
+    const override = overrides?.aliases;
     const fromOverride = override !== undefined;
     const rawAliases = fromOverride ? override : getWeldSettings(settings)?.aliases;
     if (rawAliases === undefined) {
@@ -85,7 +104,7 @@ function readAliases(settings: unknown, override: unknown, baseUrlOverride: unkn
     }
 
     const source = fromOverride ? 'options.aliases' : 'settings.weld.aliases';
-    return parseAliases(rawAliases, getAliasesBaseUrl(settings, baseUrlOverride), source);
+    return parseAliases(rawAliases, getAliasesBaseUrl(settings, overrides), source);
 }
 
 /**
@@ -141,22 +160,17 @@ function cachedAliases(key: AliasesCacheKey, parse: () => Alias[]): Alias[] {
 }
 
 /**
- * Алиасы из `settings.weld`. Нет `aliases` — `[]`.
- *
- * `baseUrlOverride` — override той настройки, от которой отсчитываются якоря: алиасы без
- * `aliasesBaseUrl` переопределить нельзя, эти два значения имеют смысл только в паре.
+ * Алиасы из `settings.weld`. Нет `aliases` — `[]`. Якоря отсчитываются от `aliasesBaseUrl` — то есть
+ * `overrides` влияет на результат обоими полями сразу: алиасы и база, от которой они считаются,
+ * имеют смысл только в паре.
  *
  * Результат берётся из кэша (см. {@link aliasesCache}), поэтому при попадании возвращается тот же
- * массив, что и в прошлый раз — считается он неизменяемым, потребители его только читают.
+ * массив, что и в прошлый раз — считается он неизменяемым, потребители его только читают. Ключ —
+ * пара ссылок `settings`/`overrides`, поэтому вызывающий обязан передавать один и тот же объект
+ * опций, а не собирать его на каждый файл.
  */
-export function getAliases(
-    settings: unknown,
-    override?: unknown,
-    baseUrlOverride?: unknown,
-): Alias[] {
-    return cachedAliases([settings, override, baseUrlOverride], () =>
-        readAliases(settings, override, baseUrlOverride),
-    );
+export function getAliases(settings: unknown, overrides?: WeldOverrides): Alias[] {
+    return cachedAliases([settings, overrides, undefined], () => readAliases(settings, overrides));
 }
 
 /**
@@ -173,12 +187,12 @@ export function getAliasesFromPaths(paths: unknown, virtualBase: string, source:
 }
 
 /**
- * Заданы ли алиасы явно — в `options.aliases` (`override`) или в `settings.weld.aliases`.
+ * Заданы ли алиасы явно — в `options.aliases` (`overrides.aliases`) или в `settings.weld.aliases`.
  * «Заданы» — это присутствие ключа: пустой `{}` тоже считается (и выключает автопоиск tsconfig).
- * При заданном `override` секция `settings` не читается — как в геттерах.
+ * При заданном override секция `settings` не читается — как в геттерах.
  */
-export function hasAliases(settings: unknown, override?: unknown): boolean {
-    if (override !== undefined) {
+export function hasAliases(settings: unknown, overrides?: WeldOverrides): boolean {
+    if (overrides?.aliases !== undefined) {
         return true;
     }
 

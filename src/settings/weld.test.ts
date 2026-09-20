@@ -85,10 +85,22 @@ describe('getAliases — кэш', () => {
     it('тот же settings, но другой override → разбор заново', () => {
         const settings = { weld: { aliases: { '@src/*': ['src/*'] } } };
 
-        expect(getAliases(settings, { '@lib/*': ['lib/*'] })).toEqual([
+        expect(getAliases(settings, { aliases: { '@lib/*': ['lib/*'] } })).toEqual([
             { prefix: '@lib', anchor: '/lib' },
         ]);
         expect(getAliases(settings)).toEqual([{ prefix: '@src', anchor: '/src' }]);
+    });
+
+    it('та же ссылка на overrides → попадание в кэш, новый объект той же формы → промах', () => {
+        const settings = { weld: {} };
+        const overrides = { aliases: { '@src/*': ['src/*'] } };
+
+        const first = getAliases(settings, overrides);
+
+        // Ключ кэша — ссылка на объект опций: вызывающий обязан держать его одним на все файлы
+        // (`EMPTY_OPTIONS` в `src/rules/context.ts`), иначе кэш не попадает никогда.
+        expect(getAliases(settings, overrides)).toBe(first);
+        expect(getAliases(settings, { aliases: { '@src/*': ['src/*'] } })).not.toBe(first);
     });
 
     it('два конфига не вытесняют друг друга — записей в кэше несколько', () => {
@@ -158,49 +170,70 @@ describe('getAliasesFromPaths', () => {
 
 describe('hasAliases', () => {
     it('ключ aliases отсутствует → false', () => {
-        expect(hasAliases({}, undefined)).toBe(false);
-        expect(hasAliases({ weld: {} }, undefined)).toBe(false);
-        expect(hasAliases({ weld: { repoRoot: '/repo' } }, undefined)).toBe(false);
+        expect(hasAliases({})).toBe(false);
+        expect(hasAliases({ weld: {} })).toBe(false);
+        expect(hasAliases({ weld: { repoRoot: '/repo' } })).toBe(false);
+    });
+
+    it('overrides без ключа aliases секцию не отменяет', () => {
+        expect(hasAliases({}, { repoRoot: '/repo' })).toBe(false);
+        expect(hasAliases({ weld: { aliases: {} } }, { repoRoot: '/repo' })).toBe(true);
     });
 
     it('пустой объект {} в settings.weld.aliases → true', () => {
-        expect(hasAliases({ weld: { aliases: {} } }, undefined)).toBe(true);
+        expect(hasAliases({ weld: { aliases: {} } })).toBe(true);
     });
 
     it('непустые aliases в settings.weld → true', () => {
-        expect(hasAliases({ weld: { aliases: { '@src/*': ['src/*'] } } }, undefined)).toBe(true);
+        expect(hasAliases({ weld: { aliases: { '@src/*': ['src/*'] } } })).toBe(true);
     });
 
     it('override учитывается: задан → true, даже без settings', () => {
-        expect(hasAliases({}, {})).toBe(true);
-        expect(hasAliases({}, { '@src/*': ['src/*'] })).toBe(true);
+        expect(hasAliases({}, { aliases: {} })).toBe(true);
+        expect(hasAliases({}, { aliases: { '@src/*': ['src/*'] } })).toBe(true);
     });
 
     it('при заданном override settings не читается — сломанный settings.weld не мешает', () => {
-        expect(hasAliases({ weld: 'nope' }, {})).toBe(true);
+        expect(hasAliases({ weld: 'nope' }, { aliases: {} })).toBe(true);
     });
 });
 
-describe('override', () => {
+describe('overrides', () => {
     it('значение выигрывает у settings.weld', () => {
         const settings = { weld: { repoRoot: '/from-settings' } };
 
-        expect(getRepoRoot(settings, '/from-override')).toBe('/from-override');
+        expect(getRepoRoot(settings, { repoRoot: '/from-override' })).toBe('/from-override');
     });
 
     it('перекрытая настройка не читается из settings — сломанный settings.weld не мешает', () => {
-        expect(getRepoRoot({ weld: 'nope' }, '/ok')).toBe('/ok');
+        expect(getRepoRoot({ weld: 'nope' }, { repoRoot: '/ok' })).toBe('/ok');
+    });
+
+    it('чужие поля overrides геттер не трогает', () => {
+        const settings = { weld: { repoRoot: '/from-settings' } };
+
+        expect(getRepoRoot(settings, { aliases: { '@src/*': ['src/*'] } })).toBe('/from-settings');
     });
 
     it('override aliasesBaseUrl подставляется вместо конфига', () => {
-        expect(getAliasesBaseUrl({ weld: { aliasesBaseUrl: 'packages/app' } }, 'other')).toBe(
-            'other',
-        );
+        expect(
+            getAliasesBaseUrl(
+                { weld: { aliasesBaseUrl: 'packages/app' } },
+                {
+                    aliasesBaseUrl: 'other',
+                },
+            ),
+        ).toBe('other');
     });
 
     it('override aliases разбирается с aliasesBaseUrl из settings', () => {
         expect(
-            getAliases({ weld: { aliasesBaseUrl: 'packages/app' } }, { '@src/*': ['src/*'] }),
+            getAliases(
+                { weld: { aliasesBaseUrl: 'packages/app' } },
+                {
+                    aliases: { '@src/*': ['src/*'] },
+                },
+            ),
         ).toEqual([{ prefix: '@src', anchor: '/packages/app/src' }]);
     });
 
@@ -209,7 +242,7 @@ describe('override', () => {
             weld: { aliasesBaseUrl: 'packages/app', aliases: { '@src/*': ['src/*'] } },
         };
 
-        expect(getAliases(settings, undefined, 'packages/other')).toEqual([
+        expect(getAliases(settings, { aliasesBaseUrl: 'packages/other' })).toEqual([
             { prefix: '@src', anchor: '/packages/other/src' },
         ]);
     });
@@ -219,53 +252,60 @@ describe('override', () => {
             weld: { aliasesBaseUrl: 'packages/app', aliases: { '@src/*': ['src/*'] } },
         };
 
-        expect(getAliases(settings, { '@lib/*': ['lib/*'] }, 'packages/other')).toEqual([
-            { prefix: '@lib', anchor: '/packages/other/lib' },
-        ]);
+        expect(
+            getAliases(settings, {
+                aliases: { '@lib/*': ['lib/*'] },
+                aliasesBaseUrl: 'packages/other',
+            }),
+        ).toEqual([{ prefix: '@lib', anchor: '/packages/other/lib' }]);
     });
 
     it('тот же объект aliases при другом override aliasesBaseUrl даёт другие якоря', () => {
         const aliases = { '@src/*': ['src/*'] };
 
-        const fromApp = getAliases({}, aliases, 'packages/app');
-        const fromOther = getAliases({}, aliases, 'packages/other');
+        const fromApp = getAliases({}, { aliases, aliasesBaseUrl: 'packages/app' });
+        const fromOther = getAliases({}, { aliases, aliasesBaseUrl: 'packages/other' });
 
         expect(fromApp).toEqual([{ prefix: '@src', anchor: '/packages/app/src' }]);
         expect(fromOther).toEqual([{ prefix: '@src', anchor: '/packages/other/src' }]);
     });
 
     it('override aliasesBaseUrl проверяется как options.aliasesBaseUrl и при разборе алиасов', () => {
-        expect(() => getAliases({}, { '@src/*': ['src/*'] }, 42)).toThrow(
-            'options.aliasesBaseUrl must be a string, got number',
-        );
+        expect(() =>
+            getAliases({}, { aliases: { '@src/*': ['src/*'] }, aliasesBaseUrl: 42 }),
+        ).toThrow('options.aliasesBaseUrl must be a string, got number');
     });
 
     it('override не отменяет чтение остальных настроек', () => {
         const settings = { weld: { repoRoot: '/from-settings', aliasesBaseUrl: 'packages/app' } };
 
         expect(getAliasesBaseUrl(settings)).toBe('packages/app');
-        expect(getRepoRoot(settings, '/other')).toBe('/other');
+        expect(getRepoRoot(settings, { repoRoot: '/other' })).toBe('/other');
         expect(getRepoRoot(settings)).toBe('/from-settings');
     });
 });
 
-describe('override — валидация', () => {
+describe('overrides — валидация', () => {
     it('override repoRoot не строка → исключение называет options.repoRoot', () => {
-        expect(() => getRepoRoot({}, 42)).toThrow('options.repoRoot must be a string, got number');
+        expect(() => getRepoRoot({}, { repoRoot: 42 })).toThrow(
+            'options.repoRoot must be a string, got number',
+        );
     });
 
     it('override aliasesBaseUrl не строка → исключение называет options.aliasesBaseUrl', () => {
-        expect(() => getAliasesBaseUrl({}, 42)).toThrow(
+        expect(() => getAliasesBaseUrl({}, { aliasesBaseUrl: 42 })).toThrow(
             'options.aliasesBaseUrl must be a string, got number',
         );
     });
 
     it('override aliases не объект → исключение называет options.aliases', () => {
-        expect(() => getAliases({}, 'nope')).toThrow('options.aliases must be an object');
+        expect(() => getAliases({}, { aliases: 'nope' })).toThrow(
+            'options.aliases must be an object',
+        );
     });
 
     it('ошибка внутри override aliases называет ключ и источник', () => {
-        expect(() => getAliases({}, { '@bad': 42 })).toThrow(
+        expect(() => getAliases({}, { aliases: { '@bad': 42 } })).toThrow(
             "options.aliases['@bad'] must be a string or an array of strings",
         );
     });

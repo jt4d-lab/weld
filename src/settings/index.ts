@@ -14,6 +14,12 @@ export type { Alias } from './aliases.js';
  * `src/tsconfig/` нельзя поднимать root ради якоря записи, которую разбор потом отбросит.
  */
 export { hasValidStarShape, stripStarSuffix } from './aliases.js';
+/**
+ * Значения, перекрывающие секцию `settings.weld` (опции правила). Форма у всех геттеров одна —
+ * `(settings, overrides)`, поэтому вызывающий передаёт опции целиком и не знает, какая настройка
+ * какому геттеру нужна.
+ */
+export type { WeldOverrides } from './weld.js';
 export {
     getAliases,
     getAliasesBaseUrl,
