@@ -37,7 +37,28 @@ yarn add -D eslint-plugin-weld
 // eslint.config.js
 import weld from 'eslint-plugin-weld';
 
-export default [weld.configs.recommended];
+export default [
+    weld.configs.recommended,
+    {
+        files: ['src/**'],
+        settings: {
+            weld: {
+                layers: ['common', '@modules', 'pages', 'app'],
+                moduleLayers: ['entities', 'features', 'widgets'],
+            },
+        },
+    },
+];
+```
+
+Плагин предоставляет готовые наборы правил `recommended` и `strict`; оба включают
+`no-illegal-layer-dependency` и потому требуют схему слоёв — без `settings.weld.layers` прогон
+падает на первом же файле.
+
+```js
+import weld from 'eslint-plugin-weld';
+
+export default [weld.configs.strict, { files: ['src/**'], settings: { weld: { layers } } }];
 ```
 
 Можно подключить и сам плагин, включая правила поштучно:
@@ -60,9 +81,9 @@ export default [
 - [`weld/no-barrel-bypass`](docs/rules/no-barrel-bypass.md) — запрещает импорты, которые входят
   внутрь модуля мимо его точки входа (`index.*`), минуя баррель. Входит в `recommended` и `strict`;
 - [`weld/no-illegal-layer-dependency`](docs/rules/no-illegal-layer-dependency.md) — запрещает
-  импорты, идущие против порядка слоёв, который проект объявил в `settings.weld.layers`. В готовые
-  наборы не входит: без схемы слоёв проверять нечего, а схемы по умолчанию у плагина нет — включать
-  правило нужно вручную, вместе со схемой.
+  импорты, идущие против порядка слоёв, который проект объявил в `settings.weld.layers`. Входит в
+  `recommended` и `strict`, поэтому оба набора требуют схему слоёв: по умолчанию её у плагина нет и
+  быть не может, а без неё прогон падает.
 
 Правила учитывают алиасы путей и корень репозитория. Если алиасы не заданы в конфиге, они
 автоматически подхватываются из `compilerOptions.paths` ближайшего `tsconfig.json` (с резолвом
