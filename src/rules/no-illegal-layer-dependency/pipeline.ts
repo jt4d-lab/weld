@@ -10,9 +10,8 @@
 import { createLogger } from '@/debug.js';
 import { parseSpecifier } from '@/imports/index.js';
 import { dirname } from '@/path/index.js';
-import type { Alias, LayerSchema } from '@/settings/index.js';
+import type { Alias, LayerSchema, Qualified } from '@/settings/index.js';
 
-import type { LayerLocation } from '@/rules/no-illegal-layer-dependency/core/layer-of.js';
 import { layerOf } from '@/rules/no-illegal-layer-dependency/core/layer-of.js';
 import type { MessageId } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
 import { decide, sourceRights } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
@@ -26,11 +25,16 @@ export type Report = { messageId: MessageId; data: Record<string, string> };
 
 export type Checker = {
     /**
-     * Слой линтуемого файла — он же слой источника всех его импортов. Наружу выходит потому, что
-     * файл со слоем вне схемы правило репортит целиком, до обхода импортов, а считать его второй раз
-     * значило бы опознавать один путь дважды.
+     * Права линтуемого файла — его слой, уже схлопнутый `sourceRights` (неразмеченный код модуля
+     * живёт по правам модуля целиком). Наружу выходит потому, что файл со слоем вне схемы правило
+     * репортит целиком, до обхода импортов, и называет его в репорте этим же именем: считать слой
+     * второй раз значило бы опознавать один путь дважды, а схлопывать — завести второе место,
+     * знающее про `sourceRights`.
+     *
+     * Полное положение файла (владелец, модуль) наружу не выходит: им судит импорты сам `decide`, а
+     * правилу нужно только имя.
      */
-    from: LayerLocation;
+    fromRights: Qualified;
     /** Нарушение или `null`, если импорт легален либо правилу не принадлежит. */
     checkImport: (specifier: string) => Report | null;
 };
@@ -39,13 +43,13 @@ export function createChecker({ fromFile, aliases, schema }: CheckerInput): Chec
     const fromDir = dirname(fromFile);
     const from = layerOf(fromFile, schema, 'file');
 
-    // В логах слой источника называется теми же правами, по которым его судит вердикт (и которые
-    // показывает лог самого правила): неразмеченный файл модуля живёт по правам модуля, и один файл
-    // не должен появляться в одном прогоне под двумя именами.
+    // Схлопывание источника считается здесь, один раз на файл: тем же именем вердикт судит каждый
+    // его импорт, его показывают логи обоих модулей, и по нему же правило спрашивает схему про сам
+    // файл — один файл не должен появляться в одном прогоне под двумя именами.
     const fromRights = sourceRights(from.layer);
 
     return {
-        from,
+        fromRights,
         checkImport(specifier: string): Report | null {
             const target = parseSpecifier(specifier, fromDir, aliases);
             if (target === null) {

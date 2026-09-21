@@ -23,7 +23,7 @@ import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 import { getLayerSchema, hasLayers, plainLayerName } from '@/settings/index.js';
 
 import type { MessageId } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
-import { declareHint, sourceRights } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
+import { declareHint } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
 import { createChecker } from '@/rules/no-illegal-layer-dependency/pipeline.js';
 
 const debug = createLogger('no-illegal-layer-dependency');
@@ -123,15 +123,16 @@ export function createRule(fsHost?: FsHost): Rule.RuleModule {
 
             const { fromFile } = weld;
             const schema = getLayerSchema(context.settings, weld.options);
-            const { from, checkImport } = createChecker({
+
+            // Права источника приходят из проверки уже схлопнутыми (неразмеченный код модуля живёт
+            // по правам модуля): схлопывание знает `core/verdict.ts`, а считать его здесь во второй
+            // раз значило бы завести второе место, которое про него знает.
+            const { fromRights: fromLayer, checkImport } = createChecker({
                 fromFile,
                 aliases: weld.aliases,
                 schema,
             });
 
-            // Права источника — уже схлопнутые: неразмеченный код модуля живёт по правам модуля, и
-            // спрашивать схему про `module:unknown` незачем.
-            const fromLayer = sourceRights(from.layer);
             if (!schema.last.has(fromLayer)) {
                 debug('%s: layer %s is not declared in the schema', fromFile, fromLayer);
 
