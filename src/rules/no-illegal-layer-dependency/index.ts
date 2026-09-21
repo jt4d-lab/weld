@@ -19,41 +19,67 @@ import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import type { SpecifierNode } from '@/imports/index.js';
 import { createSpecifierVisitor } from '@/imports/index.js';
+import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 import { getLayerSchema, hasLayers, plainLayerName } from '@/settings/index.js';
 
-import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
+import type { MessageId } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
 import { declareHint, sourceRights } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
 import { createChecker } from '@/rules/no-illegal-layer-dependency/pipeline.js';
 
 const debug = createLogger('no-illegal-layer-dependency');
 
+/**
+ * Сообщения правила: вердикт плюс `undeclaredLayer` — единственное, которое репортится на файл
+ * целиком и потому в {@link MessageId} не входит. `satisfies` связывает ключи с этим типом: без него
+ * переименование в одном из двух мест компилировалось бы и падало на рантайме.
+ *
+ * `horizontalDependency` не говорит «из другой директории»: у кода без слоя владельца нет, и
+ * горизонталью оказывается даже импорт соседнего файла той же директории (см. `core/verdict.ts`).
+ * Список, в котором объявляется смежный повтор, назван данными: слой модуля повторяется в
+ * `moduleLayers`, и повтор в `layers` разбор схемы отверг бы.
+ *
+ * `illegalDependencyAcrossLevels` — то же нарушение направления, но между двумя слоями с одним
+ * простым именем (единственная такая пара — `@unknown` вне модулей и `@unknown` внутри модуля).
+ * Отдельное сообщение, а не уточнение в `illegalDependency`: там уровень был бы пустым в каждом
+ * обычном нарушении, а здесь без него текст называет обоими концами один и тот же слой.
+ *
+ * Совет в `moduleInternals` назван конкретной настройкой, а не шаблоном: вердикт выдаёт это
+ * сообщение только при объявленном `@modules`, а значит `'@unknown' in moduleLayers` — всегда
+ * конфиг, который разбор схемы примет. Схему без `@modules` тот же вердикт уводит в
+ * `undeclaredTargetLayer` с советом объявить `@modules`.
+ */
 const messages = {
     illegalDependency:
         "Illegal layer dependency: '{{fromLayer}}' must not import from '{{toLayer}}'.",
+    illegalDependencyAcrossLevels:
+        "Illegal layer dependency: '{{fromLayer}}' {{fromLevel}} must not import from '{{toLayer}}' {{toLevel}}. Same name, different layers: they are declared separately in layers and moduleLayers.",
     horizontalDependency:
-        "Illegal layer dependency: '{{layer}}' must not import from a different '{{layer}}' directory.",
+        "Illegal layer dependency: '{{layer}}' must not import from another '{{layer}}'. Declare '{{layer}}' twice in a row in {{list}} to allow horizontal imports.",
     undeclaredLayer:
         "This file belongs to '{{layer}}', which is not declared in the layer schema. Move the file into a layer, or declare {{declare}}.",
     undeclaredTargetLayer:
         "'{{target}}' belongs to '{{layer}}', which is not declared in the layer schema. Move it into a layer, or declare {{declare}}.",
     moduleInternals:
         "'{{fromLayer}}' must not import internals of another module: '{{target}}' has no layer inside its module. Import through the module barrel, or declare '@unknown' in moduleLayers.",
-};
+} satisfies Record<MessageId | 'undeclaredLayer', string>;
 
 /**
- * Собственные опции правила — те же три настройки схемы, что и в `settings.weld`. Значения не
- * типизуются подробнее: их разбирает и проверяет `src/settings/`, и вторая проверка здесь разошлась
- * бы с первой. Общие опции подмешивает {@link WELD_OPTION_PROPERTIES}.
+ * Собственные опции правила — те же три настройки схемы, что и в `settings.weld`. Схема описывает
+ * только форму значения (массив строк): так опечатка в типе становится обычной ошибкой конфига
+ * ESLint, а не исключением из разбора, которое валит весь прогон. Смысловые проверки (спец-имена,
+ * пересечение списков, место `@modules`) остаются за `src/settings/` — вторая их копия здесь
+ * разошлась бы с первой. Общие опции подмешивает {@link WELD_OPTION_PROPERTIES}.
  */
 const SCHEMA_OPTION_PROPERTIES = {
-    layers: { type: 'array' },
-    moduleLayers: { type: 'array' },
+    layers: { type: 'array', items: { type: 'string' } },
+    moduleLayers: { type: 'array', items: { type: 'string' } },
     moduleDir: { type: 'string' },
 } as const;
 
 /**
  * Правило включено, а схемы нет: проверять нечего, и молча отключиться значило бы зелёный линт без
- * единой проверки направления. Падение на каждом файле — как при кривых `aliases`.
+ * единой проверки направления. Исключение ESLint не репортит, а пробрасывает наружу — прогон падает
+ * на первом же файле под правилом, как и при кривых `aliases`.
  */
 const MISSING_SCHEMA =
     'weld/no-illegal-layer-dependency requires a layer schema: set settings.weld.layers or options.layers';
@@ -125,20 +151,33 @@ export function createRule(fsHost?: FsHost): Rule.RuleModule {
                 };
             }
 
-            return createSpecifierVisitor((sourceNode: SpecifierNode) => {
-                const report = checkImport(sourceNode.value);
-                if (report === null) {
-                    return;
-                }
+            // Реэкспорт обходится наравне с импортом: `export { X } from '@/app/thing'` — такое же
+            // ребро графа зависимостей, как и `import`, и пропуск реэкспортов делал бы запрет
+            // обходимым переписыванием пары `import` + `export` в одну строку. Сосед
+            // (`no-barrel-bypass`) их по-прежнему не обходит — там баррель из них и собран.
+            return createSpecifierVisitor(
+                (sourceNode: SpecifierNode) => {
+                    const report = checkImport(sourceNode.value);
+                    if (report === null) {
+                        return;
+                    }
 
-                debug('%s [%s]: %s is %s', fromFile, fromLayer, sourceNode.value, report.messageId);
+                    debug(
+                        '%s [%s]: %s is %s',
+                        fromFile,
+                        fromLayer,
+                        sourceNode.value,
+                        report.messageId,
+                    );
 
-                context.report({
-                    node: sourceNode,
-                    messageId: report.messageId,
-                    data: report.data,
-                });
-            });
+                    context.report({
+                        node: sourceNode,
+                        messageId: report.messageId,
+                        data: report.data,
+                    });
+                },
+                { reExports: true },
+            );
         },
     };
 }
