@@ -42,6 +42,10 @@ export default [
   {
     files: ['src/**/*.js'],
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    // Пресет включает no-illegal-layer-dependency, а оно без схемы роняет прогон: конфиг
+    // потребителя обязан её задать. Смежный повтор @unknown разрешает импорты внутри
+    // неразмеченного кода — примеру этого достаточно.
+    settings: { weld: { layers: ['@unknown', '@unknown'] } },
   },
 ];
 JS

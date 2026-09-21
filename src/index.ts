@@ -12,6 +12,7 @@ const recommended: Linter.Config = {
     name: 'weld/recommended',
     rules: {
         'weld/no-barrel-bypass': 'error',
+        'weld/no-illegal-layer-dependency': 'error',
     },
 };
 
