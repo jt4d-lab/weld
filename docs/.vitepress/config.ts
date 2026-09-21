@@ -12,6 +12,7 @@ export default withMermaid(
             nav: [
                 { text: 'Документация', link: '/get-started/overview' },
                 { text: 'Концепции', link: '/core-concepts' },
+                { text: 'ESLint', link: '/rules/install' },
             ],
 
             sidebar: [
@@ -30,8 +31,12 @@ export default withMermaid(
                     ],
                 },
                 {
-                    text: 'ES Lint',
-                    items: [{ text: 'no-barrel-bypass', link: '/rules/no-barrel-bypass' }],
+                    text: 'ESLint',
+                    items: [
+                        { text: 'Установка', link: '/rules/install' },
+                        { text: 'settings', link: '/rules/settings' },
+                        { text: 'no-barrel-bypass', link: '/rules/no-barrel-bypass' },
+                    ],
                 },
             ],
 
