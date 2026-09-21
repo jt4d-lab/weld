@@ -135,7 +135,7 @@ import { helper } from '@/feature/internal';
 
 ## Настройки: `settings.weld`
 
-Правило читает общие настройки плагина — `repoRoot`, `aliasesBaseUrl`, `aliases` из секции
+Правило читает общие настройки плагина — `aliases`, `aliasesBaseUrl`, `repoRoot` из секции
 `settings.weld` (и одноимённые опции правила, перекрывающие её). Если алиасы не заданы явно, они
 подхватываются из ближайшего к линтуемому файлу `tsconfig.json`. Формат настроек, приоритет
 источников алиасов и правила автопоиска описаны в [документации настроек](./settings.md).
@@ -152,16 +152,16 @@ import { helper } from '@/feature/internal';
 
 Схема опций — один объект (лишние ключи запрещены):
 
-| опция            | тип       | по умолчанию                                                                                                                   |
-| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `fix`            | `boolean` | `true`                                                                                                                         |
-| `repoRoot`       | `string`  | значение `settings.weld.repoRoot`                                                                                              |
-| `aliasesBaseUrl` | `string`  | значение `settings.weld.aliasesBaseUrl`                                                                                        |
-| `aliases`        | `object`  | значение `settings.weld.aliases`, иначе — автопоиск из tsconfig (см. [настройки](./settings.md#автопоиск-алиасов-из-tsconfig)) |
+| опция            | тип       | описание                                                                       |
+| ---------------- | --------- | ------------------------------------------------------------------------------ |
+| `fix`            | `boolean` | автоисправление; по умолчанию `true`                                           |
+| `aliases`        | `object`  | переопределение [`settings.weld.aliases`](./settings.md#aliases)               |
+| `aliasesBaseUrl` | `string`  | переопределение [`settings.weld.aliasesBaseUrl`](./settings.md#aliasesbaseurl) |
+| `repoRoot`       | `string`  | переопределение [`settings.weld.repoRoot`](./settings.md#reporoot)             |
 
-Опции `repoRoot`, `aliasesBaseUrl`, `aliases` — те же общие настройки, что и в `settings.weld`, но
+Опции `aliases`, `aliasesBaseUrl`, `repoRoot` — те же общие настройки, что и в `settings.weld`, но
 заданные на самом правиле; как они перекрывают секцию, описано в
-[документации настроек](./settings.md#reporoot-aliasesbaseurl-aliases-в-опциях-правила).
+[документации настроек](./settings.md#aliases-aliasesbaseurl-reporoot-в-опциях-правила).
 
 ### `fix`
 
@@ -184,9 +184,9 @@ import { helper } from '@/feature/internal';
 
 ## Поведение в крайних случаях
 
-- **Некорректный `settings.weld`** (например, `repoRoot` или `aliasesBaseUrl` не строка, `aliases` —
-  не объект, значение алиаса не строка/массив) — правило бросает исключение внутри `create()`.
-  ESLint репортует ошибку правила **на каждом проверяемом файле**. Это намеренно: молча
+- **Некорректный `settings.weld`** (например, `aliases` — не объект, значение алиаса не
+  строка/массив, `aliasesBaseUrl` или `repoRoot` не строка) — правило бросает исключение внутри
+  `create()`. ESLint репортует ошибку правила **на каждом проверяемом файле**. Это намеренно: молча
   отключившееся из-за опечатки в конфиге правило хуже громко упавшего. Значения, приходящие вместо
   настроек из опций правила, проверяются теми же правилами; в тексте ошибки источник называется как
   `options.<имя>`.

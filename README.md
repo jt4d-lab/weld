@@ -69,9 +69,9 @@ export default [
     {
         settings: {
             weld: {
-                repoRoot: '.', // необязательно; по умолчанию — авто-поиск
-                aliasesBaseUrl: 'packages/app', // необязательно; по умолчанию '.'
                 aliases: { '@/*': ['src/*'] },
+                aliasesBaseUrl: 'packages/app', // необязательно; по умолчанию '.'
+                repoRoot: '.', // необязательно; по умолчанию — авто-поиск
             },
         },
     },
