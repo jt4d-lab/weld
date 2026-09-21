@@ -9,13 +9,18 @@ import { getLayerSchema } from '@/settings/index.js';
  * Схема из плана. Развёрнутый порядок:
  * `root:common`, `root:unknown`, `module`, `module:entities`, `module:features`, `module:widgets`,
  * `module`, `root:pages`, `root:app`.
+ *
+ * Сам конфиг остаётся под рукой: советы из сообщений проверяются дописыванием к нему настройки, и
+ * дописывать её надо ровно к той схеме, по которой посчитан вердикт.
  */
-const schema = getLayerSchema({
+const schemaSettings = {
     weld: {
         layers: ['common', '@unknown', '@modules', 'pages', 'app'],
         moduleLayers: ['entities', 'features', 'widgets'],
     },
-});
+};
+
+const schema = getLayerSchema(schemaSettings);
 
 /** Место в дереве: слой плюс владелец и модуль, которые `decide` сравнивает на равенство. */
 function at(
@@ -160,7 +165,7 @@ describe('decide — пропуски', () => {
         expect(decide(schema, at('root:unknown', null), at('root:unknown', null))).toEqual({
             ok: false,
             messageId: 'horizontalDependency',
-            data: { layer: '@unknown' },
+            data: { layer: '@unknown', list: 'layers' },
         });
     });
 
@@ -235,6 +240,45 @@ describe('decide — цель без объявленного слоя', () => {
         });
     });
 
+    it("совет moduleInternals принимается разбором схемы: '@unknown' in moduleLayers", () => {
+        // Сообщение зовёт дописать настройку к той же схеме, по которой посчитан вердикт, и конфиг
+        // с ней обязан разбираться. Без `@modules` такой `moduleLayers` — исключение, поэтому туда
+        // вердикт и не уводит (см. соседний тест).
+        expect(() =>
+            getLayerSchema({
+                weld: {
+                    ...schemaSettings.weld,
+                    moduleLayers: [...schemaSettings.weld.moduleLayers, '@unknown'],
+                },
+            }),
+        ).not.toThrow();
+    });
+
+    it('неразмеченный код чужого модуля при схеме без @modules — совет объявить @modules', () => {
+        // Совет `moduleInternals` («объяви '@unknown' in moduleLayers») здесь вёл бы в конфиг,
+        // который `parseLayerSchema` отвергает исключением: без `@modules` класть `moduleLayers`
+        // некуда. Модулей для такой схемы не существует вовсе, поэтому цель репортится так же, как
+        // модуль целиком, — и так же, как правило репортит сам файл внутри такого модуля.
+        const noModules = getLayerSchema({ weld: { layers: ['common', 'app'] } });
+
+        expect(
+            decide(
+                noModules,
+                at('root:app', '/src/app'),
+                at('module:unknown', '/src/modules/order', '/src/modules/order'),
+            ),
+        ).toEqual({
+            ok: false,
+            messageId: 'undeclaredTargetLayer',
+            data: { layer: 'module', declare: "'@modules' in layers" },
+        });
+
+        // Сам конфиг из отвергнутого совета: `moduleLayers` без `@modules` — исключение.
+        expect(() =>
+            getLayerSchema({ weld: { layers: ['common', 'app'], moduleLayers: ['@unknown'] } }),
+        ).toThrow("has no '@modules' to put it into");
+    });
+
     it('цель root:unknown при схеме без @unknown — совет объявить его в layers', () => {
         const strict = getLayerSchema({
             weld: { layers: ['common', '@modules', 'app'], moduleLayers: ['entities'] },
@@ -289,7 +333,9 @@ describe('decide — горизонтальные связи', () => {
         ).toEqual({
             ok: false,
             messageId: 'horizontalDependency',
-            data: { layer: 'entities' },
+            // Повтор слоя модуля объявляется в `moduleLayers`: то же имя в `layers` разбор схемы
+            // отверг бы как обычное имя, объявленное в обоих списках.
+            data: { layer: 'entities', list: 'moduleLayers' },
         });
     });
 
@@ -300,8 +346,21 @@ describe('decide — горизонтальные связи', () => {
         ).toEqual({
             ok: false,
             messageId: 'horizontalDependency',
-            data: { layer: 'app' },
+            data: { layer: 'app', list: 'layers' },
         });
+    });
+
+    it('совет горизонтали принимается разбором схемы — для обоих списков', () => {
+        // Совет из сообщения, приложенный к схеме буквально: смежный повтор имени в названном
+        // списке. Если бы список назывался неверно, `parseLayerSchema` бросил бы на этом конфиге.
+        expect(() =>
+            getLayerSchema({
+                weld: {
+                    layers: ['common', '@unknown', '@modules', 'pages', 'app', 'app'],
+                    moduleLayers: ['entities', 'entities', 'features', 'widgets'],
+                },
+            }),
+        ).not.toThrow();
     });
 
     it('одноимённый слой с диапазоном горизонталью не является', () => {
@@ -313,5 +372,75 @@ describe('decide — горизонтальные связи', () => {
                 at('module', '/src/modules/other', '/src/modules/other'),
             ),
         ).toEqual({ ok: true });
+    });
+});
+
+describe('decide — одно простое имя на двух уровнях', () => {
+    /**
+     * `@unknown` объявлен в обоих списках — валидный конфиг, у которого два разных слоя называются
+     * в сообщениях одинаково. Развёрнутый порядок: `root:common`, `root:unknown`, `module`,
+     * `module:unknown`, `module:entities`, `module:features`, `module`, `root:pages`, `root:app`.
+     */
+    const twoLevels = getLayerSchema({
+        weld: {
+            layers: ['common', '@unknown', '@modules', 'pages', 'app'],
+            moduleLayers: ['@unknown', 'entities', 'features'],
+        },
+    });
+
+    it('оба конца называются @unknown — сообщение разводит их уровнями', () => {
+        // Без этого сообщение вышло бы самопротиворечивым: «'@unknown' не может импортировать
+        // '@unknown'» про два разных слоя, стоящих в схеме в разных местах.
+        expect(
+            decide(
+                twoLevels,
+                at('root:unknown', null),
+                at('module:unknown', '/src/modules/order', '/src/modules/order'),
+            ),
+        ).toEqual({
+            ok: false,
+            messageId: 'illegalDependencyAcrossLevels',
+            data: {
+                fromLayer: '@unknown',
+                fromLevel: 'outside modules',
+                toLayer: '@unknown',
+                toLevel: 'inside a module',
+            },
+        });
+    });
+
+    it('обратное направление разрешено: module:unknown стоит правее root:unknown', () => {
+        // Тот же `@unknown` на двух уровнях — но это направление схема допускает, и сообщения нет.
+        expect(
+            decide(
+                twoLevels,
+                at('module:unknown', '/src/modules/order', '/src/modules/order'),
+                at('root:unknown', null),
+            ),
+        ).toEqual({ ok: true });
+    });
+
+    it('разные имена остаются обычным нарушением, без уровней', () => {
+        expect(decide(twoLevels, at('root:unknown', null), at('root:app', '/src/app'))).toEqual({
+            ok: false,
+            messageId: 'illegalDependency',
+            data: { fromLayer: '@unknown', toLayer: 'app' },
+        });
+    });
+
+    it('одинаковые имена на одном уровне — это один и тот же слой, то есть горизонталь', () => {
+        // Второй способ получить два одинаковых имени закрыт разбором схемы: обычное имя в обоих
+        // списках — ошибка конфига, поэтому пара «одно имя, два уровня» бывает только у `@unknown`.
+        expect(decide(twoLevels, at('root:unknown', null), at('root:unknown', null))).toEqual({
+            ok: false,
+            messageId: 'horizontalDependency',
+            data: { layer: '@unknown', list: 'layers' },
+        });
+
+        expect(() =>
+            getLayerSchema({
+                weld: { layers: ['common', '@modules'], moduleLayers: ['common'] },
+            }),
+        ).toThrow("'common' is already declared in settings.weld.layers");
     });
 });

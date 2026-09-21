@@ -15,7 +15,7 @@ import type { Alias, LayerSchema } from '@/settings/index.js';
 import type { LayerLocation } from '@/rules/no-illegal-layer-dependency/core/layer-of.js';
 import { layerOf } from '@/rules/no-illegal-layer-dependency/core/layer-of.js';
 import type { MessageId } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
-import { decide } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
+import { decide, sourceRights } from '@/rules/no-illegal-layer-dependency/core/verdict.js';
 
 const debug = createLogger('no-illegal-layer-dependency');
 
@@ -39,6 +39,11 @@ export function createChecker({ fromFile, aliases, schema }: CheckerInput): Chec
     const fromDir = dirname(fromFile);
     const from = layerOf(fromFile, schema, 'file');
 
+    // В логах слой источника называется теми же правами, по которым его судит вердикт (и которые
+    // показывает лог самого правила): неразмеченный файл модуля живёт по правам модуля, и один файл
+    // не должен появляться в одном прогоне под двумя именами.
+    const fromRights = sourceRights(from.layer);
+
     return {
         from,
         checkImport(specifier: string): Report | null {
@@ -54,7 +59,7 @@ export function createChecker({ fromFile, aliases, schema }: CheckerInput): Chec
                 debug(
                     '%s [%s]: %s -> %s [%s] allowed',
                     fromFile,
-                    from.layer,
+                    fromRights,
                     specifier,
                     target.path,
                     to.layer,

@@ -146,7 +146,7 @@ describe('checkImport — нарушения с подстановкой спе�
     it('горизонталь одноимённых слоёв разных модулей', () => {
         expect(check('@/modules/other/features')).toEqual({
             messageId: 'horizontalDependency',
-            data: { layer: 'features', target: '@/modules/other/features' },
+            data: { layer: 'features', list: 'moduleLayers', target: '@/modules/other/features' },
         });
     });
 
@@ -154,6 +154,31 @@ describe('checkImport — нарушения с подстановкой спе�
         expect(check('@/app/config', '/src/common/ui/button.tsx')).toEqual({
             messageId: 'illegalDependency',
             data: { fromLayer: 'common', toLayer: 'app', target: '@/app/config' },
+        });
+    });
+
+    it('@unknown двух уровней: специфаер подставляется в сообщение с уровнями', () => {
+        const twoLevels = getLayerSchema({
+            weld: {
+                layers: ['common', '@unknown', '@modules', 'pages', 'app'],
+                moduleLayers: ['@unknown', 'entities', 'features'],
+            },
+        });
+        const { checkImport } = createChecker({
+            fromFile: '/src/shared/x.ts',
+            aliases,
+            schema: twoLevels,
+        });
+
+        expect(checkImport('@/modules/order/lib/y')).toEqual({
+            messageId: 'illegalDependencyAcrossLevels',
+            data: {
+                fromLayer: '@unknown',
+                fromLevel: 'outside modules',
+                toLayer: '@unknown',
+                toLevel: 'inside a module',
+                target: '@/modules/order/lib/y',
+            },
         });
     });
 });

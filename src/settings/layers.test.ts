@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { LayerSchema } from '@/settings/layers.js';
-import { parseLayerSchema, plainLayerName } from '@/settings/layers.js';
+import {
+    isModuleLevel,
+    MODULE,
+    MODULE_UNKNOWN,
+    parseLayerSchema,
+    plainLayerName,
+    ROOT_UNKNOWN,
+} from '@/settings/layers.js';
 
 /**
  * Разбор с источниками из секции: имена мест в конфиге проверяются отдельно (см. «источник
@@ -110,6 +117,20 @@ describe('parseLayerSchema — first/last', () => {
         expect(schema.last.get('module:features')).toBe(4);
     });
 
+    it('повтор имени в moduleLayers тоже даёт диапазон — список не схлопывается', () => {
+        const repeated = compile(['@modules'], ['entities', 'features', 'entities']);
+
+        expect(repeated.order).toEqual([
+            'module',
+            'module:entities',
+            'module:features',
+            'module:entities',
+            'module',
+        ]);
+        expect(repeated.first.get('module:entities')).toBe(1);
+        expect(repeated.last.get('module:entities')).toBe(3);
+    });
+
     it('смежный повтор — диапазон из двух соседних позиций', () => {
         const withEmptyModules = compile(['@modules']);
 
@@ -168,6 +189,14 @@ describe('parseLayerSchema — валидация', () => {
         );
     });
 
+    it('moduleLayers: null — заданное значение, а не отсутствие ключа', () => {
+        // `null` проходит мимо проверки на `undefined`, поэтому проверяется отдельно: принять его за
+        // «не задано» значило бы молча проглотить опечатку в конфиге.
+        expect(() => compile(['@modules'], null)).toThrow(
+            'settings.weld.moduleLayers must be an array',
+        );
+    });
+
     it('элемент не строка → ошибка называет элемент и тип', () => {
         expect(() => compile(['a', 'b', 'c', 42])).toThrow(
             'settings.weld.layers[3] must be a non-empty string, got number',
@@ -195,6 +224,93 @@ describe('parseLayerSchema — валидация', () => {
     it('@-имя в moduleLayers проверяется так же', () => {
         expect(() => compile(['@modules'], ['@shared'])).toThrow(
             "settings.weld.moduleLayers[0]: unknown special layer '@shared'",
+        );
+    });
+
+    it("обычное имя 'unknown' зарезервировано — оно совпало бы с развёрткой @unknown", () => {
+        expect(() => compile(['common', 'unknown', 'app'])).toThrow(
+            "settings.weld.layers[1]: 'unknown' is reserved; use '@unknown' for code without a layer",
+        );
+    });
+
+    it("'unknown' в moduleLayers зарезервировано так же", () => {
+        expect(() => compile(['@modules'], ['entities', 'unknown'])).toThrow(
+            "settings.weld.moduleLayers[1]: 'unknown' is reserved; use '@unknown' for code without a layer",
+        );
+    });
+
+    it("обычное имя 'module' зарезервировано — в сообщениях оно совпало бы с модулем целиком", () => {
+        expect(() => compile(['common', 'module', 'app'])).toThrow(
+            "settings.weld.layers[1]: 'module' is reserved; use '@modules' to place modules in the order",
+        );
+    });
+
+    it("'module' при уже объявленном @modules → совет не зовёт объявить второй", () => {
+        // Совет «use '@modules'» здесь отправлял бы в схему с двумя `@modules`, которую разбор
+        // отвергает следующей же проверкой, — а это самый частый случай: схема с модулями плюс
+        // лишнее имя `module`.
+        expect(() => compile(['common', '@modules', 'module'])).toThrow(
+            "settings.weld.layers[2]: 'module' is reserved; pick another name: '@modules' already places modules in the order, and it may be declared only once",
+        );
+    });
+
+    it("'module' в moduleLayers зарезервировано так же, но совет другой", () => {
+        // Совет из `layers` («use '@modules'») здесь отправлял бы ровно в ту запись, которую
+        // отвергает следующая же проверка: место модулям задаётся один раз, в `layers`.
+        expect(() => compile(['@modules'], ['entities', 'module'])).toThrow(
+            "settings.weld.moduleLayers[1]: 'module' is reserved; pick another name: the place for modules is declared once, as '@modules' in settings.weld.layers, and it applies to modules at any depth",
+        );
+    });
+
+    it("'module' в moduleLayers при схеме без @modules → совет называет оба шага", () => {
+        // Имена проверяются раньше схемы целиком, поэтому сюда доходит конфиг, в котором `@modules`
+        // не объявлен вовсе: совет из соседнего теста утверждал бы про него неправду, а «возьми
+        // другое имя» упёрлось бы в следующую ошибку — `moduleLayers` некуда класть.
+        expect(() => compile(['common', 'app'], ['entities', 'module'])).toThrow(
+            "settings.weld.moduleLayers[1]: 'module' is reserved; pick another name, and declare '@modules' in settings.weld.layers: that is where modules get their place, once, and it applies to modules at any depth",
+        );
+    });
+
+    it("совет вместо 'module' ведёт в конфиг, который разбор принимает", () => {
+        // Проверка ровно про это: ни один совет из сообщения не должен упираться в следующую
+        // ошибку. Каждая строка — результат буквального следования совету из теста выше.
+
+        // `['common', 'module', 'app']` + «use '@modules'»:
+        expect(() => compile(['common', '@modules', 'app'])).not.toThrow();
+        // `['common', '@modules', 'module']` + «pick another name»:
+        expect(() => compile(['common', '@modules', 'shell'])).not.toThrow();
+        // `['@modules'], ['entities', 'module']` + «pick another name»:
+        expect(() => compile(['@modules'], ['entities', 'shell'])).not.toThrow();
+        // `['common', 'app'], ['entities', 'module']` + «другое имя плюс '@modules' в layers»:
+        expect(() => compile(['common', '@modules', 'app'], ['entities', 'shell'])).not.toThrow();
+
+        // А совет из `layers`, применённый в `moduleLayers`, упёрся бы в следующую же проверку —
+        // потому он там и не выдаётся.
+        expect(() => compile(['@modules'], ['entities', '@modules'])).toThrow(
+            "settings.weld.moduleLayers[1]: '@modules' may only be used in settings.weld.layers",
+        );
+    });
+
+    it('имя слоя с / → ошибка: это имя директории, а не путь', () => {
+        expect(() => compile(['common', 'ui/button'])).toThrow(
+            "settings.weld.layers[1]: 'ui/button' must be a directory name, not a path",
+        );
+        expect(() => compile(['@modules'], ['entities/user'])).toThrow(
+            "settings.weld.moduleLayers[0]: 'entities/user' must be a directory name, not a path",
+        );
+    });
+
+    it("'.' и '..' именами слоёв не бывают — сегментом пути они не станут", () => {
+        // Резолв пути их схлопывает, поэтому такой слой не совпал бы ни с одним файлом: он молча не
+        // существовал бы, а файлы, которые он должен был покрыть, шумели бы `undeclaredLayer`.
+        expect(() => compile(['common', '..'])).toThrow(
+            "settings.weld.layers[1]: '..' must be a directory name, not a path",
+        );
+        expect(() => compile(['common', '.'])).toThrow(
+            "settings.weld.layers[1]: '.' must be a directory name, not a path",
+        );
+        expect(() => compile(['@modules'], ['..'])).toThrow(
+            "settings.weld.moduleLayers[0]: '..' must be a directory name, not a path",
         );
     });
 
@@ -262,8 +378,38 @@ describe('plainLayerName', () => {
         expect(plainLayerName(layer)).toBe(plain);
     });
 
-    it('слой проекта с именем unknown неотличим от @unknown — совпадение безобидное', () => {
-        expect(plainLayerName('root:unknown')).toBe('@unknown');
+    it('простого слоя с именем unknown не бывает — имя отвергает валидация схемы', () => {
+        // Иначе `root:unknown` означал бы два разных слоя сразу, а `plainLayerName` печатал бы
+        // `@unknown` там, где в конфиге написано `unknown`.
+        expect(() => compile(['unknown'])).toThrow('is reserved');
+    });
+
+    it('простого слоя с именем module не бывает — по той же причине', () => {
+        // `root:module` — отдельный ключ индексов, но в сообщениях он неотличим от модуля целиком:
+        // вердикт читался бы как «'module' must not import from 'module'».
+        expect(plainLayerName('root:module')).toBe(plainLayerName(MODULE));
+        expect(() => compile(['module'])).toThrow('is reserved');
+    });
+});
+
+describe('isModuleLevel', () => {
+    it.each([
+        ['module:entities', true],
+        ['module:unknown', true],
+        ['root:common', false],
+        ['root:unknown', false],
+        // Модуль целиком объявляется в `layers` и стоит в порядке проекта, а не внутри модуля.
+        ['module', false],
+    ])('%s → %s', (layer, inside) => {
+        expect(isModuleLevel(layer)).toBe(inside);
+    });
+
+    it('различает единственную пару слоёв, у которых простое имя совпадает', () => {
+        // `@unknown` в обоих списках — валидный конфиг: сообщению, называющему оба конца импорта,
+        // остаётся только уровень.
+        expect(plainLayerName(ROOT_UNKNOWN)).toBe(plainLayerName(MODULE_UNKNOWN));
+        expect(isModuleLevel(ROOT_UNKNOWN)).toBe(false);
+        expect(isModuleLevel(MODULE_UNKNOWN)).toBe(true);
     });
 });
 
