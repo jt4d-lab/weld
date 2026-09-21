@@ -26,13 +26,21 @@ function check(specifier: string, file: string = fromFile) {
     return createChecker({ fromFile: file, aliases, schema }).checkImport(specifier);
 }
 
-describe('createChecker — слой линтуемого файла', () => {
-    it('считается один раз и отдаётся наружу: репорт на файл делает правило', () => {
-        expect(createChecker({ fromFile, aliases, schema }).from).toEqual({
-            layer: 'module:features',
-            owner: '/src/modules/order/features',
-            moduleRoot: '/src/modules/order',
+describe('createChecker — права линтуемого файла', () => {
+    it('считаются один раз и отдаются наружу: репорт на файл делает правило', () => {
+        expect(createChecker({ fromFile, aliases, schema }).fromRights).toBe('module:features');
+    });
+
+    it('отдаются уже схлопнутыми: неразмеченный код модуля живёт по правам модуля', () => {
+        // Правило спрашивает схему именно этим именем, и `module:unknown` в ней объявлен не всегда:
+        // схлопни его правило само — про `sourceRights` знали бы два места.
+        const checker = createChecker({
+            fromFile: '/src/modules/order/lib/format.ts',
+            aliases,
+            schema,
         });
+
+        expect(checker.fromRights).toBe('module');
     });
 
     it('одна проверка обслуживает все специфаеры файла', () => {
