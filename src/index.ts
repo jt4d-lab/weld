@@ -15,13 +15,6 @@ const recommended: Linter.Config = {
     },
 };
 
-const strict: Linter.Config = {
-    name: 'weld/strict',
-    rules: {
-        'weld/no-barrel-bypass': 'error',
-    },
-};
-
 const plugin = {
     meta: {
         name: PACKAGE_NAME,
@@ -30,11 +23,9 @@ const plugin = {
     rules,
     configs: {
         recommended,
-        strict,
     },
 } satisfies ESLint.Plugin;
 
 recommended.plugins = { weld: plugin };
-strict.plugins = { weld: plugin };
 
 export default plugin;

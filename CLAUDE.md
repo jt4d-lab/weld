@@ -28,7 +28,7 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 
 Каркас пакета `eslint-plugin-weld` готов (сборка, тесты, CI, автопубликация); реализовано первое
 правило — `weld/no-barrel-bypass` (`src/rules/no-barrel-bypass/`), зарегистрировано в
-`src/rules/index.ts` и включено в `configs.recommended`/`configs.strict`. Есть страница правила
+`src/rules/index.ts` и включено в `configs.recommended`. Есть страница правила
 `docs/rules/no-barrel-bypass.md` и общий раздел настроек `docs/settings.md`: настройки общие для
 всех правил, внутри страницы одного правила они не живут (см. «Добавление правила» ниже).
 
