@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { PathKind } from '@/rules/no-illegal-layer-dependency/core/layer-of.js';
 import { layerOf } from '@/rules/no-illegal-layer-dependency/core/layer-of.js';
 import type { LayerSchema } from '@/settings/index.js';
 import { getLayerSchema } from '@/settings/index.js';
@@ -13,7 +14,7 @@ const schema = getLayerSchema({
 });
 
 /** Слой и владелец — то, ради чего зовут `layerOf`; `moduleRoot` проверяется отдельным набором. */
-function place(path: string, kind: 'file' | 'target', schemaOverride: LayerSchema = schema) {
+function place(path: string, kind: PathKind, schemaOverride: LayerSchema = schema) {
     const { layer, owner } = layerOf(path, schemaOverride, kind);
 
     return { layer, owner };
@@ -170,6 +171,27 @@ describe('layerOf — краевые случаи', () => {
 
     it('цель, равная корню, — код вне слоёв', () => {
         expect(place('/', 'target')).toEqual({ layer: 'root:unknown', owner: null });
+    });
+
+    it('moduleDir, совпавший с именем слоя проекта, выигрывает: это граница модуля', () => {
+        // Конфиг странный, но валидный: `modules` объявлен и слоем, и директорией модулей. Вход в
+        // модуль проверяется раньше сверки с набором имён, поэтому `modules/order` — модуль.
+        const collided = getLayerSchema({
+            weld: {
+                layers: ['common', 'modules', '@modules', 'app'],
+                moduleLayers: ['entities'],
+            },
+        });
+
+        expect(place('/src/modules/order/entities/x.ts', 'file', collided)).toEqual({
+            layer: 'module:entities',
+            owner: '/src/modules/order/entities',
+        });
+        // Слоем `modules` остаётся только директория без имени модуля за ней.
+        expect(place('/src/modules/x.ts', 'file', collided)).toEqual({
+            layer: 'root:modules',
+            owner: '/src/modules',
+        });
     });
 
     it('moduleDir из конфига заменяет modules целиком', () => {

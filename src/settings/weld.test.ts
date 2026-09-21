@@ -262,24 +262,20 @@ describe('getLayerSchema', () => {
         expect(() => getLayerSchema({ weld: {} })).toThrow('settings.weld.layers must be an array');
     });
 
-    it('значение из секции называется в ошибке settings.weld.<имя>', () => {
+    // Сами тексты ошибок и таблица развёртки проверяются в `layers.test.ts`; здесь — только то, что
+    // геттер подставляет разбору верное имя места в конфиге, своё на каждую из трёх настроек.
+    it('имя источника берётся оттуда, откуда пришло значение', () => {
+        const settings = { weld: { layers: ['common', 'app'] } };
+
         expect(() => getLayerSchema({ weld: { layers: ['common', 42] } })).toThrow(
             'settings.weld.layers[1] must be a non-empty string, got number',
         );
-    });
-
-    it('значение из опций называется в ошибке options.<имя>', () => {
         expect(() => getLayerSchema({}, { layers: ['common', 42] })).toThrow(
             'options.layers[1] must be a non-empty string, got number',
         );
         expect(() => getLayerSchema({}, { layers: ['app'], moduleDir: 42 })).toThrow(
             'options.moduleDir must be a string, got number',
         );
-    });
-
-    it('смешанные источники называются каждый своим именем', () => {
-        const settings = { weld: { layers: ['common', 'app'] } };
-
         expect(() => getLayerSchema(settings, { moduleLayers: ['entities'] })).toThrow(
             "options.moduleLayers is set, but settings.weld.layers has no '@modules' to put it into",
         );
@@ -297,13 +293,6 @@ describe('getLayerSchema', () => {
 
     it('settings.weld не объект → исключение', () => {
         expect(() => getLayerSchema({ weld: 'nope' })).toThrow('settings.weld must be an object');
-    });
-
-    it('кэша нет: те же аргументы разбираются заново', () => {
-        const settings = { weld: { layers: ['common', 'app'] } };
-
-        expect(getLayerSchema(settings)).not.toBe(getLayerSchema(settings));
-        expect(getLayerSchema(settings)).toEqual(getLayerSchema(settings));
     });
 
     it('сломанная схема бросает на каждом вызове, а не только на первом', () => {

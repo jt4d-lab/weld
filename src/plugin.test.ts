@@ -29,6 +29,16 @@ describe('rule registry', () => {
             expect(rule.meta, `${name}: missing meta`).toBeDefined();
             expect(rule.meta?.docs, `${name}: missing meta.docs`).toBeDefined();
             expect(rule.meta?.messages, `${name}: missing meta.messages`).toBeDefined();
+            expect(
+                Object.keys(rule.meta?.messages ?? {}).length,
+                `${name}: meta.messages is empty`,
+            ).toBeGreaterThan(0);
+
+            // Ссылка на страницу правила — то, что видит пользователь в выводе ESLint и в
+            // редакторе; страница у каждого правила есть, значит и ссылка обязана быть.
+            expect(rule.meta?.docs?.url, `${name}: missing meta.docs.url`).toContain(
+                `docs/rules/${name}.md`,
+            );
         }
     });
 });
@@ -57,7 +67,7 @@ describe('rule configs', () => {
         }
     });
 
-    for (const [name, config] of Object.entries(plugin.configs ?? {})) {
+    for (const [name, config] of Object.entries(plugin.configs)) {
         describe(name, () => {
             it('registers the plugin under the weld namespace', () => {
                 expect(config.plugins?.weld).toBe(plugin);

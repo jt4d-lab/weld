@@ -82,11 +82,17 @@ export default [
 ];
 ```
 
-Там же, в `settings.weld`, живёт схема слоёв, которую читает `no-illegal-layer-dependency`:
+Там же, в `settings.weld`, живёт схема слоёв, которую читает `no-illegal-layer-dependency`. Правило
+не входит в готовые наборы, поэтому включается вместе со схемой — и лучше сразу с `files`: конфиги
+сборки и скрипты в слои не укладываются.
 
 ```js
+import weld from 'eslint-plugin-weld';
+
 export default [
     {
+        files: ['src/**'],
+        plugins: { weld },
         settings: {
             weld: {
                 layers: ['common', '@modules', 'pages', 'app'],

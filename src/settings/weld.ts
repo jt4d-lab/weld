@@ -64,49 +64,67 @@ function requireString(value: unknown, source: string): string {
 }
 
 /**
+ * Значение настройки вместе с именем её места в конфиге: опция правила, если задана, иначе поле
+ * секции. Имя нужно тексту ошибки — собрать его там нельзя, источник знает только это место, — и
+ * здесь же записано само правило перекрытия: при заданном override секция не читается вовсе,
+ * поэтому сломанный `settings.weld` не мешает конфигу, заданному целиком опциями.
+ *
+ * Через него проходит каждый геттер: иначе «override выигрывает, иначе секция, источник называется
+ * так-то» было бы переписано заново на каждую настройку, а имена мест — набором литералов.
+ */
+function pickSetting(
+    name: keyof WeldOverrides,
+    settings: unknown,
+    overrides: WeldOverrides | undefined,
+): SettingValue {
+    const override = overrides?.[name];
+    if (override !== undefined) {
+        return { value: override, source: `options.${name}` };
+    }
+
+    return { value: getWeldSettings(settings)?.[name], source: `settings.weld.${name}` };
+}
+
+/** Задана ли настройка — присутствие ключа в любом из двух источников. Разбор значения не делается. */
+function hasSetting(
+    name: keyof WeldOverrides,
+    settings: unknown,
+    overrides: WeldOverrides | undefined,
+): boolean {
+    return pickSetting(name, settings, overrides).value !== undefined;
+}
+
+/**
  * `settings.weld.repoRoot` как он записан в конфиге — реальный путь, не виртуальный. Резолв
  * относительного значения и всё прочее знание о реальной ФС — за границей `src/host/`.
  * `undefined` — корень не задан, вызывающий ищет его сам.
  */
 export function getRepoRoot(settings: unknown, overrides?: WeldOverrides): string | undefined {
-    const override = overrides?.repoRoot;
-    if (override !== undefined) {
-        return requireString(override, 'options.repoRoot');
-    }
-
-    const repoRoot = getWeldSettings(settings)?.repoRoot;
-    if (repoRoot === undefined) {
+    const { value, source } = pickSetting('repoRoot', settings, overrides);
+    if (value === undefined) {
         return undefined;
     }
 
-    return requireString(repoRoot, 'settings.weld.repoRoot');
+    return requireString(value, source);
 }
 
 /** `settings.weld.aliasesBaseUrl`; не задан — `'.'` (сам корень репозитория). */
 export function getAliasesBaseUrl(settings: unknown, overrides?: WeldOverrides): string {
-    const override = overrides?.aliasesBaseUrl;
-    if (override !== undefined) {
-        return requireString(override, 'options.aliasesBaseUrl');
-    }
-
-    const aliasesBaseUrl = getWeldSettings(settings)?.aliasesBaseUrl;
-    if (aliasesBaseUrl === undefined) {
+    const { value, source } = pickSetting('aliasesBaseUrl', settings, overrides);
+    if (value === undefined) {
         return DEFAULT_ALIASES_BASE_URL;
     }
 
-    return requireString(aliasesBaseUrl, 'settings.weld.aliasesBaseUrl');
+    return requireString(value, source);
 }
 
 function readAliases(settings: unknown, overrides: WeldOverrides | undefined): Alias[] {
-    const override = overrides?.aliases;
-    const fromOverride = override !== undefined;
-    const rawAliases = fromOverride ? override : getWeldSettings(settings)?.aliases;
-    if (rawAliases === undefined) {
+    const { value, source } = pickSetting('aliases', settings, overrides);
+    if (value === undefined) {
         return [];
     }
 
-    const source = fromOverride ? 'options.aliases' : 'settings.weld.aliases';
-    return parseAliases(rawAliases, getAliasesBaseUrl(settings, overrides), source);
+    return parseAliases(value, getAliasesBaseUrl(settings, overrides), source);
 }
 
 /**
@@ -194,29 +212,7 @@ export function getAliasesFromPaths(paths: unknown, virtualBase: string, source:
  * При заданном override секция `settings` не читается — как в геттерах.
  */
 export function hasAliases(settings: unknown, overrides?: WeldOverrides): boolean {
-    if (overrides?.aliases !== undefined) {
-        return true;
-    }
-
-    return getWeldSettings(settings)?.aliases !== undefined;
-}
-
-/**
- * Значение настройки вместе с именем её места в конфиге: опция правила, если задана, иначе поле
- * секции. Имя нужно тексту ошибки разбора — собрать его там нельзя, источник знает только геттер.
- * При заданном override секция не читается, как и в остальных геттерах.
- */
-function pickSetting(
-    name: keyof WeldOverrides,
-    settings: unknown,
-    overrides: WeldOverrides | undefined,
-): SettingValue {
-    const override = overrides?.[name];
-    if (override !== undefined) {
-        return { value: override, source: `options.${name}` };
-    }
-
-    return { value: getWeldSettings(settings)?.[name], source: `settings.weld.${name}` };
+    return hasSetting('aliases', settings, overrides);
 }
 
 /**
@@ -226,7 +222,7 @@ function pickSetting(
  *
  * Кэша нет намеренно (см. `parseLayerSchema`): разбор не читает диск, не логирует и не отдаёт
  * наружу ничего, что сравнивалось бы по ссылке, — проход по десятку строк дешевле поиска в кэше.
- * Кривая схема бросает на каждом файле, как и кривые алиасы.
+ * Кривая схема бросает при каждом вызове, а не только при первом, — как и кривые алиасы.
  */
 export function getLayerSchema(settings: unknown, overrides?: WeldOverrides): LayerSchema {
     return parseLayerSchema({
@@ -243,9 +239,5 @@ export function getLayerSchema(settings: unknown, overrides?: WeldOverrides): La
  * (правило включено зря) от «схема пустая».
  */
 export function hasLayers(settings: unknown, overrides?: WeldOverrides): boolean {
-    if (overrides?.layers !== undefined) {
-        return true;
-    }
-
-    return getWeldSettings(settings)?.layers !== undefined;
+    return hasSetting('layers', settings, overrides);
 }

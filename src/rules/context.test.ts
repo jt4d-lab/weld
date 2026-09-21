@@ -62,6 +62,16 @@ describe('resolveWeldContext', () => {
         expect(weld?.fsHost).toBe(fsHost);
     });
 
+    it('опций нет → всем файлам достаётся одна и та же ссылка на пустые опции', () => {
+        // Кэш разобранных алиасов ключуется ссылкой на объект опций: новый литерал на каждый файл
+        // (`?? {}`) промахивался бы мимо кэша всегда.
+        const fsHost = createFakeFsHost([]);
+        const first = resolveWeldContext(fakeContext({ filename: '/src/a.ts' }), fsHost);
+        const second = resolveWeldContext(fakeContext({ filename: '/src/b.ts' }), fsHost);
+
+        expect(first?.options).toBe(second?.options);
+    });
+
     it('файл вне корня репозитория → null', () => {
         const weld = resolveWeldContext(
             fakeContext({ filename: 'relative/file.ts' }),
