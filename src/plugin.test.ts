@@ -34,9 +34,8 @@ describe('rule registry', () => {
 });
 
 describe('rule configs', () => {
-    it('exports the recommended and strict configs', () => {
+    it('exports the recommended config', () => {
         expect(plugin.configs?.recommended).toBeDefined();
-        expect(plugin.configs?.strict).toBeDefined();
     });
 
     it('recommended includes no-barrel-bypass', () => {
@@ -62,7 +61,7 @@ describe('rule configs', () => {
 });
 
 describe('ESLint integration', () => {
-    for (const name of ['recommended', 'strict'] as const) {
+    for (const name of ['recommended'] as const) {
         describe(name, () => {
             const eslint = new ESLint({
                 overrideConfigFile: true,

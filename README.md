@@ -24,12 +24,6 @@
 Общие слои наверху, модули в `modules/` — со слоями или без, с вложенными модулями в собственной
 `modules/`. Правила одинаковы на любой глубине.
 
-## Статус
-
-Ранняя стадия. Документация подхода пишется; в ESLint-плагине реализовано первое правило —
-[`weld/no-barrel-bypass`](docs/rules/no-barrel-bypass.md). Правила и их именование могут меняться
-без обратной совместимости.
-
 ## ESLint-плагин
 
 Пакет: [`eslint-plugin-weld`](https://www.npmjs.com/package/eslint-plugin-weld). Требует ESLint 9
@@ -44,14 +38,6 @@ yarn add -D eslint-plugin-weld
 import weld from 'eslint-plugin-weld';
 
 export default [weld.configs.recommended];
-```
-
-Плагин предоставляет готовые наборы правил `recommended` и `strict`:
-
-```js
-import weld from 'eslint-plugin-weld';
-
-export default [weld.configs.strict];
 ```
 
 Можно подключить и сам плагин, включая правила поштучно:
@@ -83,16 +69,16 @@ export default [
     {
         settings: {
             weld: {
-                repoRoot: '.', // необязательно; по умолчанию — авто-поиск
-                aliasesBaseUrl: 'packages/app', // необязательно; по умолчанию '.'
                 aliases: { '@/*': ['src/*'] },
+                aliasesBaseUrl: 'packages/app', // необязательно; по умолчанию '.'
+                repoRoot: '.', // необязательно; по умолчанию — авто-поиск
             },
         },
     },
 ];
 ```
 
-Формат и разбор этих настроек описаны в [документации настроек](docs/settings.md); подробности
+Формат и разбор этих настроек описаны в [документации настроек](docs/rules/settings.md); подробности
 самого правила — в [документации правила](docs/rules/no-barrel-bypass.md).
 
 ### Отладка
