@@ -132,7 +132,11 @@ describe('options.moduleDir перекрывает settings.weld.moduleDir', () 
                     errors: [
                         {
                             messageId: 'horizontalDependency',
-                            data: { layer: '@unknown', target: '@/packages/order/entities' },
+                            data: {
+                                layer: '@unknown',
+                                list: 'layers',
+                                target: '@/packages/order/entities',
+                            },
                         },
                     ],
                 },
@@ -167,37 +171,49 @@ describe('общие опции и схема опций', () => {
         });
     });
 
+    /** Прогон одного valid-случая с заданными опциями: тест ждёт от него ошибки схемы опций. */
+    const runWithOptions = (name: string, options: unknown[]): void => {
+        ruleTester.run(name, rule, {
+            valid: [
+                {
+                    name,
+                    code: "import { a } from '@/common';",
+                    filename: commonFile,
+                    settings: { weld: { layers: ['common', 'app'], aliases } },
+                    options,
+                },
+            ],
+            invalid: [],
+        });
+    };
+
     it('неизвестный ключ опций отвергается схемой', () => {
         expect(() =>
-            ruleTester.run('no-illegal-layer-dependency unknown option', rule, {
-                valid: [
-                    {
-                        name: 'layersOrder такой опции у правила нет',
-                        code: "import { a } from '@/common';",
-                        filename: commonFile,
-                        settings: { weld: { layers: ['common', 'app'], aliases } },
-                        options: [{ layersOrder: ['common', 'app'] }],
-                    },
-                ],
-                invalid: [],
-            }),
-        ).toThrow();
+            runWithOptions('no-illegal-layer-dependency unknown option', [
+                { layersOrder: ['common', 'app'] },
+            ]),
+        ).toThrow(/should NOT have additional properties/);
     });
 
     it('значение схемной опции неверного типа отсекается схемой', () => {
         expect(() =>
-            ruleTester.run('no-illegal-layer-dependency option type', rule, {
-                valid: [
-                    {
-                        name: 'moduleDir не строка',
-                        code: "import { a } from '@/common';",
-                        filename: commonFile,
-                        settings: { weld: { layers: ['common', 'app'], aliases } },
-                        options: [{ moduleDir: 42 }],
-                    },
-                ],
-                invalid: [],
-            }),
-        ).toThrow();
+            runWithOptions('no-illegal-layer-dependency option type', [{ moduleDir: 42 }]),
+        ).toThrow(/should be string/);
+    });
+
+    it('элемент layers неверного типа отсекается схемой, а не разбором', () => {
+        // Иначе опечатка в конфиге превращалась бы в исключение из `create()`, то есть в упавший
+        // прогон ESLint вместо обычной ошибки конфигурации.
+        expect(() =>
+            runWithOptions('no-illegal-layer-dependency layers items', [
+                { layers: ['common', 42] },
+            ]),
+        ).toThrow(/should be string/);
+
+        expect(() =>
+            runWithOptions('no-illegal-layer-dependency moduleLayers items', [
+                { layers: ['@modules'], moduleLayers: [42] },
+            ]),
+        ).toThrow(/should be string/);
     });
 });
