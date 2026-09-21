@@ -616,12 +616,13 @@ Move the file into a layer, or declare '@unknown' in layers.
 задать схему:
 
 ```js
+import { defineConfig } from 'eslint/config';
 import weld from 'eslint-plugin-weld';
 
-export default [
-    weld.configs.recommended,
+export default defineConfig([
     {
         files: ['src/**'],
+        extends: [weld.configs.recommended],
         settings: {
             weld: {
                 layers: ['common', '@modules', 'pages', 'app'],
@@ -629,7 +630,7 @@ export default [
             },
         },
     },
-];
+]);
 ```
 
 Схема здесь обязательна: правило без `layers` роняет прогон ESLint на первом же файле (см.
@@ -637,8 +638,20 @@ export default [
 это относится и к тем, кто подключил `weld.configs.recommended` ради одного `no-barrel-bypass`:
 схема нужна всем.
 
-`files` тоже не формальность: схема описывает код приложения, а конфиги сборки, скрипты и генерация
-в слои не укладываются — без ограничения области каждый такой файл получил бы `undeclaredLayer`.
+Пресет здесь подключён через `extends` **внутри** блока с `files`, и это не косметика. Сам по себе
+пресет — обычный объект flat config без `files`, то есть действующий на все линтуемые файлы; схема,
+положенная в соседний блок с `files: ['src/**']`, до `eslint.config.js`, `vite.config.ts` и прочего
+вне `src/` не доходит — и прогон падает уже на них, хотя схема в конфиге есть. Рабочих вариантов
+два:
+
+- подключить пресет через `extends` в блоке со схемой (как выше) — правила и схема получают одну и
+  ту же область. Требует ESLint 9.15 или новее и `defineConfig` из `eslint/config`: `extends` в
+  голом массиве конфигов ESLint не понимает;
+- задать `settings.weld` без `files`, на весь конфиг, — тогда файлы вне слоёв получат
+  `undeclaredLayer` вместо падения, и `files` остаётся способом их приглушить.
+
+Область правила сузить стоит в обоих случаях: схема описывает код приложения, а конфиги сборки,
+скрипты и генерация в слои не укладываются — каждый такой файл иначе получит `undeclaredLayer`.
 
 ## Поведение в крайних случаях
 

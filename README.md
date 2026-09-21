@@ -26,7 +26,7 @@
 
 ## ESLint-плагин
 
-Пакет: [`eslint-plugin-weld`](https://www.npmjs.com/package/eslint-plugin-weld). Требует ESLint 9
+Пакет: [`eslint-plugin-weld`](https://www.npmjs.com/package/eslint-plugin-weld). Требует ESLint 9.15
 или новее и flat config (`eslint.config.js`); поддерживается только ESM-подключение.
 
 ```sh
@@ -35,12 +35,13 @@ yarn add -D eslint-plugin-weld
 
 ```js
 // eslint.config.js
+import { defineConfig } from 'eslint/config';
 import weld from 'eslint-plugin-weld';
 
-export default [
-    weld.configs.recommended,
+export default defineConfig([
     {
         files: ['src/**'],
+        extends: [weld.configs.recommended],
         settings: {
             weld: {
                 layers: ['common', '@modules', 'pages', 'app'],
@@ -48,17 +49,26 @@ export default [
             },
         },
     },
-];
+]);
 ```
 
 Плагин предоставляет готовые наборы правил `recommended` и `strict`; оба включают
 `no-illegal-layer-dependency` и потому требуют схему слоёв — без `settings.weld.layers` прогон
 падает на первом же файле.
 
+Набор подключается через `extends` внутри блока с `files`, и это не косметика: сам по себе он
+действует на **все** линтуемые файлы, а схема, положенная в отдельный блок с `files: ['src/**']`, до
+`eslint.config.js` и прочего вне `src/` не дотянется — прогон упадёт уже на них. `extends` держит
+правила и схему в одной области. Второй рабочий вариант — подключить набор как есть, а
+`settings.weld` задать блоком без `files`, то есть на весь конфиг.
+
 ```js
+import { defineConfig } from 'eslint/config';
 import weld from 'eslint-plugin-weld';
 
-export default [weld.configs.strict, { files: ['src/**'], settings: { weld: { layers } } }];
+export default defineConfig([
+    { files: ['src/**'], extends: [weld.configs.strict], settings: { weld: { layers } } },
+]);
 ```
 
 Можно подключить и сам плагин, включая правила поштучно:
