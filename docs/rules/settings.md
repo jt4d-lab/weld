@@ -156,8 +156,8 @@ DEBUG=eslint-plugin-weld:* npx eslint .
 ## `layers`, `moduleLayers`, `moduleDir`
 
 Схема слоёв проекта: их состав, порядок и место модулей. Читает её правило
-[`weld/no-illegal-layer-dependency`](rules/no-illegal-layer-dependency.md); остальные правила
-плагина эти настройки не используют и на их отсутствие не реагируют.
+[`weld/no-illegal-layer-dependency`](./no-illegal-layer-dependency.md); остальные правила плагина
+эти настройки не используют и на их отсутствие не реагируют.
 
 ```js
 settings: {
@@ -186,7 +186,7 @@ settings: {
   код внутри модуля, не попавший ни в один его слой. В сообщениях правила они называются одинаково,
   поэтому нарушение между ними правило сопровождает уровнем каждого конца (`outside modules` /
   `inside a module`) — см.
-  [«`@unknown` на двух уровнях»](rules/no-illegal-layer-dependency.md#unknown-на-двух-уровнях). Если
+  [«`@unknown` на двух уровнях»](./no-illegal-layer-dependency.md#unknown-на-двух-уровнях). Если
   соответствующего `@unknown` в схеме нет, такой код — нарушение: молча пропустить его значило бы
   оставить его импорты без проверки при зелёном линте.
 
@@ -219,8 +219,8 @@ common, legacy, модуль, entities, features, widgets, модуль, legacy,
 получает диапазон. Имя, встречающееся в схеме несколько раз, тоже получает диапазон и ослабляет
 направление зависимостей — это форма записи осознанного исключения. Что из схемы следует — какой
 слой получает файл, какие импорты разрешены, что означают повторы и `@unknown` — в
-[документации правила](rules/no-illegal-layer-dependency.md): настройка задаёт схему, интерпретирует
-её правило.
+[документации правила](./no-illegal-layer-dependency.md): настройка задаёт схему, интерпретирует её
+правило.
 
 Ошибки валидации — исключение, как у [`aliases`](#aliases); текст называет место значения в конфиге
 (`settings.weld.layers[3]`):
@@ -248,7 +248,7 @@ common, legacy, модуль, entities, features, widgets, модуль, legacy,
 
 Отсутствие `layers` ошибкой самой секции не является: секция общая, а требование схемы принадлежит
 правилу — включённое без схемы правило падает само (см.
-[поведение в крайних случаях](rules/no-illegal-layer-dependency.md#поведение-в-краиних-случаях)).
+[поведение в крайних случаях](./no-illegal-layer-dependency.md#поведение-в-краиних-случаях)).
 
 ## `aliases`, `aliasesBaseUrl`, `repoRoot` в опциях правила
 
@@ -288,7 +288,7 @@ export default [
 
 Так же устроены [`layers`, `moduleLayers` и `moduleDir`](#layers-modulelayers-moduledir) — с одним
 отличием: эти три объявляет у себя только
-[`weld/no-illegal-layer-dependency`](rules/no-illegal-layer-dependency.md), потому что схему читает
+[`weld/no-illegal-layer-dependency`](./no-illegal-layer-dependency.md), потому что схему читает
 только оно. У остальных правил таких опций нет: принимать `layers` и молча его игнорировать хуже,
 чем отвергнуть схемой опций.
 
