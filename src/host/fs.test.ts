@@ -271,6 +271,27 @@ describe('getFsHost', () => {
         expect(() => getFsHost(settings, '/some/cwd')).toThrow(/settings\.weld\.repoRoot/);
     });
 
+    it('overrides.repoRoot выигрывает у settings.weld.repoRoot', () => {
+        const settings = { weld: { repoRoot: '/from-settings' } };
+
+        const fsHost = getFsHost(settings, '/some/cwd', { repoRoot: '/from-options' });
+
+        expect(fsHost.toVirtual('/from-options/x.ts')).toBe('/x.ts');
+        expect(fsHost.toVirtual('/from-settings/x.ts')).toBeNull();
+    });
+
+    it('overrides без repoRoot настройку не отменяют — остальные поля host не смотрит', () => {
+        const settings = { weld: { repoRoot: '/from-settings' } };
+
+        const fsHost = getFsHost(settings, '/some/cwd', { aliases: { '@src/*': ['src/*'] } });
+
+        expect(fsHost.toVirtual('/from-settings/x.ts')).toBe('/x.ts');
+    });
+
+    it('overrides.repoRoot не строка → исключение называет options.repoRoot', () => {
+        expect(() => getFsHost({}, '/some/cwd', { repoRoot: 123 })).toThrow(/options\.repoRoot/);
+    });
+
     it('без настройки — findRepoRoot находит директорию с package.json', () => {
         const dir = makeTmpProject({ 'package.json': '{}' });
 

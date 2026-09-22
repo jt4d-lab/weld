@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { createLogger } from '@/debug.js';
 import { ENTRY_FILE_NAMES } from '@/extensions.js';
 import { dirname, joinSegments, segments, toPosix } from '@/path/index.js';
+import type { WeldOverrides } from '@/settings/index.js';
 import { getRepoRoot } from '@/settings/index.js';
 
 import {
@@ -192,10 +193,10 @@ function findRepoRootCached(cwd: string): string | null {
 function resolveRoot(
     settings: unknown,
     cwd: string,
-    repoRootOverride: unknown,
+    overrides: WeldOverrides | undefined,
     coverDirs: string[],
 ): string {
-    const explicitRoot = getRepoRoot(settings, repoRootOverride);
+    const explicitRoot = getRepoRoot(settings, overrides);
     if (explicitRoot !== undefined) {
         // Явный root — воля пользователя; инвариант «root покрывает якоря» тут держит не подъём
         // root, а отбрасывание непокрытых якорей существующей валидацией у вызывающего.
@@ -228,9 +229,10 @@ function resolveRoot(
  * `resolveRoot` + кэш инстансов по root — иначе TTL-кэш обращений к диску обнулялся бы на каждом
  * файле.
  *
- * `repoRootOverride` — значение repoRoot из опций правила; разбирает и проверяет его всё тот же
- * `getRepoRoot`, `src/host/` про формат конфига по-прежнему ничего не знает. Кэш инстансов ключуется
- * уже резолвнутым root, поэтому файлы с разным override (или разными `coverDirs`) не делят инстанс.
+ * `overrides` — опции правила целиком; отсюда берётся только `repoRoot`, и разбирает его всё тот же
+ * `getRepoRoot` — `src/host/` про формат конфига по-прежнему ничего не знает и какое поле ему нужно,
+ * не объявляет. Кэш инстансов ключуется уже резолвнутым root, поэтому файлы с разным override (или
+ * разными `coverDirs`) не делят инстанс.
  *
  * `coverDirs` — реальные директории, которые root обязан покрыть (якоря алиасов из tsconfig).
  * Действует только при автоопределении root: итог — общая директория `findRepoRoot(cwd) ?? cwd` и
@@ -240,10 +242,10 @@ function resolveRoot(
 export function getFsHost(
     settings: unknown,
     cwd: string,
-    repoRootOverride?: unknown,
+    overrides?: WeldOverrides,
     coverDirs: string[] = [],
 ): FsHost {
-    const root = resolveRoot(settings, cwd, repoRootOverride, coverDirs);
+    const root = resolveRoot(settings, cwd, overrides, coverDirs);
 
     const cached = instanceCache.get(root);
     if (cached) {

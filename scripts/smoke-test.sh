@@ -35,15 +35,21 @@ cat > package.json <<'JSON'
 JSON
 
 cat > eslint.config.js <<'JS'
+import { defineConfig } from 'eslint/config';
 import weld from 'eslint-plugin-weld';
 
-export default [
-  weld.configs.recommended,
+// Форма подключения — ровно та, что в README: пресет через `extends` внутри блока с `files`,
+// схема рядом. Пресет включает no-illegal-layer-dependency, а оно без схемы роняет прогон, и
+// схема, не дотянувшаяся до файла под правилом, роняет его так же. Смежный повтор @unknown
+// разрешает импорты внутри неразмеченного кода — примеру этого достаточно.
+export default defineConfig([
   {
     files: ['src/**/*.js'],
+    extends: [weld.configs.recommended],
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    settings: { weld: { layers: ['@unknown', '@unknown'] } },
   },
-];
+]);
 JS
 
 cat > src/example.js <<'JS'
@@ -73,6 +79,9 @@ node --input-type=module -e "
 "
 
 echo "==> Запускаю ESLint в проекте-потребителе"
-npx --no-install eslint src/example.js
+# Линтуется весь проект, а не один файл: правила приходят из пресета, и конфиг, в котором область
+# правил разошлась с областью схемы, роняет прогон именно на файлах вне `src/` — начиная с самого
+# `eslint.config.js`. Один файл такую ошибку не показывает.
+npx --no-install eslint .
 
 echo "==> Smoke-тест пройден"
