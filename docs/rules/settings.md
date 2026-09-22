@@ -8,12 +8,12 @@ export default [
     {
         settings: {
             weld: {
-                aliases: { '@/*': ['src/*'] },
-                aliasesBaseUrl: 'packages/app', // необязательно; по умолчанию '.'
-                repoRoot: '.', // необязательно; по умолчанию — авто-поиск
                 layers: ['common', '@modules', 'pages', 'app'], // схема слоёв проекта
                 moduleLayers: ['entities', 'features', 'widgets'],
                 moduleDir: 'modules', // по умолчанию
+                aliases: { '@/*': ['src/*'] },
+                aliasesBaseUrl: 'packages/app', // необязательно; по умолчанию '.'
+                repoRoot: '.', // необязательно; по умолчанию — авто-поиск
             },
         },
     },
