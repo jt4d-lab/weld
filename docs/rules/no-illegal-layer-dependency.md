@@ -73,7 +73,7 @@ export default [
 Имена, начинающиеся с `@`, зарезервированы под такие спец-слои — слой проекта так назвать нельзя.
 Зарезервированы и два обычных имени, `unknown` и `module`: ими правило называет спец-слои в своих
 сообщениях. Формат записи и валидацию этих настроек см. в
-[документации настроек](../settings.md#layers-modulelayers-moduledir).
+[документации настроек](./settings.md#layers-modulelayers-moduledir).
 
 ### Развёрнутый порядок
 
@@ -306,7 +306,7 @@ module. Same name, different layers: they are declared separately in layers and 
 импортировать сам себя» — при том, что это два разных слоя, стоящих в схеме в разных местах. Других
 таких пар не бывает: одно имя на одном уровне — это один и тот же слой, то есть
 [горизонталь](#горизонтальные-связи), а обычное имя сразу в обоих списках отвергает
-[валидация схемы](../settings.md#layers-modulelayers-moduledir).
+[валидация схемы](./settings.md#layers-modulelayers-moduledir).
 
 Есть асимметрия, принятая осознанно: **источник схлопывается, цель — нет.** Неразмеченный код модуля
 как источник всегда получает права модуля целиком (`module`): он часть модуля и вправе импортировать
@@ -337,8 +337,8 @@ module. Same name, different layers: they are declared separately in layers and 
 
 Последняя строка перекрывает две первых: пока в схеме нет `@modules`, модулей для неё не существует
 вовсе, и совет объявить `@unknown` в `moduleLayers` вёл бы в конфиг, который отвергает
-[валидация](../settings.md#layers-modulelayers-moduledir) — `moduleLayers` без `@modules` это
-ошибка. Первый шаг в такой схеме один и тот же для обоих концов импорта: объявить `@modules`.
+[валидация](./settings.md#layers-modulelayers-moduledir) — `moduleLayers` без `@modules` это ошибка.
+Первый шаг в такой схеме один и тот же для обоих концов импорта: объявить `@modules`.
 
 Советы в этих сообщениях стоит читать как варианты, а не как готовую правку: `@unknown` в
 `moduleLayers` — изменение схемы всего проекта, оно открывает неразмеченные внутренности **каждого**
@@ -375,7 +375,7 @@ module. Same name, different layers: they are declared separately in layers and 
 
 Список, в котором объявляется повтор, сообщение называет прямо (`in layers` либо `in moduleLayers`):
 слой модуля повторяется в `moduleLayers`, и тот же повтор в `layers` разбор схемы отверг бы — одно
-обычное имя в обоих списках это [ошибка конфига](../settings.md#layers-modulelayers-moduledir).
+обычное имя в обоих списках это [ошибка конфига](./settings.md#layers-modulelayers-moduledir).
 
 Что при этом не ограничивается:
 
@@ -564,7 +564,7 @@ Move the file into a layer, or declare '@unknown' in layers.
 Правило читает `layers`, `moduleLayers` и `moduleDir` (схема слоёв), а также общие настройки плагина
 — `repoRoot`, `aliasesBaseUrl`, `aliases`; если алиасы не заданы явно, они подхватываются из
 ближайшего к линтуемому файлу `tsconfig.json`. Формат всех настроек, их валидация и приоритет
-источников алиасов описаны в [документации настроек](../settings.md).
+источников алиасов описаны в [документации настроек](./settings.md).
 
 ## Опции правила
 
@@ -581,19 +581,19 @@ Move the file into a layer, or declare '@unknown' in layers.
 
 Схема опций — один объект (лишние ключи запрещены):
 
-| опция            | тип        | по умолчанию                                                                                                                    |
-| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `layers`         | `string[]` | значение `settings.weld.layers`                                                                                                 |
-| `moduleLayers`   | `string[]` | значение `settings.weld.moduleLayers`                                                                                           |
-| `moduleDir`      | `string`   | значение `settings.weld.moduleDir`, иначе `'modules'`                                                                           |
-| `repoRoot`       | `string`   | значение `settings.weld.repoRoot`                                                                                               |
-| `aliasesBaseUrl` | `string`   | значение `settings.weld.aliasesBaseUrl`                                                                                         |
-| `aliases`        | `object`   | значение `settings.weld.aliases`, иначе — автопоиск из tsconfig (см. [настройки](../settings.md#автопоиск-алиасов-из-tsconfig)) |
+| опция            | тип        | по умолчанию                                                                                                                   |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `layers`         | `string[]` | значение `settings.weld.layers`                                                                                                |
+| `moduleLayers`   | `string[]` | значение `settings.weld.moduleLayers`                                                                                          |
+| `moduleDir`      | `string`   | значение `settings.weld.moduleDir`, иначе `'modules'`                                                                          |
+| `repoRoot`       | `string`   | значение `settings.weld.repoRoot`                                                                                              |
+| `aliasesBaseUrl` | `string`   | значение `settings.weld.aliasesBaseUrl`                                                                                        |
+| `aliases`        | `object`   | значение `settings.weld.aliases`, иначе — автопоиск из tsconfig (см. [настройки](./settings.md#автопоиск-алиасов-из-tsconfig)) |
 
 Первые три — собственные опции правила: схему читает только оно, и принимать `layers` в опциях
 соседних правил значило бы принимать настройку и молча её игнорировать. Остальные три — общие
 настройки плагина, заданные на самом правиле; как они перекрывают секцию, описано в
-[документации настроек](../settings.md#reporoot-aliasesbaseurl-aliases-в-опциях-правила).
+[документации настроек](./settings.md#aliases-aliasesbaseurl-reporoot-в-опциях-правила).
 
 Заданная опция целиком заменяет одноимённое поле `settings.weld`: `layers` в опции не дописывается к
 схеме из секции, а подменяет её. Перекрываются настройки порознь — можно задать опцией `moduleDir`,
@@ -668,7 +668,7 @@ export default defineConfig([
   (`settings.weld.layers[3]` либо `options.layers[3]`). Типы самих опций (`layers` — массив строк,
   `moduleDir` — строка) отсекает схема опций ESLint, и это уже обычная ошибка конфигурации, а не
   падение. Полный список проверок — в
-  [документации настроек](../settings.md#layers-modulelayers-moduledir).
+  [документации настроек](./settings.md#layers-modulelayers-moduledir).
 - **`@modules` без `moduleLayers`** — не ошибка: развёртка даёт смежный повтор `module, module`, то
   есть модули без внутренних слоёв, которые вправе импортировать друг друга через баррели.
 - **Файл вне корня репозитория** — не проверяется, как и в
