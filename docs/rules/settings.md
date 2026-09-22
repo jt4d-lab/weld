@@ -8,14 +8,14 @@ export default [
     {
         settings: {
             weld: {
+                layers: ['common', '@modules', 'pages', 'app'], // схема слоёв проекта
+                moduleLayers: ['entities', 'features', 'widgets'],
+                moduleDir: 'modules', // по умолчанию
                 tsconfig: 'tsconfig.app.json', // необязательно; по умолчанию — tsconfig.json
                 aliases: { '@/*': ['src/*'] }, // необязательно; по умолчанию — авто-поиск
                 aliasesBaseUrl: 'packages/app', // необязательно; по умолчанию '.'
                 repoRoot: '.', // необязательно; по умолчанию — авто-поиск
-                layers: ['common', '@modules', 'pages', 'app'], // схема слоёв проекта
-                moduleLayers: ['entities', 'features', 'widgets'],
-                moduleDir: 'modules', // по умолчанию
-            },
+             },
         },
     },
 ];
