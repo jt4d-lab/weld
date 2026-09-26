@@ -91,6 +91,32 @@ describe('loadTsconfigPaths: поиск и разбор', () => {
         expect(read).not.toHaveBeenCalled();
     });
 
+    it('передаёт кастомное имя конфигурации в read-шов', () => {
+        const read = vi.fn((_searchDir: string, configName: string) => {
+            expect(configName).toBe('tsconfig.app.json');
+            return {
+                path: '/proj/tsconfig.app.json',
+                config: { compilerOptions: { paths: { '@/*': ['./src/*'] } } },
+            } as unknown as ReturnType<typeof getTsconfig>;
+        });
+
+        const result = loadTsconfigPaths('/proj/src/file.ts', {
+            configName: 'tsconfig.app.json',
+            read,
+        });
+
+        expect(read).toHaveBeenCalledWith('/proj/src', 'tsconfig.app.json');
+        expect(result?.configPath).toBe('/proj/tsconfig.app.json');
+    });
+
+    it('по умолчанию передаёт `tsconfig.json` в read-шов', () => {
+        const read = vi.fn(() => null);
+
+        loadTsconfigPaths('/proj/src/file.ts', { read });
+
+        expect(read).toHaveBeenCalledWith('/proj/src', 'tsconfig.json');
+    });
+
     it('якоря внутри node_modules исключаются из realAnchors, нестроковые значения пропускаются', () => {
         const read = () =>
             ({
@@ -232,6 +258,39 @@ describe('loadTsconfigPaths: TTL-кэш', () => {
         loadTsconfigPaths(`${tsconfigBasicFixture}/src/other.ts`, { read, now });
 
         expect(read).toHaveBeenCalledTimes(1);
+    });
+
+    it('разные имена имеют независимые результаты и TTL', () => {
+        const read = vi.fn(
+            (_searchDir: string, configName: string) =>
+                ({
+                    path: `/proj/${configName}`,
+                    config: { compilerOptions: { paths: { '@/*': [`${configName}/*`] } } },
+                }) as unknown as ReturnType<typeof getTsconfig>,
+        );
+        let time = 0;
+        const now = () => time;
+        const file = '/proj/src/file.ts';
+
+        expect(
+            loadTsconfigPaths(file, { configName: 'tsconfig.a.json', read, now })?.paths,
+        ).toEqual({
+            '@/*': ['tsconfig.a.json/*'],
+        });
+        time = 599_999;
+        expect(
+            loadTsconfigPaths(file, { configName: 'tsconfig.b.json', read, now })?.paths,
+        ).toEqual({
+            '@/*': ['tsconfig.b.json/*'],
+        });
+        time = 600_001;
+        loadTsconfigPaths(file, { configName: 'tsconfig.a.json', read, now });
+        loadTsconfigPaths(file, { configName: 'tsconfig.b.json', read, now });
+
+        expect(read).toHaveBeenCalledTimes(3);
+        expect(read).toHaveBeenNthCalledWith(1, '/proj/src', 'tsconfig.a.json');
+        expect(read).toHaveBeenNthCalledWith(2, '/proj/src', 'tsconfig.b.json');
+        expect(read).toHaveBeenNthCalledWith(3, '/proj/src', 'tsconfig.a.json');
     });
 
     it('отрицательный результат (null) тоже кэшируется — в пределах своего короткого TTL', () => {
