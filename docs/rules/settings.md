@@ -9,7 +9,7 @@ export default [
         settings: {
             weld: {
                 layers: ['common', '@modules', 'pages', 'app'], // схема слоёв проекта
-                moduleLayers: ['entities', 'features', 'widgets'],
+                moduleLayers: ['entities', 'widgets'],
                 moduleDir: 'modules', // по умолчанию
                 tsconfig: 'tsconfig.app.json', // необязательно; по умолчанию — tsconfig.json
                 aliases: { '@/*': ['src/*'] }, // необязательно; по умолчанию — авто-поиск
@@ -31,7 +31,7 @@ export default [
 ```js
 settings: {
     weld: {
-        layers: ['common', 'legacy', '@modules', 'legacy', 'pages', 'app'],
+        layers: ['common', '@modules', 'pages', 'app'],
     },
 }
 ```
@@ -59,13 +59,6 @@ settings: {
 [`moduleDir`](#moduledir), и вместе с ним — `.` и `..`. Иначе такое имя не совпало бы ни с одним
 сегментом пути: слой молча не существовал бы, а файлы, которые он должен был покрыть, шумели бы
 сообщением про необъявленный слой.
-
-Итоговая схема — один плоский упорядоченный список, в котором `@modules` заменён на модуль целиком и
-его слои (здесь — `moduleLayers: ['entities', 'features', 'widgets']`):
-
-```text
-common, legacy, модуль, entities, features, widgets, модуль, legacy, pages, app
-```
 
 Модуль как целое (его публичный интерфейс) обрамляет свои слои с двух сторон, то есть всегда
 получает диапазон. Имя, встречающееся в схеме несколько раз, тоже получает диапазон и ослабляет
