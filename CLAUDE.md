@@ -29,8 +29,8 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 Каркас пакета `eslint-plugin-weld` готов (сборка, тесты, CI, автопубликация); реализовано первое
 правило — `weld/no-barrel-bypass` (`src/rules/no-barrel-bypass/`), зарегистрировано в
 `src/rules/index.ts` и включено в `configs.recommended`. Есть страница правила
-`docs/rules/no-barrel-bypass.md` и общий раздел настроек `docs/settings.md`: настройки общие для
-всех правил, внутри страницы одного правила они не живут (см. «Добавление правила» ниже).
+`docs/rules/no-barrel-bypass.md` и общий раздел настроек `docs/rules/settings.md`: настройки общие
+для всех правил, внутри страницы одного правила они не живут (см. «Добавление правила» ниже).
 
 Документация подхода пока существует только тезисно: четыре идеи (баррель = граница модуля,
 однонаправленность зависимостей, слои задаёт проект, общие слои и фрактальность модулей) записаны
@@ -42,7 +42,8 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 вместе с правилом, которое будет проверять направление зависимостей.
 
 Есть слой `src/host/` — граница между реальным диском и правилами — и второй пограничный слой
-`src/tsconfig/` — автопоиск алиасов из `tsconfig.json` (см. ниже).
+`src/tsconfig/` — автопоиск алиасов из файла с именем из `settings.weld.tsconfig` или
+`options.tsconfig` (по умолчанию `tsconfig.json`, см. ниже).
 
 Обратная совместимость правил и их именования пока не гарантируется; переименование правила не
 требует deprecation-цикла.
@@ -115,10 +116,10 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 ## Слой `src/settings/` — чтение `settings.weld`
 
 Формат секции `settings.weld` знает только `src/settings/`. Наружу слой отдаёт не сырую секцию, а
-геттер на каждую настройку — `getRepoRoot`, `getAliasesBaseUrl`, `getAliases` (реализация в
-`src/settings/weld.ts`, наружу — через `src/settings/index.ts`); каждый принимает `settings` и
-необязательный `override` — значение этой настройки, подставляемое вместо конфига. `override`
-приходит из пользовательского конфига — из одноимённых опций правила (их объявляет
+геттер на каждую настройку — `getRepoRoot`, `getAliasesBaseUrl`, `getAliases`, `getTsconfigName`
+(реализация в `src/settings/weld.ts`, наружу — через `src/settings/index.ts`); каждый принимает
+`settings` и необязательный `override` — значение этой настройки, подставляемое вместо конфига.
+`override` приходит из пользовательского конфига — из одноимённых опций правила (их объявляет
 `WELD_OPTION_PROPERTIES`, а прокидывает в геттеры и в `getFsHost` — `resolveWeldContext`, см.
 «`src/rules/context.ts`»), поэтому проверяется теми же правилами, что и `settings.weld`, и в
 сообщении об ошибке называется как `options.<имя>`. У `getAliases` override-ов два — свой и
@@ -169,7 +170,8 @@ WELD (Well-Encapsulated Layered Design) — подход к организаци
 (`eslint-plugin-weld:tsconfig`), не исключение: кривой tsconfig не валит линт. Кэш — мемоизация
 «директория файла → результат» с TTL по образцу `TTL_MS` из `src/host/fs.ts` и коротким негативным
 TTL по образцу `NEGATIVE_TTL_MS` оттуда же (созданный tsconfig подхватывается за секунды); сброс
-(`resetTsconfigCache`) выходит через баррель для чужих тестов, швы `now`/`read` — нет.
+(`resetTsconfigCache`) выходит через баррель для чужих тестов, швы `now`/`read` — нет. Ключ кэша —
+пара «директория файла + имя tsconfig».
 
 ## Модули ниже слоёв
 
@@ -211,22 +213,23 @@ TTL по образцу `NEGATIVE_TTL_MS` оттуда же (созданный 
 `{ fromFile, aliases, fsHost, options }` либо `null`, если линтуемый файл вне корня репозитория.
 Параметр — только собственные опции правила: общие известны самому `resolveWeldContext`, и в
 `options` он отдаёт их пересечение (`TOwnOptions & WeldOptions`, `WeldOptions` наружу не выходит).
-Правило не перечисляет `repoRoot`/`aliasesBaseUrl`/`aliases` ни в схеме, ни в типе опций и не
-собирает `FsHost` руками — иначе четвёртая общая настройка потребовала бы правки каждого правила
-порознь.
+Правило не перечисляет `repoRoot`/`aliasesBaseUrl`/`aliases`/`tsconfig` ни в схеме, ни в типе опций
+и не собирает `FsHost` руками — иначе общая настройка потребовала бы правки каждого правила порознь.
 
 Приоритет источников алиасов: `options.aliases` → `settings.weld.aliases` → автопоиск tsconfig. Явно
 заданные алиасы (по `hasAliases`, пустой `{}` тоже «задан») или инъекция `fsHostOverride` выключают
-автопоиск — тогда всё работает как раньше. Иначе `resolveWeldContext` зовёт
-`loadTsconfigPaths(context.filename)` и держит инвариант «root покрывает якоря алиасов»: найденные
-`realAnchors` безусловно уходят в `coverDirs` для `getFsHost`, и при автоопределении root
-поднимается до общей директории `findRepoRoot(cwd) ?? cwd` и якорей (поэтому в монорепе разные
-линтуемые файлы могут получить разный root и разные инстансы `FsHost` — ожидаемо). Что явный root
-якоря игнорирует, решает сам `getFsHost` — здесь это не переспрашивается; зато tsconfig вне явного
-root (`toVirtual(configPath) === null`) отбрасывается целиком. Дальше — `getAliasesFromPaths` в
-`try/catch`: исключение или база вне root → debug (`eslint-plugin-weld:rules`) и пустые алиасы,
-кривой tsconfig линт не валит (в отличие от явных алиасов, где падение намеренное).
-`settings.weld.aliasesBaseUrl` на tsconfig-алиасы не влияет — их база приходит из самого tsconfig.
+автопоиск — тогда всё работает как раньше. Имя файла для автопоиска берётся с приоритетом
+`options.tsconfig` → `settings.weld.tsconfig` → `tsconfig.json`. Иначе `resolveWeldContext` зовёт
+`loadTsconfigPaths(context.filename, { configName: tsconfigName })` и держит инвариант «root
+покрывает якоря алиасов»: найденные `realAnchors` безусловно уходят в `coverDirs` для `getFsHost`, и
+при автоопределении root поднимается до общей директории `findRepoRoot(cwd) ?? cwd` и якорей
+(поэтому в монорепе разные линтуемые файлы могут получить разный root и разные инстансы `FsHost` —
+ожидаемо). Что явный root якоря игнорирует, решает сам `getFsHost` — здесь это не переспрашивается;
+зато tsconfig вне явного root (`toVirtual(configPath) === null`) отбрасывается целиком. Дальше —
+`getAliasesFromPaths` в `try/catch`: исключение или база вне root → debug
+(`eslint-plugin-weld:rules`) и пустые алиасы, кривой tsconfig линт не валит (в отличие от явных
+алиасов, где падение намеренное). `settings.weld.aliasesBaseUrl` на tsconfig-алиасы не влияет — их
+база приходит из самого tsconfig.
 
 Модуль лежит выше `src/host/` и `src/settings/`: решение «опции правила перекрывают `settings.weld`»
 не принадлежит ни тому, ни другому. Полной изоляции слоёв друг от друга при этом нет: `src/host/`

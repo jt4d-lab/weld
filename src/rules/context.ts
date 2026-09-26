@@ -8,8 +8,8 @@
  * репозитория через `getRepoRoot` — осознанная односторонняя зависимость `host → settings`
  * (см. `getFsHost` в `src/host/fs.ts`).
  *
- * Правило не перечисляет `repoRoot`/`aliasesBaseUrl`/`aliases` ни у себя в `meta.schema`, ни в типе
- * своих опций и не собирает `FsHost` руками — иначе четвёртая общая настройка потребовала бы правки
+ * Правило не перечисляет `repoRoot`/`aliasesBaseUrl`/`aliases`/`tsconfig` ни у себя в `meta.schema`, ни
+ * в типе своих опций и не собирает `FsHost` руками — иначе общие настройки потребовали бы правки
  * каждого правила по отдельности.
  */
 
@@ -19,7 +19,13 @@ import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import { getFsHost } from '@/host/index.js';
 import type { Alias } from '@/settings/index.js';
-import { getAliases, getAliasesFromPaths, getRepoRoot, hasAliases } from '@/settings/index.js';
+import {
+    getAliases,
+    getAliasesFromPaths,
+    getRepoRoot,
+    getTsconfigName,
+    hasAliases,
+} from '@/settings/index.js';
 import type { TsconfigPaths } from '@/tsconfig/index.js';
 import { loadTsconfigPaths } from '@/tsconfig/index.js';
 
@@ -33,6 +39,7 @@ export const WELD_OPTION_PROPERTIES = {
     repoRoot: { type: 'string' },
     aliasesBaseUrl: { type: 'string' },
     aliases: { type: 'object' },
+    tsconfig: { type: 'string' },
 } as const;
 
 /**
@@ -44,6 +51,7 @@ type WeldOptions = {
     repoRoot?: string;
     aliasesBaseUrl?: string;
     aliases?: Record<string, unknown>;
+    tsconfig?: string;
 };
 
 /** Всё, что правило берёт из контекста до обхода AST. */
@@ -110,7 +118,8 @@ function resolveHostAndAliases(
     // автоопределении root обязан покрыть якоря, иначе алиас молча не работал бы — отсюда
     // `coverDirs`; при явном root их игнорирует сам `getFsHost`, а инвариант держит отбрасывание
     // непокрытого (ниже и в `parseAliases`).
-    const found = loadTsconfigPaths(context.filename);
+    const tsconfigName = getTsconfigName(context.settings, options.tsconfig);
+    const found = loadTsconfigPaths(context.filename, { configName: tsconfigName });
     const hasExplicitRoot = getRepoRoot(context.settings, options.repoRoot) !== undefined;
     const fsHost = getFsHost(
         context.settings,
