@@ -68,10 +68,10 @@ describe('checkImport — пропуск с причиной', () => {
         expect(checker(files)('../other/logo.svg')).toEqual({ kind: 'skip', reason: 'asset' });
     });
 
-    it('имя с точкой — та же проверка, что и у ассетов', () => {
+    it('имя с точкой без файла на диске → no-module-found', () => {
         expect(checker(barrelFiles)('./account.entity')).toEqual({
             kind: 'skip',
-            reason: 'asset',
+            reason: 'no-module-found',
         });
     });
 });
@@ -116,6 +116,43 @@ describe('checkImport — одна проверка на все специфае
         expect(check('../sibling/thing.ts')).toEqual({
             kind: 'intact',
             target: '/repo/src/sibling/thing.ts',
+        });
+    });
+
+    it('импорт с точкой в имени, разрешаемый в файл, не считается не-модулем', () => {
+        const files = ['/repo/src/feature/account.entity.ts'];
+
+        expect(checker(files)('./account.entity')).toEqual({
+            kind: 'intact',
+            target: '/repo/src/feature/account.entity.ts',
+        });
+    });
+
+    it('импорт внутрь dotted-модуля без расширения → правка через баррель', () => {
+        const files = [
+            '/repo/src/feature/account.entity',
+            '/repo/src/feature/account.entity/index.ts',
+        ];
+
+        expect(checker(files)('./account.entity/internal')).toEqual({
+            kind: 'replace',
+            target: '/repo/src/feature/account.entity/internal',
+            barrier: '/repo/src/feature/account.entity',
+            suggestion: './account.entity',
+        });
+    });
+
+    it('импорт внутрь dotted-модуля с расширением → правка через index.<ext>', () => {
+        const files = [
+            '/repo/src/feature/account.entity',
+            '/repo/src/feature/account.entity/index.ts',
+        ];
+
+        expect(checker(files)('./account.entity/internal.ts')).toEqual({
+            kind: 'replace',
+            target: '/repo/src/feature/account.entity/internal.ts',
+            barrier: '/repo/src/feature/account.entity',
+            suggestion: './account.entity/index.ts',
         });
     });
 });

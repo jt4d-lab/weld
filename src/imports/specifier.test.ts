@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { Alias } from '@/settings/index.js';
 import { parseSpecifier, renderSpecifier } from '@/imports/specifier.js';
+
+/** Модуль с точкой в имени: по форме записи `./account.entity` о нём ничего не известно. */
+const resolve = (path: string): string | null =>
+    path === '/src/feature/account.entity' ? '/src/feature/account.entity.ts' : null;
 
 describe('parseSpecifier', () => {
     describe('parseSpecifier — относительные формы', () => {
@@ -182,6 +186,58 @@ describe('parseSpecifier', () => {
             expect(parseSpecifier('../../../../shared/x', '/src', [])).toEqual({
                 kind: 'skip',
                 reason: 'out-of-repo',
+            });
+        });
+    });
+
+    describe('parseSpecifier — неизвестное расширение уточняется по диску', () => {
+        it('без резолвера специфаер пропускается', () => {
+            expect(parseSpecifier('./account.entity', '/src/feature', [])).toEqual({
+                kind: 'skip',
+                reason: 'no-module-found',
+            });
+        });
+
+        it('резолвер нашёл файл — цель берётся с диска, расширение остаётся неуказанным', () => {
+            expect(parseSpecifier('./account.entity', '/src/feature', [], resolve)).toEqual({
+                kind: 'target',
+                target: {
+                    path: '/src/feature/account.entity.ts',
+                    form: { kind: 'relative' },
+                    extension: null,
+                },
+            });
+        });
+
+        it('резолвер ничего не нашёл → no-module-found', () => {
+            expect(parseSpecifier('./account.unknown', '/src/feature', [], resolve)).toEqual({
+                kind: 'skip',
+                reason: 'no-module-found',
+            });
+        });
+
+        it('ассетное расширение отсекается без обращения к резолверу', () => {
+            const never = vi.fn(() => '/src/feature/x.css');
+
+            expect(parseSpecifier('./x.css', '/src/feature', [], never)).toEqual({
+                kind: 'skip',
+                reason: 'asset',
+            });
+            expect(never).not.toHaveBeenCalled();
+        });
+
+        it('то же через алиас — форма записи сохраняется в цели', () => {
+            const aliases: Alias[] = [{ prefix: '@src', anchor: '/src' }];
+
+            expect(
+                parseSpecifier('@src/feature/account.entity', '/other', aliases, resolve),
+            ).toEqual({
+                kind: 'target',
+                target: {
+                    path: '/src/feature/account.entity.ts',
+                    form: { kind: 'alias', alias: aliases[0] },
+                    extension: null,
+                },
             });
         });
     });

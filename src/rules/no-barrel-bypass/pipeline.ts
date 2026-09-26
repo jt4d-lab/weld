@@ -12,7 +12,7 @@ import { findBarrier } from '@/rules/no-barrel-bypass/core/barrier.js';
 
 type CheckerInput = { fromFile: string; aliases: Alias[] };
 
-export type Host = Pick<FsHost, 'hasEntryPoint'>;
+export type Host = Pick<FsHost, 'findModuleTarget' | 'hasEntryPoint'>;
 
 /**
  * Итог проверки специфаера: `replace` — нарушение с исправленным специфаером, `intact` — нарушения
@@ -33,9 +33,12 @@ export function createChecker(
     host: Host,
 ): (specifier: string) => CheckDecision {
     const fromDir = dirname(fromFile);
+    // Связка "виртуальный путь → реальный модуль" нужна разбору только для специфаеров с точкой в
+    // имени файла, поэтому привязывается один раз на файл, а не на каждый импорт.
+    const resolve = host.findModuleTarget.bind(host);
 
     return function checkImport(specifier: string): CheckDecision {
-        const parse = parseSpecifier(specifier, fromDir, aliases);
+        const parse = parseSpecifier(specifier, fromDir, aliases, resolve);
         if (parse.kind === 'skip') {
             return { kind: 'skip', reason: parse.reason };
         }

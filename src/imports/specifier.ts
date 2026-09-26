@@ -4,10 +4,12 @@
  * барьеры, баррели и любое другое правило слой не знает — это общая инфраструктура импортов.
  *
  * Строка импорта сама и есть путь: относительная резолвится от директории файла, алиасная —
- * подстановкой якоря. Резолвер не нужен — существование цели проверяет `import/no-unresolved`.
+ * подстановкой якоря. Существование цели проверяет `import/no-unresolved`; `resolve` нужен только
+ * для расширения, которого нет ни среди модульных, ни среди ассетных (`./account.entity`) — там
+ * форма записи не говорит, модуль это или нет.
  */
 
-import { entryFileName, isModuleExtension } from '@/extensions.js';
+import { entryFileName, isAssetExtension, isModuleExtension } from '@/extensions.js';
 import { basename, relativePath, resolvePath, splitExtension } from '@/path/index.js';
 import type { Alias } from '@/settings/index.js';
 
@@ -28,13 +30,23 @@ export type SpecifierSkip = 'asset' | 'external-dependency' | 'out-of-repo' | 'n
 export type ParseResult =
     { kind: 'target'; target: Target } | { kind: 'skip'; reason: SpecifierSkip };
 
-export function parseSpecifier(specifier: string, fromDir: string, aliases: Alias[]): ParseResult {
+/**
+ * `resolve` уточняет специфаер, расширение которого нет ни среди модульных, ни среди ассетных:
+ * `./account.entity` — это и модуль `account.entity.ts`, и не-модуль вовсе, и различить их по форме
+ * записи нельзя. Вернув `null`, резолвер говорит, что модуля по такому пути нет.
+ */
+export function parseSpecifier(
+    specifier: string,
+    fromDir: string,
+    aliases: Alias[],
+    resolve?: (path: string) => string | null,
+): ParseResult {
     if (specifier.startsWith('/') || specifier.includes('?') || specifier.includes('!')) {
         return skip('asset');
     }
 
     if (isRelativeSpecifier(specifier)) {
-        return finalize(resolvePath(fromDir, specifier), { kind: 'relative' });
+        return finalize(resolvePath(fromDir, specifier), { kind: 'relative' }, resolve);
     }
 
     const alias = matchAlias(specifier, aliases);
@@ -42,7 +54,7 @@ export function parseSpecifier(specifier: string, fromDir: string, aliases: Alia
         // `matchAlias` уже проверил границу по сегменту, поэтому хвост — либо пустой, либо `/…`;
         // ведущие слэши снимаются, чтобы `resolvePath` не принял хвост за абсолютный путь.
         const suffix = specifier.slice(alias.prefix.length).replace(/^\/+/, '');
-        return finalize(resolvePath(alias.anchor, suffix), { kind: 'alias', alias });
+        return finalize(resolvePath(alias.anchor, suffix), { kind: 'alias', alias }, resolve);
     }
 
     return skip('external-dependency');
@@ -86,17 +98,42 @@ function matchAlias(specifier: string, aliases: Alias[]): Alias | null {
     return pickLongest(aliases, (alias) => (covers(alias.prefix, specifier) ? alias.prefix : null));
 }
 
-function finalize(path: string | null, form: Form): ParseResult {
+function finalize(
+    path: string | null,
+    form: Form,
+    resolve?: (path: string) => string | null,
+): ParseResult {
     if (path === null) {
         return skip('out-of-repo');
     }
 
     const { ext } = splitExtension(basename(path));
-    if (ext !== '' && !isModuleExtension(ext)) {
+
+    if (ext === '') {
+        return target(path, form, null);
+    }
+
+    if (isModuleExtension(ext)) {
+        return target(path, form, ext);
+    }
+
+    // Ассет отсекается до резолвера: `./x.css` — заведомо не модуль, спрашивать диск незачем.
+    if (isAssetExtension(ext)) {
         return skip('asset');
     }
 
-    return { kind: 'target', target: { path, form, extension: ext === '' ? null : ext } };
+    const resolved = resolve?.(path);
+    if (resolved === undefined || resolved === null) {
+        return skip('no-module-found');
+    }
+
+    // Расширение в цель не переносится: `extension` — факт про форму записи специфаера, а в нём
+    // расширения не было.
+    return target(resolved, form, null);
+}
+
+function target(path: string, form: Form, extension: string | null): ParseResult {
+    return { kind: 'target', target: { path, form, extension } };
 }
 
 /**
