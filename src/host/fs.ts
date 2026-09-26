@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 
 import { createLogger } from '@/debug.js';
-import { ENTRY_FILE_NAMES } from '@/extensions.js';
+import { ENTRY_EXTENSIONS, ENTRY_FILE_NAMES, MODULE_EXTENSIONS } from '@/extensions.js';
 import { dirname, joinSegments, segments, toPosix } from '@/path/index.js';
 import { getRepoRoot } from '@/settings/index.js';
 
@@ -28,6 +28,12 @@ export type FsHost = {
      * заранее: каждый метод здесь обязаны реализовать все фейки.
      */
     hasEntryPoint(dir: string): boolean;
+    /**
+     * Находит виртуальный путь реального модуля по виртуальному пути специфаера без явного
+     * расширения. Перебирает `MODULE_EXTENSIONS` как файлы, затем `ENTRY_EXTENSIONS` как
+     * `index.<ext>` в директории. Возвращает `null`, если модуль не найден.
+     */
+    findModuleTarget(path: string): string | null;
     /** `null` — `realPath` вне root или не абсолютный. */
     toVirtual(realPath: string): string | null;
 };
@@ -81,6 +87,7 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
     const nativeExists = options.exists ?? existsSync;
     const entryPointCache: Cache = new Map();
     const directoryCache: Cache = new Map();
+    const fileCache: Cache = new Map();
 
     /**
      * Реальный путь директории по виртуальному. Виртуальный путь всегда начинается с `/`, поэтому
@@ -147,6 +154,22 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
         return peek(directoryCache, parent, time) === false;
     }
 
+    /**
+     * Существует ли файл с виртуальным путём. Кэш отделён от директорий: одни и те же строки не
+     * могут быть одновременно файлом и директорией, а промахи приходят пачками.
+     */
+    function fileExists(filePath: string): boolean {
+        const time = now();
+        const cached = peek(fileCache, filePath, time);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const found = nativeExists(`${normalizedRoot}${filePath}`);
+        debug('check file %s: %o', filePath, found);
+        return remember(fileCache, filePath, time, found);
+    }
+
     /** Кэш по директории, с TTL: диск опрашивается на промахе или после истечения записи. */
     function hasEntryPoint(dir: string): boolean {
         if (!dir.startsWith('/')) {
@@ -171,7 +194,38 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
         return remember(entryPointCache, dir, time, found);
     }
 
-    return { hasEntryPoint, toVirtual };
+    /**
+     * Резолвит виртуальный путь специфаера с неоднозначным расширением в виртуальный путь
+     * реального модуля. Сначала ищет файл с одним из `MODULE_EXTENSIONS`, затем директорию с
+     * точкой входа. Приоритет файла над директорией совпадает с Node/TS resolution.
+     */
+    function findModuleTarget(path: string): string | null {
+        if (!path.startsWith('/')) {
+            return null;
+        }
+
+        for (const ext of MODULE_EXTENSIONS) {
+            const candidate = `${path}.${ext}`;
+            if (fileExists(candidate)) {
+                return candidate;
+            }
+        }
+
+        if (!hasEntryPoint(path)) {
+            return null;
+        }
+
+        for (const ext of ENTRY_EXTENSIONS) {
+            const candidate = `${path}/index.${ext}`;
+            if (fileExists(candidate)) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    return { hasEntryPoint, findModuleTarget, toVirtual };
 }
 
 const instanceCache = new Map<string, FsHost>();
