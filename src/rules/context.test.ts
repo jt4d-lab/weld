@@ -305,6 +305,25 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
         expect(weld?.aliases).toEqual([{ prefix: '@explicit', anchor: '/explicit' }]);
     });
 
+    it('явные options.aliases отключают автопоиск с любым именем tsconfig', () => {
+        const proj = makeTmpProject({
+            'tsconfig.unused.json': '{ invalid json',
+            'src/consumer.ts': 'export {};\n',
+        });
+
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: `${proj}/src/consumer.ts`,
+                settings: {
+                    weld: { repoRoot: proj, tsconfig: 'tsconfig.unused.json' },
+                },
+                options: [{ aliases: { '@explicit/*': ['explicit/*'] } }],
+            }),
+        );
+
+        expect(weld?.aliases).toEqual([{ prefix: '@explicit', anchor: '/explicit' }]);
+    });
+
     it('монорепа при авто-root: база extends и якоря виртуализируются от найденного root', () => {
         const file = `${tsconfigMonorepoFixture}/packages/app/src/consumer.ts`;
 

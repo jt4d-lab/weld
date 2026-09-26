@@ -293,6 +293,36 @@ describe('loadTsconfigPaths: TTL-кэш', () => {
         expect(read).toHaveBeenNthCalledWith(3, '/proj/src', 'tsconfig.a.json');
     });
 
+    it('одно имя в разных директориях имеет независимые результаты', () => {
+        const read = vi.fn((searchDir: string, configName: string) => {
+            const project = searchDir.startsWith('/proj-a') ? 'a' : 'b';
+            return {
+                path: `/proj-${project}/${configName}`,
+                config: {
+                    compilerOptions: {
+                        paths: { '@/*': [`${project}/target/*`] },
+                    },
+                },
+            } as unknown as ReturnType<typeof getTsconfig>;
+        });
+        const now = () => 0;
+        const configName = 'tsconfig.app.json';
+
+        expect(loadTsconfigPaths('/proj-a/src/file.ts', { configName, read, now })?.paths).toEqual({
+            '@/*': ['a/target/*'],
+        });
+        expect(loadTsconfigPaths('/proj-b/src/file.ts', { configName, read, now })?.paths).toEqual({
+            '@/*': ['b/target/*'],
+        });
+
+        loadTsconfigPaths('/proj-a/src/other.ts', { configName, read, now });
+        loadTsconfigPaths('/proj-b/src/other.ts', { configName, read, now });
+
+        expect(read).toHaveBeenCalledTimes(2);
+        expect(read).toHaveBeenNthCalledWith(1, '/proj-a/src', configName);
+        expect(read).toHaveBeenNthCalledWith(2, '/proj-b/src', configName);
+    });
+
     it('отрицательный результат (null) тоже кэшируется — в пределах своего короткого TTL', () => {
         const read = vi.fn(getTsconfig);
         let time = 0;
