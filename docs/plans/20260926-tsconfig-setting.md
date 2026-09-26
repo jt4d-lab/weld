@@ -36,11 +36,11 @@
 
 ### 2. Общий контекст правил
 
-- Добавить `tsconfig: { type: 'string' }` в `WELD_OPTION_PROPERTIES`.
-- Добавить `tsconfig?: string` во внутренний тип `WeldOptions`.
-- Получать имя через `getTsconfigName(context.settings, options.tsconfig)`.
-- Передавать разрешённое имя в `loadTsconfigPaths`.
-- Не менять приоритет и поведение явных алиасов.
+- [x] Добавить `tsconfig: { type: 'string' }` в `WELD_OPTION_PROPERTIES`.
+- [x] Добавить `tsconfig?: string` во внутренний тип `WeldOptions`.
+- [x] Получать имя через `getTsconfigName(context.settings, options.tsconfig)`.
+- [x] Передавать разрешённое имя в `loadTsconfigPaths`.
+- [x] Не менять приоритет и поведение явных алиасов.
 
 ### 3. Загрузчик tsconfig
 

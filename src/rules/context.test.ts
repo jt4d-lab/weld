@@ -28,11 +28,12 @@ function fakeContext(fields: {
 }
 
 describe('WELD_OPTION_PROPERTIES', () => {
-    it('объявляет три общие настройки — правило подмешивает их к своим', () => {
+    it('объявляет общие настройки — правило подмешивает их к своим', () => {
         expect(WELD_OPTION_PROPERTIES).toEqual({
             repoRoot: { type: 'string' },
             aliasesBaseUrl: { type: 'string' },
             aliases: { type: 'object' },
+            tsconfig: { type: 'string' },
         });
     });
 });
@@ -93,6 +94,19 @@ describe('resolveWeldContext', () => {
         );
 
         expect(weld?.aliases).toEqual([{ prefix: '@a', anchor: '/src/a' }]);
+    });
+
+    it('options.tsconfig перекрывает settings.weld.tsconfig в разрешённых опциях', () => {
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: '/src/feature/file.ts',
+                settings: { weld: { tsconfig: 'tsconfig.app.json' } },
+                options: [{ tsconfig: 'tsconfig.test.json' }],
+            }),
+            createFakeFsHost([]),
+        );
+
+        expect(weld?.options.tsconfig).toBe('tsconfig.test.json');
     });
 
     it('без инъекции файловая система собирается из settings.weld.repoRoot', () => {

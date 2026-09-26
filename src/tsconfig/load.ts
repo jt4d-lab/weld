@@ -40,6 +40,8 @@ export type TsconfigPaths = {
 type CacheEntry = { value: TsconfigPaths | null; expiresAt: number };
 
 type LoadTsconfigOptions = {
+    /** Имя файла tsconfig для поиска. */
+    configName?: string;
     /** Шов для тестов TTL — по образцу `createFsHost`. */
     now?: () => number;
     /** Шов для тестов: подмена чтения диска (по умолчанию — `getTsconfig` из `get-tsconfig`). */
