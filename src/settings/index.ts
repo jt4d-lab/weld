@@ -19,5 +19,6 @@ export {
     getAliasesBaseUrl,
     getAliasesFromPaths,
     getRepoRoot,
+    getTsconfigName,
     hasAliases,
 } from './weld.js';

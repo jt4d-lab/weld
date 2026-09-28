@@ -28,11 +28,12 @@ function fakeContext(fields: {
 }
 
 describe('WELD_OPTION_PROPERTIES', () => {
-    it('объявляет три общие настройки — правило подмешивает их к своим', () => {
+    it('объявляет общие настройки — правило подмешивает их к своим', () => {
         expect(WELD_OPTION_PROPERTIES).toEqual({
             repoRoot: { type: 'string' },
             aliasesBaseUrl: { type: 'string' },
             aliases: { type: 'object' },
+            tsconfig: { type: 'string' },
         });
     });
 });
@@ -93,6 +94,19 @@ describe('resolveWeldContext', () => {
         );
 
         expect(weld?.aliases).toEqual([{ prefix: '@a', anchor: '/src/a' }]);
+    });
+
+    it('options.tsconfig перекрывает settings.weld.tsconfig в разрешённых опциях', () => {
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: '/src/feature/file.ts',
+                settings: { weld: { tsconfig: 'tsconfig.app.json' } },
+                options: [{ tsconfig: 'tsconfig.test.json' }],
+            }),
+            createFakeFsHost([]),
+        );
+
+        expect(weld?.options.tsconfig).toBe('tsconfig.test.json');
     });
 
     it('без инъекции файловая система собирается из settings.weld.repoRoot', () => {
@@ -227,6 +241,87 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
             { prefix: '@', anchor: '/src' },
             { prefix: '#lib', anchor: '/src/lib' },
         ]);
+    });
+
+    it('settings.weld.tsconfig выбирает имя конфигурации для автопоиска', () => {
+        const proj = makeTmpProject({
+            'tsconfig.app.json': JSON.stringify({
+                compilerOptions: { baseUrl: '.', paths: { '@app/*': ['app/*'] } },
+            }),
+            'src/consumer.ts': 'export {};\n',
+        });
+
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: `${proj}/src/consumer.ts`,
+                settings: { weld: { repoRoot: proj, tsconfig: 'tsconfig.app.json' } },
+            }),
+        );
+
+        expect(weld?.aliases).toEqual([{ prefix: '@app', anchor: '/app' }]);
+    });
+
+    it('options.tsconfig переопределяет имя из settings.weld при автопоиске', () => {
+        const proj = makeTmpProject({
+            'tsconfig.settings.json': JSON.stringify({
+                compilerOptions: { baseUrl: '.', paths: { '@settings/*': ['settings/*'] } },
+            }),
+            'tsconfig.options.json': JSON.stringify({
+                compilerOptions: { baseUrl: '.', paths: { '@options/*': ['options/*'] } },
+            }),
+            'src/consumer.ts': 'export {};\n',
+        });
+
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: `${proj}/src/consumer.ts`,
+                settings: { weld: { repoRoot: proj, tsconfig: 'tsconfig.settings.json' } },
+                options: [{ tsconfig: 'tsconfig.options.json' }],
+            }),
+        );
+
+        expect(weld?.aliases).toEqual([{ prefix: '@options', anchor: '/options' }]);
+    });
+
+    it('явные settings.weld.aliases отключают автопоиск с любым именем tsconfig', () => {
+        const proj = makeTmpProject({
+            'tsconfig.unused.json': '{ invalid json',
+            'src/consumer.ts': 'export {};\n',
+        });
+
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: `${proj}/src/consumer.ts`,
+                settings: {
+                    weld: {
+                        repoRoot: proj,
+                        tsconfig: 'tsconfig.unused.json',
+                        aliases: { '@explicit/*': ['explicit/*'] },
+                    },
+                },
+            }),
+        );
+
+        expect(weld?.aliases).toEqual([{ prefix: '@explicit', anchor: '/explicit' }]);
+    });
+
+    it('явные options.aliases отключают автопоиск с любым именем tsconfig', () => {
+        const proj = makeTmpProject({
+            'tsconfig.unused.json': '{ invalid json',
+            'src/consumer.ts': 'export {};\n',
+        });
+
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: `${proj}/src/consumer.ts`,
+                settings: {
+                    weld: { repoRoot: proj, tsconfig: 'tsconfig.unused.json' },
+                },
+                options: [{ aliases: { '@explicit/*': ['explicit/*'] } }],
+            }),
+        );
+
+        expect(weld?.aliases).toEqual([{ prefix: '@explicit', anchor: '/explicit' }]);
     });
 
     it('монорепа при авто-root: база extends и якоря виртуализируются от найденного root', () => {

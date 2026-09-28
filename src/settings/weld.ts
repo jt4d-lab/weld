@@ -18,6 +18,7 @@ import { parseAliases } from '@/settings/aliases.js';
 
 /** `aliasesBaseUrl` по умолчанию — сам корень репозитория. */
 const DEFAULT_ALIASES_BASE_URL = '.';
+const DEFAULT_TSCONFIG_NAME = 'tsconfig.json';
 
 /** `settings.weld`, если задан. `undefined` без ошибки — секция необязательна. */
 function getWeldSettings(settings: unknown): Record<string, unknown> | undefined {
@@ -61,6 +62,20 @@ export function getRepoRoot(settings: unknown, override?: unknown): string | und
     }
 
     return requireString(repoRoot, 'settings.weld.repoRoot');
+}
+
+/** `settings.weld.tsconfig`; не задан — `'tsconfig.json'`. */
+export function getTsconfigName(settings: unknown, override?: unknown): string {
+    if (override !== undefined) {
+        return requireString(override, 'options.tsconfig');
+    }
+
+    const tsconfig = getWeldSettings(settings)?.tsconfig;
+    if (tsconfig === undefined) {
+        return DEFAULT_TSCONFIG_NAME;
+    }
+
+    return requireString(tsconfig, 'settings.weld.tsconfig');
 }
 
 /** `settings.weld.aliasesBaseUrl`; не задан — `'.'` (сам корень репозитория). */

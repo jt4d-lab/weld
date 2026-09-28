@@ -1,5 +1,6 @@
 /**
- * Автопоиск ближайшего `tsconfig.json` и извлечение `compilerOptions.paths`.
+ * Автопоиск ближайшего файла с заданным именем tsconfig (по умолчанию `tsconfig.json`) и извлечение
+ * `compilerOptions.paths`.
  *
  * Второй «пограничный» модуль наряду с `src/host/`: знает формат tsconfig **и** читает диск (через
  * `get-tsconfig`). Наружу отдаёт **реальные** пути: виртуализация возможна только после фиксации
@@ -40,14 +41,16 @@ export type TsconfigPaths = {
 type CacheEntry = { value: TsconfigPaths | null; expiresAt: number };
 
 type LoadTsconfigOptions = {
+    /** Имя файла tsconfig для поиска. */
+    configName?: string;
     /** Шов для тестов TTL — по образцу `createFsHost`. */
     now?: () => number;
     /** Шов для тестов: подмена чтения диска (по умолчанию — `getTsconfig` из `get-tsconfig`). */
-    read?: (searchDir: string) => TsConfigResult | null;
+    read?: (searchDir: string, configName: string) => TsConfigResult | null;
 };
 
 /**
- * TTL найденного результата в мемоизации «директория файла → результат», то же значение, что
+ * TTL найденного результата в мемоизации «директория файла + имя tsconfig → результат», то же значение, что
  * `TTL_MS` в `src/host/fs.ts`: tsconfig правят руками чаще, чем создают `index.ts`, а вечный кэш в
  * долгоживущем ESLint редактора неприемлем.
  */
@@ -62,11 +65,11 @@ const TTL_MS = 600_000;
  */
 const NEGATIVE_TTL_MS = 5_000;
 
-const cache = new Map<string, CacheEntry>();
+const cache = new Map<string, Map<string, CacheEntry>>();
 
 /**
- * Ищет ближайший `tsconfig.json` вверх от директории `realFilePath` (реальный путь линтуемого
- * файла) и возвращает его `paths` с базой. Неабсолютный/синтетический путь (`<input>` из
+ * Ищет ближайший файл с заданным именем tsconfig вверх от директории `realFilePath` (реальный путь
+ * линтуемого файла) и возвращает его `paths` с базой. Неабсолютный/синтетический путь (`<input>` из
  * RuleTester) → сразу `null`. Отсев «tsconfig вне явного root» — дело вызывающей стороны.
  */
 export function loadTsconfigPaths(
@@ -79,10 +82,12 @@ export function loadTsconfigPaths(
     }
 
     const dir = path.dirname(realFilePath);
+    const configName = options.configName ?? 'tsconfig.json';
     const now = options.now ?? Date.now;
 
     const time = now();
-    const entry = cache.get(dir);
+    const entries = cache.get(dir);
+    const entry = entries?.get(configName);
     if (entry && entry.expiresAt > time) {
         return entry.value;
     }
@@ -93,20 +98,29 @@ export function loadTsconfigPaths(
     // подхватывались бы до конца жизни процесса.
     const readCache = new Map<string, unknown>();
     const read =
-        options.read ?? ((searchDir: string) => getTsconfig(searchDir, 'tsconfig.json', readCache));
+        options.read ??
+        ((searchDir: string, name: string) => getTsconfig(searchDir, name, readCache));
 
-    const value = readTsconfigPaths(dir, read);
-    cache.set(dir, { value, expiresAt: time + (value ? TTL_MS : NEGATIVE_TTL_MS) });
+    const value = readTsconfigPaths(dir, configName, read);
+    const directoryEntries = entries ?? new Map<string, CacheEntry>();
+    directoryEntries.set(configName, {
+        value,
+        expiresAt: time + (value ? TTL_MS : NEGATIVE_TTL_MS),
+    });
+    if (entries === undefined) {
+        cache.set(dir, directoryEntries);
+    }
     return value;
 }
 
 function readTsconfigPaths(
     dir: string,
-    read: (searchDir: string) => TsConfigResult | null,
+    configName: string,
+    read: (searchDir: string, configName: string) => TsConfigResult | null,
 ): TsconfigPaths | null {
     let found: TsConfigResult | null;
     try {
-        found = read(dir);
+        found = read(dir, configName);
     } catch (error) {
         debug('failed to read tsconfig near %s: %s', dir, error);
         return null;

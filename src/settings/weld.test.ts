@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAliasesFromPaths } from '@/settings/index.js';
+import { getAliasesFromPaths, getTsconfigName } from '@/settings/index.js';
 import { getAliases, getAliasesBaseUrl, getRepoRoot, hasAliases } from '@/settings/weld.js';
 
 describe('getRepoRoot', () => {
@@ -20,6 +20,37 @@ describe('getRepoRoot', () => {
 
     it('settings.weld не объект → исключение', () => {
         expect(() => getRepoRoot({ weld: 'nope' })).toThrow('settings.weld must be an object');
+    });
+});
+
+describe('getTsconfigName', () => {
+    it("нет настройки → 'tsconfig.json'", () => {
+        expect(getTsconfigName({})).toBe('tsconfig.json');
+        expect(getTsconfigName({ weld: {} })).toBe('tsconfig.json');
+    });
+
+    it('значение из settings.weld возвращается как есть', () => {
+        expect(getTsconfigName({ weld: { tsconfig: 'tsconfig.app.json' } })).toBe(
+            'tsconfig.app.json',
+        );
+    });
+
+    it('override имеет приоритет над settings.weld', () => {
+        expect(
+            getTsconfigName({ weld: { tsconfig: 'tsconfig.app.json' } }, 'tsconfig.test.json'),
+        ).toBe('tsconfig.test.json');
+    });
+
+    it('нестроковое значение в settings.weld → исключение называет тип', () => {
+        expect(() => getTsconfigName({ weld: { tsconfig: 42 } })).toThrow(
+            'settings.weld.tsconfig must be a string, got number',
+        );
+    });
+
+    it('нестроковый override → исключение называет options.tsconfig', () => {
+        expect(() => getTsconfigName({}, 42)).toThrow(
+            'options.tsconfig must be a string, got number',
+        );
     });
 });
 

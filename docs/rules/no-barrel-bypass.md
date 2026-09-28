@@ -135,10 +135,11 @@ import { helper } from '@/feature/internal';
 
 ## Настройки: `settings.weld`
 
-Правило читает общие настройки плагина — `aliases`, `aliasesBaseUrl`, `repoRoot` из секции
-`settings.weld` (и одноимённые опции правила, перекрывающие её). Если алиасы не заданы явно, они
-подхватываются из ближайшего к линтуемому файлу `tsconfig.json`. Формат настроек, приоритет
-источников алиасов и правила автопоиска описаны в [документации настроек](./settings.md).
+Правило читает общие настройки плагина — `aliases`, `aliasesBaseUrl`, `repoRoot`, `tsconfig` из
+секции `settings.weld` (и одноимённые опции правила, перекрывающие её). Если алиасы не заданы явно,
+они подхватываются из ближайшего к линтуемому файлу конфига с настроенным именем (по умолчанию
+`tsconfig.json`). Формат настроек, приоритет источников алиасов и правила автопоиска описаны в
+[документации настроек](./settings.md).
 
 ## Опции правила
 
@@ -158,10 +159,11 @@ import { helper } from '@/feature/internal';
 | `aliases`        | `object`  | переопределение [`settings.weld.aliases`](./settings.md#aliases)               |
 | `aliasesBaseUrl` | `string`  | переопределение [`settings.weld.aliasesBaseUrl`](./settings.md#aliasesbaseurl) |
 | `repoRoot`       | `string`  | переопределение [`settings.weld.repoRoot`](./settings.md#reporoot)             |
+| `tsconfig`       | `string`  | переопределение [`settings.weld.tsconfig`](./settings.md#tsconfig)             |
 
-Опции `aliases`, `aliasesBaseUrl`, `repoRoot` — те же общие настройки, что и в `settings.weld`, но
-заданные на самом правиле; как они перекрывают секцию, описано в
-[документации настроек](./settings.md#aliases-aliasesbaseurl-reporoot-в-опциях-правила).
+Опции `aliases`, `aliasesBaseUrl`, `repoRoot`, `tsconfig` — те же общие настройки, что и в
+`settings.weld`, но заданные на самом правиле; как они перекрывают секцию, описано в
+[документации настроек](./settings.md#aliases-aliasesbaseurl-reporoot-tsconfig-в-опциях-правила).
 
 ### `fix`
 
