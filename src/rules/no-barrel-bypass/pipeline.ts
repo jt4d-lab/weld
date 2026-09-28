@@ -16,8 +16,7 @@ export type Host = Pick<FsHost, 'findModuleTarget' | 'hasEntryPoint'>;
 
 /**
  * Итог проверки специфаера: `replace` — нарушение с исправленным специфаером, `intact` — нарушения
- * нет, `skip` — специфаер пропущен с причиной. Наружу это нужно debug-выводу правила: тексты живут
- * там же, не в ядре.
+ * нет, `skip` — специфаер пропущен с причиной.
  */
 export type CheckDecision =
     | { kind: 'replace'; target: string; barrier: string; suggestion: string }
@@ -33,9 +32,7 @@ export function createChecker(
     host: Host,
 ): (specifier: string) => CheckDecision {
     const fromDir = dirname(fromFile);
-    // Связка "виртуальный путь → реальный модуль" нужна разбору только для специфаеров с точкой в
-    // имени файла, поэтому привязывается один раз на файл, а не на каждый импорт.
-    const resolve = host.findModuleTarget.bind(host);
+    const resolve = host.findModuleTarget;
 
     return function checkImport(specifier: string): CheckDecision {
         const parse = parseSpecifier(specifier, fromDir, aliases, resolve);

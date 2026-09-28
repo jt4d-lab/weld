@@ -10,8 +10,7 @@ import type { Rule } from 'eslint';
 
 import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
-import type { SpecifierNode } from '@/imports/index.js';
-import type { SpecifierSkip } from '@/imports/index.js';
+import type { SpecifierNode, SpecifierSkip } from '@/imports/index.js';
 import { createSpecifierVisitor, replaceSpecifier } from '@/imports/index.js';
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 
@@ -89,8 +88,8 @@ export function createRule(fsHost?: FsHost): Rule.RuleModule {
                     return;
                 }
 
-                const { suggestion } = decision;
-                debug(`${fromFile}: bad ${original}; fix: ${decision.barrier}`);
+                const { barrier, suggestion } = decision;
+                debug(`${fromFile}: bad ${original}; barrel: ${barrier}`);
                 const fix = replaceSpecifier(sourceNode, suggestion);
 
                 context.report({

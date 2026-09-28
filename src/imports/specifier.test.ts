@@ -3,14 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Alias } from '@/settings/index.js';
 import { parseSpecifier, renderSpecifier } from '@/imports/specifier.js';
 
-/** Модуль с точкой в имени: по форме записи `./account.entity` о нём ничего не известно. */
 const resolve = (path: string): string | null =>
     path === '/src/feature/account.entity' ? '/src/feature/account.entity.ts' : null;
 
 describe('parseSpecifier', () => {
     describe('parseSpecifier — относительные формы', () => {
         it("'./x' от /src/feature → /src/feature/x, форма relative", () => {
-            expect(parseSpecifier('./x', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('./x', '/src/feature', [], resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/src/feature/x',
@@ -21,7 +20,7 @@ describe('parseSpecifier', () => {
         });
 
         it("'../x' от /src/feature → /src/x, форма relative", () => {
-            expect(parseSpecifier('../x', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('../x', '/src/feature', [], resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/src/x',
@@ -32,7 +31,7 @@ describe('parseSpecifier', () => {
         });
 
         it("'.' от /src/feature → /src/feature, форма relative", () => {
-            expect(parseSpecifier('.', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('.', '/src/feature', [], resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/src/feature',
@@ -43,7 +42,7 @@ describe('parseSpecifier', () => {
         });
 
         it("'..' от /src/feature → /src, форма relative", () => {
-            expect(parseSpecifier('..', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('..', '/src/feature', [], resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/src',
@@ -57,7 +56,7 @@ describe('parseSpecifier', () => {
     describe('parseSpecifier — алиасы', () => {
         it('точное совпадение со специфаером даёт якорь как путь', () => {
             const aliases: Alias[] = [{ prefix: '@src', anchor: '/src' }];
-            expect(parseSpecifier('@src', '/other', aliases)).toEqual({
+            expect(parseSpecifier('@src', '/other', aliases, resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/src',
@@ -69,7 +68,7 @@ describe('parseSpecifier', () => {
 
         it('префикс с хвостом подставляет хвост в якорь', () => {
             const aliases: Alias[] = [{ prefix: '@src', anchor: '/src' }];
-            expect(parseSpecifier('@src/feature/x', '/other', aliases)).toEqual({
+            expect(parseSpecifier('@src/feature/x', '/other', aliases, resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/src/feature/x',
@@ -81,7 +80,7 @@ describe('parseSpecifier', () => {
 
         it('беззвёздочная запись с хвостом — тот же обход, что и звёздочная', () => {
             const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src' }];
-            expect(parseSpecifier('@pkg/internal/thing', '/other', aliases)).toEqual({
+            expect(parseSpecifier('@pkg/internal/thing', '/other', aliases, resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/packages/pkg/src/internal/thing',
@@ -94,7 +93,7 @@ describe('parseSpecifier', () => {
         it('выигрывает самый длинный подходящий префикс', () => {
             const short: Alias = { prefix: '@src', anchor: '/src' };
             const long: Alias = { prefix: '@src/feature', anchor: '/src/feature' };
-            expect(parseSpecifier('@src/feature/x', '/other', [short, long])).toEqual({
+            expect(parseSpecifier('@src/feature/x', '/other', [short, long], resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/src/feature/x',
@@ -107,7 +106,7 @@ describe('parseSpecifier', () => {
         it('при равных префиксах выигрывает первая запись по порядку', () => {
             const first: Alias = { prefix: '@src', anchor: '/one' };
             const second: Alias = { prefix: '@src', anchor: '/two' };
-            expect(parseSpecifier('@src/x', '/other', [first, second])).toEqual({
+            expect(parseSpecifier('@src/x', '/other', [first, second], resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/one/x',
@@ -120,70 +119,70 @@ describe('parseSpecifier', () => {
 
     describe('parseSpecifier — что отсекается на входе', () => {
         it('голое имя пакета → external-dependency', () => {
-            expect(parseSpecifier('lodash', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('lodash', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'external-dependency',
             });
         });
 
         it('@global-scope/pkg → external-dependency', () => {
-            expect(parseSpecifier('@global-scope/pkg', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('@global-scope/pkg', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'external-dependency',
             });
         });
 
         it('абсолютный специфаер → asset', () => {
-            expect(parseSpecifier('/foo', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('/foo', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'asset',
             });
         });
 
         it("специфаер с '?' → asset", () => {
-            expect(parseSpecifier('./x.svg?url', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('./x.svg?url', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'asset',
             });
         });
 
         it("специфаер с '!' → asset", () => {
-            expect(parseSpecifier('!!raw-loader!./x', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('!!raw-loader!./x', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'asset',
             });
         });
 
         it('расширение вне MODULE_EXTENSIONS (.css) → asset', () => {
-            expect(parseSpecifier('./x.css', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('./x.css', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'asset',
             });
         });
 
         it('расширение вне MODULE_EXTENSIONS (.svg) → asset', () => {
-            expect(parseSpecifier('./x.svg', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('./x.svg', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'asset',
             });
         });
 
         it('расширение вне MODULE_EXTENSIONS (.json) → asset', () => {
-            expect(parseSpecifier('./x.json', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('./x.json', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'asset',
             });
         });
 
         it('расширение вне MODULE_EXTENSIONS (.png) → asset', () => {
-            expect(parseSpecifier('./x.png', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('./x.png', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'asset',
             });
         });
 
         it('относительный подъём выше виртуального корня → out-of-repo', () => {
-            expect(parseSpecifier('../../../../shared/x', '/src', [])).toEqual({
+            expect(parseSpecifier('../../../../shared/x', '/src', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'out-of-repo',
             });
@@ -191,13 +190,6 @@ describe('parseSpecifier', () => {
     });
 
     describe('parseSpecifier — неизвестное расширение уточняется по диску', () => {
-        it('без резолвера специфаер пропускается', () => {
-            expect(parseSpecifier('./account.entity', '/src/feature', [])).toEqual({
-                kind: 'skip',
-                reason: 'no-module-found',
-            });
-        });
-
         it('резолвер нашёл файл — цель берётся с диска, расширение остаётся неуказанным', () => {
             expect(parseSpecifier('./account.entity', '/src/feature', [], resolve)).toEqual({
                 kind: 'target',
@@ -244,7 +236,7 @@ describe('parseSpecifier', () => {
 
     describe('parseSpecifier — расширения из MODULE_EXTENSIONS не отсекаются', () => {
         it('.ts не вызывает отсечение', () => {
-            expect(parseSpecifier('./x.ts', '/src/feature', [])).toEqual({
+            expect(parseSpecifier('./x.ts', '/src/feature', [], resolve)).toEqual({
                 kind: 'target',
                 target: {
                     path: '/src/feature/x.ts',

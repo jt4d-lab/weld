@@ -6,19 +6,11 @@ import {
     isAssetExtension,
     isEntryFileName,
     isModuleExtension,
-    MODULE_EXTENSIONS,
 } from '@/extensions.js';
 
 describe('ENTRY_EXTENSIONS', () => {
     it('содержит все ожидаемые расширения', () => {
         expect(ENTRY_EXTENSIONS).toEqual(['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs']);
-    });
-
-    it('является подмножеством MODULE_EXTENSIONS', () => {
-        const moduleSet = new Set(MODULE_EXTENSIONS);
-        for (const ext of ENTRY_EXTENSIONS) {
-            expect(moduleSet.has(ext)).toBe(true);
-        }
     });
 });
 

@@ -4,9 +4,7 @@
  * барьеры, баррели и любое другое правило слой не знает — это общая инфраструктура импортов.
  *
  * Строка импорта сама и есть путь: относительная резолвится от директории файла, алиасная —
- * подстановкой якоря. Существование цели проверяет `import/no-unresolved`; `resolve` нужен только
- * для расширения, которого нет ни среди модульных, ни среди ассетных (`./account.entity`) — там
- * форма записи не говорит, модуль это или нет.
+ * подстановкой якоря.
  */
 
 import { entryFileName, isAssetExtension, isModuleExtension } from '@/extensions.js';
@@ -25,21 +23,20 @@ export type SpecifierSkip = 'asset' | 'external-dependency' | 'out-of-repo' | 'n
 
 /**
  * Итог разбора: `target` — цель для проверки, `skip` — причина, по которой проверять нечего.
- * Причина нужна вызывающему для debug-вывода; сам разбор по ней ничего не решает.
  */
 export type ParseResult =
     { kind: 'target'; target: Target } | { kind: 'skip'; reason: SpecifierSkip };
 
 /**
- * `resolve` уточняет специфаер, расширение которого нет ни среди модульных, ни среди ассетных:
- * `./account.entity` — это и модуль `account.entity.ts`, и не-модуль вовсе, и различить их по форме
- * записи нельзя. Вернув `null`, резолвер говорит, что модуля по такому пути нет.
+ * `resolve` — «виртуальный путь → виртуальный путь модуля»; нужен для специфаера, расширение
+ * которого нет ни среди модульных, ни среди ассетных (`./account.entity`). Вернув `null`, резолвер
+ * говорит, что модуля по такому пути нет.
  */
 export function parseSpecifier(
     specifier: string,
     fromDir: string,
     aliases: Alias[],
-    resolve?: (path: string) => string | null,
+    resolve: (path: string) => string | null,
 ): ParseResult {
     if (specifier.startsWith('/') || specifier.includes('?') || specifier.includes('!')) {
         return skip('asset');
@@ -101,7 +98,7 @@ function matchAlias(specifier: string, aliases: Alias[]): Alias | null {
 function finalize(
     path: string | null,
     form: Form,
-    resolve?: (path: string) => string | null,
+    resolve: (path: string) => string | null,
 ): ParseResult {
     if (path === null) {
         return skip('out-of-repo');
@@ -117,18 +114,15 @@ function finalize(
         return target(path, form, ext);
     }
 
-    // Ассет отсекается до резолвера: `./x.css` — заведомо не модуль, спрашивать диск незачем.
     if (isAssetExtension(ext)) {
         return skip('asset');
     }
 
-    const resolved = resolve?.(path);
-    if (resolved === undefined || resolved === null) {
+    const resolved = resolve(path);
+    if (resolved === null) {
         return skip('no-module-found');
     }
 
-    // Расширение в цель не переносится: `extension` — факт про форму записи специфаера, а в нём
-    // расширения не было.
     return target(resolved, form, null);
 }
 
