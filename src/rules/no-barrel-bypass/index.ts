@@ -11,12 +11,21 @@ import type { Rule } from 'eslint';
 import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import type { SpecifierNode } from '@/imports/index.js';
+import type { SpecifierSkip } from '@/imports/index.js';
 import { createSpecifierVisitor, replaceSpecifier } from '@/imports/index.js';
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 
 import { createChecker } from '@/rules/no-barrel-bypass/pipeline.js';
 
 const debug = createLogger('no-barrel-bypass');
+
+/** Текст причины пропуска: разбор называет причину, вывод — что это значит. */
+const skipMessages: Record<SpecifierSkip, string> = {
+    asset: 'asset',
+    'external-dependency': 'external dependency',
+    'out-of-repo': 'path outside the repository',
+    'no-module-found': 'module not found',
+};
 
 const messages = {
     bypass: "Import bypasses the module barrel. Use '{{suggestion}}' instead of '{{original}}'.",
@@ -68,19 +77,20 @@ export function createRule(fsHost?: FsHost): Rule.RuleModule {
 
             return createSpecifierVisitor((sourceNode: SpecifierNode) => {
                 const original = sourceNode.value;
-                const suggestion = checkImport(original);
+                const decision = checkImport(original);
 
-                if (suggestion === null) {
+                if (decision.kind === 'skip') {
+                    debug(`${fromFile}: skip ${original}: ${skipMessages[decision.reason]}`);
                     return;
                 }
 
-                debug(
-                    '%s: crosses barrier, %s -> %s (fix=%o)',
-                    fromFile,
-                    original,
-                    suggestion,
-                    applyFix,
-                );
+                if (decision.kind === 'intact') {
+                    debug(`${fromFile}: good ${original}`);
+                    return;
+                }
+
+                const { suggestion } = decision;
+                debug(`${fromFile}: bad ${original}; fix: ${decision.barrier}`);
                 const fix = replaceSpecifier(sourceNode, suggestion);
 
                 context.report({
