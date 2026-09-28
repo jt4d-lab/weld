@@ -3,13 +3,22 @@ import { describe, expect, it } from 'vitest';
 import {
     ENTRY_EXTENSIONS,
     entryFileName,
+    isAssetExtension,
     isEntryFileName,
     isModuleExtension,
+    MODULE_EXTENSIONS,
 } from '@/extensions.js';
 
 describe('ENTRY_EXTENSIONS', () => {
     it('содержит все ожидаемые расширения', () => {
         expect(ENTRY_EXTENSIONS).toEqual(['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs']);
+    });
+
+    it('является подмножеством MODULE_EXTENSIONS', () => {
+        const moduleSet = new Set(MODULE_EXTENSIONS);
+        for (const ext of ENTRY_EXTENSIONS) {
+            expect(moduleSet.has(ext)).toBe(true);
+        }
     });
 });
 
@@ -38,9 +47,33 @@ describe('isEntryFileName', () => {
     });
 });
 
+describe('isAssetExtension', () => {
+    it('true для ассетных расширений', () => {
+        expect(isAssetExtension('css')).toBe(true);
+        expect(isAssetExtension('scss')).toBe(true);
+        expect(isAssetExtension('json')).toBe(true);
+        expect(isAssetExtension('svg')).toBe(true);
+    });
+
+    it('false для модульных расширений', () => {
+        expect(isAssetExtension('ts')).toBe(false);
+        expect(isAssetExtension('js')).toBe(false);
+        expect(isAssetExtension('mjs')).toBe(false);
+    });
+
+    it('false для пустой строки', () => {
+        expect(isAssetExtension('')).toBe(false);
+    });
+});
+
 describe('isModuleExtension', () => {
     it('true для расширения из списка', () => {
         expect(isModuleExtension('tsx')).toBe(true);
+    });
+
+    it('true для фреймворковых расширений', () => {
+        expect(isModuleExtension('vue')).toBe(true);
+        expect(isModuleExtension('svelte')).toBe(true);
     });
 
     it('false для расширения вне списка', () => {

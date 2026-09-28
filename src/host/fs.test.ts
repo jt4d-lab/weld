@@ -172,6 +172,70 @@ describe('createFsHost.hasEntryPoint', () => {
     });
 });
 
+describe('createFsHost.findModuleTarget', () => {
+    it('находит файл с модульным расширением по пути без расширения', () => {
+        const fsHost = createFsHost('/repo', {
+            exists: createFakeExists(['/repo/src/feature/account.entity.ts']),
+        });
+
+        expect(fsHost.findModuleTarget('/src/feature/account.entity')).toBe(
+            '/src/feature/account.entity.ts',
+        );
+    });
+
+    it('находит директорию с index', () => {
+        const fsHost = createFsHost('/repo', {
+            exists: createFakeExists([
+                '/repo/src/feature',
+                '/repo/src/feature/account.entity',
+                '/repo/src/feature/account.entity/index.ts',
+            ]),
+        });
+
+        expect(fsHost.findModuleTarget('/src/feature/account.entity')).toBe(
+            '/src/feature/account.entity/index.ts',
+        );
+    });
+
+    it('файл побеждает директорию', () => {
+        const fsHost = createFsHost('/repo', {
+            exists: createFakeExists([
+                '/repo/src/feature/account.entity.ts',
+                '/repo/src/feature/account.entity/index.ts',
+            ]),
+        });
+
+        expect(fsHost.findModuleTarget('/src/feature/account.entity')).toBe(
+            '/src/feature/account.entity.ts',
+        );
+    });
+
+    it('null, если модуль не найден', () => {
+        const fsHost = createFsHost('/repo', {
+            exists: createFakeExists(['/repo/src/feature']),
+        });
+
+        expect(fsHost.findModuleTarget('/src/feature/account.entity')).toBeNull();
+    });
+
+    it('null для пути без ведущего /', () => {
+        const fsHost = createFsHost('/repo', { exists: vi.fn(() => true) });
+
+        expect(fsHost.findModuleTarget('src/feature/account.entity')).toBeNull();
+    });
+
+    it('кэширует результат: повторный вызов не дёргает exists', () => {
+        const exists = vi.fn(createFakeExists(['/repo/src/feature/account.entity.ts']));
+        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+
+        fsHost.findModuleTarget('/src/feature/account.entity');
+        const afterFirst = exists.mock.calls.length;
+        fsHost.findModuleTarget('/src/feature/account.entity');
+
+        expect(exists.mock.calls.length).toBe(afterFirst);
+    });
+});
+
 describe('createFsHost: TTL-кэш', () => {
     it('положительный ответ в пределах 10 минут — кэш ещё живой', () => {
         let time = 0;

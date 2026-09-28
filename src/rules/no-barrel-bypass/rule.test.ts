@@ -284,6 +284,7 @@ describe('weld/no-barrel-bypass', () => {
     it('файл вне root → правило молчит', () => {
         const outsideRootFsHost: FsHost = {
             hasEntryPoint: () => false,
+            findModuleTarget: () => null,
             toVirtual: () => null,
         };
         const outsideRootRule = createRule(outsideRootFsHost);

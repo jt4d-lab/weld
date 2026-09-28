@@ -188,12 +188,9 @@ TTL по образцу `NEGATIVE_TTL_MS` оттуда же (созданный 
 ## Слой `src/imports/` — строка импорта ↔ виртуальный путь
 
 Соответствие между специфаером (`'../other/internal.ts'`, `'@/other'`) и виртуальным путём цели
-знает только `src/imports/`. Наружу слой отдаёт `parseSpecifier` (специфаер → `Target`: виртуальный
-путь, форма записи `Form` и явно записанное расширение) и `renderSpecifier` (обратная сборка
-специфаера в той же форме) — реализация в `src/imports/specifier.ts`, наружу через
-`src/imports/index.ts`; сами `Target` и `Form` в баррель не выходят: снаружи результат
-`parseSpecifier` только передаётся в `renderSpecifier`. Алиасы приходят готовым списком `Alias` из
-`src/settings/`, диск слой не трогает — существование цели его не интересует.
+знает только `src/imports/`. Наружу слой отдаёт `parseSpecifier` (специфаер → цель либо причина
+пропуска) и `renderSpecifier` (обратная сборка специфаера в той же форме) — реализация в
+`src/imports/specifier.ts`, наружу через `src/imports/index.ts`.
 
 Второй модуль слоя — `src/imports/nodes.ts`: где в AST лежит строка-специфаер и как её заменить.
 `createSpecifierVisitor(onSpecifier)` отдаёт слушатели для `create()`, `replaceSpecifier(node, s)` —

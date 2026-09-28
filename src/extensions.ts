@@ -14,17 +14,40 @@
  */
 const ENTRY_BASENAME = 'index';
 
-/** Расширения файла точки входа (`index.<ext>`) — по ним ищутся границы модулей. */
+/** Расширения файла точки входа (`index.<ext>`) — по ним ищутся границы модулей */
 export const ENTRY_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs'] as const;
 
+/** Расширения, при которых специфаер считается импортом кода внутрь репозитория */
+export const MODULE_EXTENSIONS = [...ENTRY_EXTENSIONS, 'vue', 'svelte'] as const;
+
 /**
- * Расширения, при которых специфаер считается импортом кода внутрь репозитория. Специфаер с чужим
- * расширением (`./styles.css`, `./logo.svg`) правила не проверяют.
+ * Расширения, при которых специфаер однозначно не является импортом кода: ассеты и данные.
+ * Специфаеры с ними правила не проверяют и на диск не лезут.
  */
-const MODULE_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs'] as const;
+const ASSET_EXTENSIONS = [
+    'css',
+    'scss',
+    'sass',
+    'less',
+    'json',
+    'svg',
+    'png',
+    'jpg',
+    'jpeg',
+    'gif',
+    'webp',
+    'ico',
+    'woff',
+    'woff2',
+    'ttf',
+    'eot',
+    'otf',
+    'md',
+] as const;
 
 const ENTRY_EXTENSION_SET: ReadonlySet<string> = new Set(ENTRY_EXTENSIONS);
 const MODULE_EXTENSION_SET: ReadonlySet<string> = new Set(MODULE_EXTENSIONS);
+const ASSET_EXTENSION_SET: ReadonlySet<string> = new Set(ASSET_EXTENSIONS);
 
 /** Входит ли расширение (без точки) в {@link ENTRY_EXTENSIONS}. */
 function isEntryExtension(ext: string): boolean {
@@ -52,6 +75,11 @@ export function isEntryFileName(name: string, ext: string): boolean {
  */
 export function isEntryBasename(name: string): boolean {
     return name === ENTRY_BASENAME;
+}
+
+/** Входит ли расширение (без точки) в {@link ASSET_EXTENSIONS}. */
+export function isAssetExtension(ext: string): boolean {
+    return ASSET_EXTENSION_SET.has(ext);
 }
 
 /** Входит ли расширение (без точки) в {@link MODULE_EXTENSIONS}. */
