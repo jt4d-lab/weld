@@ -12,11 +12,44 @@ export type { Alias } from './aliases.js';
  * `src/tsconfig/` нельзя поднимать root ради якоря записи, которую разбор потом отбросит.
  */
 export { hasValidStarShape, stripStarSuffix } from './aliases.js';
+/**
+ * Развёрнутая схема слоёв: плоский порядок квалифицированных имён, границы диапазонов и наборы имён
+ * для опознания слоя по пути. Сами `layers`/`moduleLayers`/`moduleDir` наружу не выходят — их формат
+ * остаётся внутренним делом слоя, как и формат алиасов.
+ */
+export type { LayerSchema, Qualified } from './layers.js';
+/**
+ * Словарь квалифицированных имён: как собрать имя слоя (`rootLayer`/`moduleLayer`) и готовые имена
+ * спец-слоёв (`MODULE` — модуль как целое, `ROOT_UNKNOWN`/`MODULE_UNKNOWN` — код без слоя на своём
+ * уровне). Наружу выходят потому, что ключи `first`/`last` — это они: опознать слой по пути и
+ * спросить его позицию нельзя, не собрав имя по тем же правилам, по которым его собрал разбор. Сам
+ * формат квалификатора при этом остаётся внутри слоя — снаружи имя только собирается, сравнивается
+ * и разворачивается обратно в простое имя (`plainLayerName`) для сообщений правил. Простое имя
+ * уровень не различает, поэтому рядом с ним выходит `isModuleLevel`: `@unknown` бывает на обоих
+ * уровнях, и сообщение, называющее оба конца импорта, обязано их развести.
+ */
+export {
+    isModuleLevel,
+    MODULE,
+    MODULE_UNKNOWN,
+    moduleLayer,
+    plainLayerName,
+    ROOT_UNKNOWN,
+    rootLayer,
+} from './layers.js';
+/**
+ * Значения, перекрывающие секцию `settings.weld` (опции правила). Форма у всех геттеров одна —
+ * `(settings, overrides)`, поэтому вызывающий передаёт опции целиком и не знает, какая настройка
+ * какому геттеру нужна.
+ */
+export type { WeldOverrides } from './weld.js';
 export {
     getAliases,
     getAliasesBaseUrl,
     getAliasesFromPaths,
+    getLayerSchema,
     getRepoRoot,
     getTsconfigName,
     hasAliases,
+    hasLayers,
 } from './weld.js';
