@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 
 import { createLogger } from '@/debug.js';
-import { ENTRY_EXTENSIONS, ENTRY_FILE_NAMES, MODULE_EXTENSIONS } from '@/extensions.js';
-import { dirname, joinSegments, segments, toPosix } from '@/path/index.js';
+import { ENTRY_FILE_NAMES, MODULE_EXTENSIONS } from '@/extensions.js';
+import { dirname, joinPath, joinSegments, segments, toPosix } from '@/path/index.js';
 import { getRepoRoot } from '@/settings/index.js';
 
 import {
@@ -28,18 +28,14 @@ export type FsHost = {
      * заранее: каждый метод здесь обязаны реализовать все фейки.
      */
     hasEntryPoint(dir: string): boolean;
-    /**
-     * Находит виртуальный путь реального модуля по виртуальному пути специфаера без явного
-     * расширения. Перебирает `MODULE_EXTENSIONS` как файлы, затем `ENTRY_EXTENSIONS` как
-     * `index.<ext>` в директории. Возвращает `null`, если модуль не найден.
-     */
+    /** Находит модуль по виртуальному пути без явного расширения или возвращает `null`. */
     findModuleTarget(path: string): string | null;
     /** `null` — `realPath` вне root или не абсолютный. */
     toVirtual(realPath: string): string | null;
 };
 
-type CacheEntry = { value: boolean; expiresAt: number };
-type Cache = Map<string, CacheEntry>;
+type CacheEntry<T> = { value: T; expiresAt: number };
+type Cache<T> = Map<string, CacheEntry<T>>;
 
 type CreateFsHostOptions = {
     now?: () => number;
@@ -66,13 +62,23 @@ const TTL_MS = 600_000;
 const NEGATIVE_TTL_MS = 5_000;
 
 /** Живое (непротухшее) значение кэша или `undefined`. */
-function peek(cache: Cache, key: string, time: number): boolean | undefined {
+function peek<T>(cache: Cache<T>, key: string, time: number): T | undefined {
     const entry = cache.get(key);
     return entry !== undefined && entry.expiresAt > time ? entry.value : undefined;
 }
 
-function remember(cache: Cache, key: string, time: number, value: boolean): boolean {
-    cache.set(key, { value, expiresAt: time + (value ? TTL_MS : NEGATIVE_TTL_MS) });
+/**
+ * Запоминает ответ и отдаёт его же. Срок выбирается по знаку ответа: `false`/`null` — «не найдено»
+ * и короткий `NEGATIVE_TTL_MS`, любой другой — «найдено» и `TTL_MS`.
+ */
+function remember<T extends boolean | string | null>(
+    cache: Cache<T>,
+    key: string,
+    time: number,
+    value: T,
+): T {
+    const found = value !== false && value !== null;
+    cache.set(key, { value, expiresAt: time + (found ? TTL_MS : NEGATIVE_TTL_MS) });
     return value;
 }
 
@@ -85,9 +91,9 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
     const rootSegments = segments(normalizedRoot);
     const now = options.now ?? Date.now;
     const nativeExists = options.exists ?? existsSync;
-    const entryPointCache: Cache = new Map();
-    const directoryCache: Cache = new Map();
-    const fileCache: Cache = new Map();
+    const entryPointCache: Cache<string | null> = new Map();
+    const directoryCache: Cache<boolean> = new Map();
+    const fileCache: Cache<boolean> = new Map();
 
     /**
      * Реальный путь директории по виртуальному. Виртуальный путь всегда начинается с `/`, поэтому
@@ -170,10 +176,13 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
         return remember(fileCache, filePath, time, found);
     }
 
-    /** Кэш по директории, с TTL: диск опрашивается на промахе или после истечения записи. */
-    function hasEntryPoint(dir: string): boolean {
+    /**
+     * Виртуальный путь файла точки входа в директории или `null`. Один вопрос и одна запись кэша на
+     * директорию: `hasEntryPoint` — это `!== null`, а `findModuleTarget` берёт сам путь.
+     */
+    function findEntryPoint(dir: string): string | null {
         if (!dir.startsWith('/')) {
-            return false;
+            return null;
         }
 
         const time = now();
@@ -185,19 +194,25 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
         if (!directoryExists(dir)) {
             // Ответ запоминается и здесь: иначе каждый повторный вопрос про ту же отсутствующую
             // директорию заново проходил бы промах кэша точек входа, хотя ответ уже известен.
-            return remember(entryPointCache, dir, time, false);
+            return remember(entryPointCache, dir, time, null);
         }
 
         const realDir = toRealDir(dir);
-        const found = ENTRY_FILE_NAMES.some((name) => nativeExists(joinReal(realDir, name)));
-        debug('check entry point %s: %o', dir, found);
-        return remember(entryPointCache, dir, time, found);
+        const name = ENTRY_FILE_NAMES.find((candidate) =>
+            nativeExists(joinReal(realDir, candidate)),
+        );
+        const entryPoint = name === undefined ? null : joinPath(dir, name);
+        debug('check entry point %s: %o', dir, entryPoint);
+        return remember(entryPointCache, dir, time, entryPoint);
+    }
+
+    function hasEntryPoint(dir: string): boolean {
+        return findEntryPoint(dir) !== null;
     }
 
     /**
      * Резолвит виртуальный путь специфаера с неоднозначным расширением в виртуальный путь
-     * реального модуля. Сначала ищет файл с одним из `MODULE_EXTENSIONS`, затем директорию с
-     * точкой входа. Приоритет файла над директорией совпадает с Node/TS resolution.
+     * реального модуля: сначала файл с одним из `MODULE_EXTENSIONS`, потом точка входа директории.
      */
     function findModuleTarget(path: string): string | null {
         if (!path.startsWith('/')) {
@@ -211,18 +226,7 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
             }
         }
 
-        if (!hasEntryPoint(path)) {
-            return null;
-        }
-
-        for (const ext of ENTRY_EXTENSIONS) {
-            const candidate = `${path}/index.${ext}`;
-            if (fileExists(candidate)) {
-                return candidate;
-            }
-        }
-
-        return null;
+        return findEntryPoint(path);
     }
 
     return { hasEntryPoint, findModuleTarget, toVirtual };

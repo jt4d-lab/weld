@@ -197,6 +197,22 @@ describe('createFsHost.findModuleTarget', () => {
         );
     });
 
+    it('ответ про точку входа остаётся в кэше: hasEntryPoint не дёргает диск заново', () => {
+        const exists = vi.fn(
+            createFakeExists([
+                '/repo/src/feature/account.entity',
+                '/repo/src/feature/account.entity/index.ts',
+            ]),
+        );
+        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+
+        fsHost.findModuleTarget('/src/feature/account.entity');
+        const afterFind = exists.mock.calls.length;
+
+        expect(fsHost.hasEntryPoint('/src/feature/account.entity')).toBe(true);
+        expect(exists.mock.calls.length).toBe(afterFind);
+    });
+
     it('файл побеждает директорию', () => {
         const fsHost = createFsHost('/repo', {
             exists: createFakeExists([
