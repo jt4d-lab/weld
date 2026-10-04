@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     ENTRY_EXTENSIONS,
     entryFileName,
+    isAssetExtension,
     isEntryFileName,
     isModuleExtension,
 } from '@/extensions.js';
@@ -38,9 +39,33 @@ describe('isEntryFileName', () => {
     });
 });
 
+describe('isAssetExtension', () => {
+    it('true для ассетных расширений', () => {
+        expect(isAssetExtension('css')).toBe(true);
+        expect(isAssetExtension('scss')).toBe(true);
+        expect(isAssetExtension('json')).toBe(true);
+        expect(isAssetExtension('svg')).toBe(true);
+    });
+
+    it('false для модульных расширений', () => {
+        expect(isAssetExtension('ts')).toBe(false);
+        expect(isAssetExtension('js')).toBe(false);
+        expect(isAssetExtension('mjs')).toBe(false);
+    });
+
+    it('false для пустой строки', () => {
+        expect(isAssetExtension('')).toBe(false);
+    });
+});
+
 describe('isModuleExtension', () => {
     it('true для расширения из списка', () => {
         expect(isModuleExtension('tsx')).toBe(true);
+    });
+
+    it('true для фреймворковых расширений', () => {
+        expect(isModuleExtension('vue')).toBe(true);
+        expect(isModuleExtension('svelte')).toBe(true);
     });
 
     it('false для расширения вне списка', () => {

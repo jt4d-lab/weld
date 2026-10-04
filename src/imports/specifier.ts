@@ -1,13 +1,13 @@
 /**
- * Соответствие «строка импорта ↔ виртуальный путь»: `parseSpecifier` разбирает специфаер в цель,
- * `renderSpecifier` собирает специфаер обратно в той же форме записи. Про барьеры, баррели и любое
- * другое правило слой не знает — это общая инфраструктура импортов.
+ * Соответствие «строка импорта ↔ виртуальный путь»: `parseSpecifier` разбирает специфаер в цель
+ * или в причину пропуска, `renderSpecifier` собирает специфаер обратно в той же форме записи. Про
+ * барьеры, баррели и любое другое правило слой не знает — это общая инфраструктура импортов.
  *
  * Строка импорта сама и есть путь: относительная резолвится от директории файла, алиасная —
- * подстановкой якоря. Резолвер не нужен — существование цели проверяет `import/no-unresolved`.
+ * подстановкой якоря.
  */
 
-import { entryFileName, isModuleExtension } from '@/extensions.js';
+import { entryFileName, isAssetExtension, isModuleExtension } from '@/extensions.js';
 import { basename, relativePath, resolvePath, splitExtension } from '@/path/index.js';
 import type { Alias } from '@/settings/index.js';
 
@@ -19,22 +19,31 @@ export type Form = { kind: 'relative' } | { kind: 'alias'; alias: Alias };
  */
 export type Target = { path: string; form: Form; extension: string | null };
 
+export type SpecifierSkip = 'asset' | 'external-dependency' | 'out-of-repo' | 'no-module-found';
+
 /**
- * `null`, если специфаер не выражает путь внутрь репозитория: голый пакет, `@scope/pkg`,
- * абсолютный специфаер, специфаер с `?`/`!`, последний сегмент с расширением вне
- * `MODULE_EXTENSIONS`, либо относительный подъём `..` выше виртуального корня.
+ * Итог разбора: `target` — цель для проверки, `skip` — причина, по которой проверять нечего.
+ */
+export type ParseResult =
+    { kind: 'target'; target: Target } | { kind: 'skip'; reason: SpecifierSkip };
+
+/**
+ * `resolve` — «виртуальный путь → виртуальный путь модуля»; нужен для специфаера, расширение
+ * которого нет ни среди модульных, ни среди ассетных (`./account.entity`). Вернув `null`, резолвер
+ * говорит, что модуля по такому пути нет.
  */
 export function parseSpecifier(
     specifier: string,
     fromDir: string,
     aliases: Alias[],
-): Target | null {
-    if (specifier.includes('?') || specifier.includes('!')) {
-        return null;
+    resolve: (path: string) => string | null,
+): ParseResult {
+    if (specifier.startsWith('/') || specifier.includes('?') || specifier.includes('!')) {
+        return skip('asset');
     }
 
     if (isRelativeSpecifier(specifier)) {
-        return finalize(resolvePath(fromDir, specifier), { kind: 'relative' });
+        return finalize(resolvePath(fromDir, specifier), { kind: 'relative' }, resolve);
     }
 
     const alias = matchAlias(specifier, aliases);
@@ -42,10 +51,14 @@ export function parseSpecifier(
         // `matchAlias` уже проверил границу по сегменту, поэтому хвост — либо пустой, либо `/…`;
         // ведущие слэши снимаются, чтобы `resolvePath` не принял хвост за абсолютный путь.
         const suffix = specifier.slice(alias.prefix.length).replace(/^\/+/, '');
-        return finalize(resolvePath(alias.anchor, suffix), { kind: 'alias', alias });
+        return finalize(resolvePath(alias.anchor, suffix), { kind: 'alias', alias }, resolve);
     }
 
-    return null;
+    return skip('external-dependency');
+}
+
+function skip(reason: SpecifierSkip): ParseResult {
+    return { kind: 'skip', reason };
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
@@ -82,17 +95,39 @@ function matchAlias(specifier: string, aliases: Alias[]): Alias | null {
     return pickLongest(aliases, (alias) => (covers(alias.prefix, specifier) ? alias.prefix : null));
 }
 
-function finalize(path: string | null, form: Form): Target | null {
+function finalize(
+    path: string | null,
+    form: Form,
+    resolve: (path: string) => string | null,
+): ParseResult {
     if (path === null) {
-        return null;
+        return skip('out-of-repo');
     }
 
     const { ext } = splitExtension(basename(path));
-    if (ext !== '' && !isModuleExtension(ext)) {
-        return null;
+
+    if (ext === '') {
+        return target(path, form, null);
     }
 
-    return { path, form, extension: ext === '' ? null : ext };
+    if (isModuleExtension(ext)) {
+        return target(path, form, ext);
+    }
+
+    if (isAssetExtension(ext)) {
+        return skip('asset');
+    }
+
+    const resolved = resolve(path);
+    if (resolved === null) {
+        return skip('no-module-found');
+    }
+
+    return target(resolved, form, null);
+}
+
+function target(path: string, form: Form, extension: string | null): ParseResult {
+    return { kind: 'target', target: { path, form, extension } };
 }
 
 /**
