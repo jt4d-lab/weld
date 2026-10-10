@@ -32,6 +32,13 @@ export default withMermaid(
                     ],
                 },
                 {
+                    text: 'Механики',
+                    items: [
+                        { text: 'Слои модулей', link: '/mechanics/layers' },
+                        { text: 'Приватность', link: '/mechanics/privacy' },
+                    ],
+                },
+                {
                     text: 'ESLint',
                     items: [
                         { text: 'Установка', link: '/rules/install' },
