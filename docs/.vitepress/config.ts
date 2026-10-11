@@ -34,6 +34,7 @@ export default withMermaid(
                 {
                     text: 'Механики',
                     items: [
+                        { text: 'Схема слоёв', link: '/mechanics/layers' },
                         { text: 'Приватность', link: '/mechanics/privacy' },
                     ],
                 },
