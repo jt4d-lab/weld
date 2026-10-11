@@ -33,7 +33,9 @@ export default withMermaid(
                 },
                 {
                     text: 'Механики',
-                    items: [{ text: 'Приватность', link: '/mechanics/privacy' }],
+                    items: [
+                        { text: 'Приватность', link: '/mechanics/privacy' },
+                    ],
                 },
                 {
                     text: 'ESLint',
