@@ -70,7 +70,7 @@ flowchart TD
 <div align="center">
 
 ```mermaid
-    flowchart LR
+    flowchart TB
         A --> B --> C e1@ --> A
 
     class e1 badlink
@@ -131,7 +131,7 @@ flowchart TD
 <div align="center">
 
 ```mermaid
-flowchart LR
+flowchart TB
     A --> B --> C
     A --> C
 ```
@@ -166,9 +166,12 @@ import { anotherThing } from 'A'; // ❌
 <div align="center">
 
 ```mermaid
-flowchart LR
+flowchart TB
     A --> B --> C
-    C --> A
+    C e1@ --> A
+
+    class e1 badlink
+    classDef badlink stroke:#f00
 ```
 
 </div>
