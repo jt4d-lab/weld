@@ -23,17 +23,20 @@ export default [
 ];
 ```
 
+`@modules` — маркер в схеме слоёв, а не имя директории. Он задаёт место, на котором в глобальном
+порядке зависимостей располагаются слои из `moduleLayers` всех модулей, включая вложенные.
+
 Что соответствует следующей схеме:
 
 <div align="center">
 
 ```mermaid
 flowchart TB
-    subgraph modules["@modules"]
+    subgraph moduleLayers["слои модулей на позиции @modules"]
         direction TB
         widgets --> features --> entities
     end
-    app --> pages --> modules --> common
+    app --> pages --> moduleLayers --> common
 ```
 
 </div>
@@ -57,6 +60,10 @@ src/
 │       └── entities/
 └── common/
 ```
+
+Каталог `modules/` здесь содержит модули, но сам слоем не является. Имя каталога с модулями можно
+[настроить](../rules/settings.md#modulesdir); в этом и дальнейших примерах используется значение по
+умолчанию — `modules`.
 
 ## `layers` — слои проекта
 
