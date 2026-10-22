@@ -37,8 +37,17 @@ describe('weld/no-barrel-bypass', () => {
                     filename: '<input>',
                 },
                 {
+                    // Реэкспорты не обходятся намеренно: баррель из них и собран, и правило
+                    // репортило бы сам баррель. У соседнего `no-illegal-layer-dependency` ответ
+                    // обратный — обход реэкспортов включается параметром визитора, и включение у
+                    // соседа это поведение не меняет.
                     name: '`export { x } from` не проверяется',
                     code: "export { x } from '../other/internal.ts';",
+                    filename: '/repo/src/feature/file.ts',
+                },
+                {
+                    name: '`export * from` не проверяется',
+                    code: "export * from '../other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
                 },
                 {
@@ -115,6 +124,23 @@ describe('weld/no-barrel-bypass', () => {
                     code: "const a = require('../other/internal.ts');",
                     filename: '/repo/src/feature/file.ts',
                     output: "const a = require('../other/index.ts');",
+                    errors: [
+                        {
+                            messageId: 'bypass',
+                            data: {
+                                suggestion: '../other/index.ts',
+                                original: '../other/internal.ts',
+                            },
+                        },
+                    ],
+                },
+                {
+                    // TypeScript-форма того же `require`: специфаер лежит в другом месте AST, и
+                    // без её обхода вход внутрь модуля этой записью проходил бы молча.
+                    name: 'import x = require()',
+                    code: "import a = require('../other/internal.ts');",
+                    filename: '/repo/src/feature/file.ts',
+                    output: "import a = require('../other/index.ts');",
                     errors: [
                         {
                             messageId: 'bypass',

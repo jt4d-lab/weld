@@ -29,6 +29,16 @@ describe('rule registry', () => {
             expect(rule.meta, `${name}: missing meta`).toBeDefined();
             expect(rule.meta?.docs, `${name}: missing meta.docs`).toBeDefined();
             expect(rule.meta?.messages, `${name}: missing meta.messages`).toBeDefined();
+            expect(
+                Object.keys(rule.meta?.messages ?? {}).length,
+                `${name}: meta.messages is empty`,
+            ).toBeGreaterThan(0);
+
+            // Ссылка на страницу правила — то, что видит пользователь в выводе ESLint и в
+            // редакторе; страница у каждого правила есть, значит и ссылка обязана быть.
+            expect(rule.meta?.docs?.url, `${name}: missing meta.docs.url`).toContain(
+                `docs/rules/${name}.md`,
+            );
         }
     });
 });
@@ -44,7 +54,19 @@ describe('rule configs', () => {
         });
     });
 
-    for (const [name, config] of Object.entries(plugin.configs ?? {})) {
+    // Правило входит в оба пресета, а без схемы слоёв падает — значит пресет требует
+    // `settings.weld.layers`. Решение осознанное: молча отключившееся правило хуже громко упавшего.
+    it('every preset includes no-illegal-layer-dependency', () => {
+        expect(Object.keys(plugin.rules)).toContain('no-illegal-layer-dependency');
+
+        for (const [name, config] of Object.entries(plugin.configs)) {
+            expect(Object.keys(config.rules ?? {}), `${name}: must enable the rule`).toContain(
+                'weld/no-illegal-layer-dependency',
+            );
+        }
+    });
+
+    for (const [name, config] of Object.entries(plugin.configs)) {
         describe(name, () => {
             it('registers the plugin under the weld namespace', () => {
                 expect(config.plugins?.weld).toBe(plugin);
@@ -60,12 +82,30 @@ describe('rule configs', () => {
     }
 });
 
+/**
+ * Схема слоёв, которой пресету теперь не хватает самого по себе: правило входит в
+ * `recommended`/`strict` и без `settings.weld.layers` роняет прогон, поэтому конфиг потребителя
+ * обязан её задать.
+ */
+const layerSchema = { layers: ['common', '@unknown', '@unknown', 'app'] };
+
 describe('ESLint integration', () => {
     for (const name of ['recommended'] as const) {
         describe(name, () => {
             const eslint = new ESLint({
                 overrideConfigFile: true,
-                overrideConfig: [plugin.configs[name]],
+                overrideConfig: [plugin.configs[name], { settings: { weld: layerSchema } }],
+            });
+
+            it('without a layer schema the whole run fails', async () => {
+                const bare = new ESLint({
+                    overrideConfigFile: true,
+                    overrideConfig: [plugin.configs[name]],
+                });
+
+                await expect(
+                    bare.lintText('export const a = 1;\n', { filePath: 'example.js' }),
+                ).rejects.toThrow(/requires a layer schema/);
             });
 
             it('ESLint accepts the config and lints a file without internal errors', async () => {
@@ -96,7 +136,7 @@ describe('ESLint integration', () => {
                     overrideConfigFile: true,
                     overrideConfig: [
                         plugin.configs[name],
-                        { settings: { weld: { repoRoot: fixtureRoot } } },
+                        { settings: { weld: { ...layerSchema, repoRoot: fixtureRoot } } },
                     ],
                 });
 
