@@ -5,20 +5,8 @@ import type { Plugin } from 'vite';
  * Словарь иконок диаграмм: слева — имя для аннотации `icon(...)`, справа — иконка
  * из пака `@iconify-json/vscode-icons` (без префикса, как в каталоге
  * https://icon-sets.iconify.design/vscode-icons/).
- *
- * Так исходник диаграммы остаётся про архитектуру, а не про имена иконок:
- * `icon(module)`, `icon(src)`, `icon(typescript)`.
- *
- * Mermaid рисует сам только встроенные `file`/`folder` (и проверяет их раньше
- * любого пака), поэтому эти два имени заняты и в словаре не нужны: `icon(file)`
- * и `icon(folder)` всегда встроенные. Остальные имена приходят из пака, который
- * регистрируется в `theme/index.ts`; полные имена пака тоже работают:
- * `icon(vscode-icons:folder-type-package)`.
- *
- * Слева может стоять и полное имя пака (`'file-type-vue': 'file-type-vue'`), но
- * тогда теряется весь смысл словаря. Имя, которого нет в паке, роняет dev/build.
  */
-export const DOC_ICONS: Readonly<Record<string, string>> = {
+export const DOC_ICONS = {
     // common directories
     module: 'folder-type-package',
     src: 'folder-type-src',
@@ -35,9 +23,8 @@ export const DOC_ICONS: Readonly<Record<string, string>> = {
     typescript: 'file-type-typescript',
     react: 'file-type-reactjs',
     vue: 'file-type-vue',
-};
+} as const satisfies Readonly<Record<string, string>>;
 
-/** id виртуального модуля; тот же литерал импортирует `theme/index.ts` */
 const VIRTUAL_ID = 'virtual:weld-icons';
 const RESOLVED_ID = `\0${VIRTUAL_ID}`;
 const PACK = '@iconify-json/vscode-icons/icons.json';
@@ -65,7 +52,6 @@ interface IconPack {
     aliases?: Record<string, IconAlias>;
 }
 
-/** Иконка по имени: сначала сам пак, потом его алиасы (у vscode-icons их два) */
 function findIcon(pack: IconPack, name: string): IconData | undefined {
     const direct = pack.icons[name];
     if (direct) {
@@ -75,14 +61,7 @@ function findIcon(pack: IconPack, name: string): IconData | undefined {
     return parent ? pack.icons[parent] : undefined;
 }
 
-/**
- * Урезает пак Iconify до иконок из словаря и отдаёт его виртуальным модулем.
- *
- * `theme/index.ts` регистрирует результат в mermaid на старте приложения — со
- * стороны Mermaid это обычный синхронный пак, никаких запросов в сеть. Имена из
- * словаря, отличающиеся от имени в паке, становятся alias'ами Iconify: тело SVG
- * лежит в паке один раз, а разрешается под обоими именами.
- */
+/** Урезает пак Iconify до иконок из словаря и отдаёт его виртуальным модулем. */
 export function mermaidIconsPlugin(iconNames: Readonly<Record<string, string>>): Plugin {
     return {
         name: 'weld-mermaid-icons',

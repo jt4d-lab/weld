@@ -22,6 +22,8 @@
         "noFallthroughCasesInSwitch": true,
         "verbatimModuleSyntax": true,
         "isolatedModules": true,
+        // Конфиг и тема сайта документации импортируются с явным `.ts`.
+        "allowImportingTsExtensions": true,
 
         // tsc здесь — только тайпчекер: .d.ts и бандл делает tsup.
         "noEmit": true,
@@ -31,6 +33,9 @@
     },
     "include": [
         "src",
+        // Явные пути вместо каталога `docs/.vitepress`: рядом лежат `dist` и `cache` сайта.
+        "docs/.vitepress/*.ts",
+        "docs/.vitepress/theme",
         "tsup.config.ts",
         "vitest.config.ts"
     ]

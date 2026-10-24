@@ -62,32 +62,23 @@ export default withMermaid(
         mermaid: {
             theme: 'redux',
             look: 'classic',
-            // Стили treeView mermaid берёт не из `treeView`, а из
-            // `themeVariables.treeView`: по умолчанию там чёрные текст и линии,
-            // и тёмная тема на них не влияет. `currentColor` наследуется от
-            // страницы, поэтому переключается вместе с ней.
-            // Правка через CSS не годится: mermaid скоупит стили по id
-            // диаграммы (`#mermaid-6 .treeView-node-label`), и id перебивает
-            // любой селектор без `!important`.
+            // Цвета treeView приходят из `themeVariables.treeView`, а не из `treeView`.
             themeVariables: {
                 treeView: {
                     labelColor: 'currentColor',
                     lineColor: 'currentColor',
                 },
             },
-            // Общие настройки treeView для всех диаграмм: встроенные иконки
-            // file/folder и пак `vscode-icons` для имён без префикса.
             treeView: {
                 showIcons: true,
                 defaultIconPack: 'vscode-icons',
                 filenameIcons: {
-                    'index.ts': 'barrel',
-                    src: 'file-type-source',
+                    'index.ts': DOC_ICONS.barrel,
                 },
                 extensionIcons: {
-                    '.ts': 'file-type-typescript',
-                    '.vue': 'file-type-vue',
-                    '.tsx': 'file-type-reactjs',
+                    '.ts': DOC_ICONS.typescript,
+                    '.vue': DOC_ICONS.vue,
+                    '.tsx': DOC_ICONS.react,
                 },
             },
         },
