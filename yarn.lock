@@ -435,6 +435,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@iconify-json/vscode-icons@npm:^1.2.93":
+  version: 1.2.93
+  resolution: "@iconify-json/vscode-icons@npm:1.2.93"
+  dependencies:
+    "@iconify/types": "npm:*"
+  checksum: 10c0/2b5e835955d258ca1e5916e7f86caf5247acc26076c6d40c6f81a7c1b4867274c6db6d75590a7c76edd7d500630a9528997569284df95a9859e6b265f9f01a3f
+  languageName: node
+  linkType: hard
+
 "@iconify/types@npm:*, @iconify/types@npm:^2.0.0":
   version: 2.0.0
   resolution: "@iconify/types@npm:2.0.0"
@@ -2619,6 +2628,7 @@ __metadata:
   resolution: "eslint-plugin-weld@workspace:."
   dependencies:
     "@eslint/js": "npm:^10.0.0"
+    "@iconify-json/vscode-icons": "npm:^1.2.93"
     "@types/debug": "npm:^4.1.12"
     "@types/node": "npm:^26.0.0"
     debug: "npm:^4.4.0"

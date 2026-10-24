@@ -65,6 +65,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.0",
+        "@iconify-json/vscode-icons": "^1.2.93",
         "@types/debug": "^4.1.12",
         "@types/node": "^26.0.0",
         "eslint": "^10.0.0",
