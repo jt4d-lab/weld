@@ -31,6 +31,7 @@ export default withMermaid(
                         },
                         { text: 'Слои задаёт проект', link: '/core-concepts/layers' },
                         { text: 'Модули', link: '/core-concepts/modules' },
+                        { text: 'Вложенные модули', link: '/core-concepts/nested-modules' },
                     ],
                 },
                 {
