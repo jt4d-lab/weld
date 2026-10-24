@@ -63,10 +63,10 @@ src/ icon(src)
   modules/
     courses/ icon(module)            ## модуль courses
       modules/
-        lessons/ icon(module)        ## подмодуль lessons
+        lessons/ icon(module)        ## модуль courses.lessons
           modules/
-            exercises/ icon(module)  ## подмодуль exercises
-        materials/ icon(module)      ## подмодуль materials
+            exercises/ icon(module)  ## модуль courses.lessons.exercises
+        materials/ icon(module)      ## модуль courses.materials
     students/ icon(module)           ## модуль students
 ```
 
@@ -117,6 +117,109 @@ src/ icon(src)
     Хотя это противоречит правилу порядка слоев, но по осям Модуль и Слой вместе цикла нет.
 
     :::
+
+## Правильно
+
+В примерах ниже порядок слой `entities` находится ниже `widgets`.
+
+**Импорт из родительского модуля**
+
+:::info {no-title}
+
+`courses . lessons . exercises` **(widgets)**
+
+↓
+
+`courses . lessons` **(entities)**
+
+:::
+
+**Импорт из модуля-дяди**
+
+:::info {no-title}
+
+`courses . lessons . exercises` **(widgets)**
+
+↓
+
+`students` **(entities)**
+
+:::
+
+**Импорт из непосредственного дочернего модуля**
+
+:::info {no-title}
+
+`courses` **(widgets)**
+
+↓
+
+`courses . lessons` **(entities)**
+
+:::
+
+**Импорт из непосредственного дочернего модуля (Исключение)**
+
+:::info {no-title}
+
+`courses` **(entities)**
+
+↓
+
+`courses . lessons` **(entities)**
+
+:::
+
+> Это единственное исключение, когда импорт разрешен **на том же слое**, так как цикл по осям
+> "Модуль + Слой" не образуется (родитель владеет ребенком).
+
+## Неправильно
+
+**Нарушение иерархии**
+
+:::info {no-title}
+
+`courses . materials` **(widgets)**
+
+↓
+
+`courses . lessons . exercises` **(entities)**
+
+:::
+
+> `materials` и `lessons` — братья. Но `exercises` является _дочерним_ для `lessons`. Доступ к
+> дочерним модулям братских модулей ("племянникам") строго запрещен. Это ломает инкапсуляцию ветки
+> `lessons`.
+
+**Нарушение порядка слоев**
+
+:::info {no-title}
+
+`courses . lessons . exercises` **(entities)**
+
+↓
+
+`courses . materials` **(widgets)**
+
+:::
+
+> Модуль `materials` доступен (брат родителя), но слой `widgets` находится _выше_ `entities`. Импорт
+> снизу вверх запрещен.
+
+**Импорт того же слоя**
+
+:::info {no-title}
+
+`courses . lessons . exercises` **(entities)**
+
+↓
+
+`students` **(entities)**
+
+:::
+
+> Модуль `students` доступен по иерархии, но оба файла находятся на слое `entities`. Исключение
+> "родитель ➔ ребенок" здесь не работает, так как это горизонтальная связь.
 
 ## Рекомендации
 
