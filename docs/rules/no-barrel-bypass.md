@@ -70,43 +70,55 @@
 `/packages/b/src/internal/y.ts`) обрабатывается тем же алгоритмом без специального случая:
 виртуальные пути делают такие импорты обычным пересечением границы.
 
-## Примеры
+## Правильно
 
-Дано дерево:
+:::tip Структура проекта для примеров
 
-```
-src/
+```mermaid
+treeView-beta
+src/ icon(src)
   feature/
     index.ts
     internal.ts
   consumer.ts
 ```
 
-Valid:
+:::
+
+**Импорт внутри своего же модуля:**
 
 ```ts
-// src/feature/internal.ts — импорт внутри своего же модуля
-import { helper } from './other-file';
-
-// src/consumer.ts — импорт через точку входа
-import { thing } from './feature';
-
-// голый пакет и @scope/pkg node_modules не резолвится вовсе
-import { z } from 'zod';
+// src/feature/internal.ts
+import { helper } from './other-file'; // ✅
 ```
 
-Invalid:
+**Импорт через точку входа:**
 
 ```ts
 // src/consumer.ts
-import { helper } from './feature/internal';
+import { thing } from './feature'; // ✅
+```
+
+**Голый пакет — `node_modules` не резолвится вовсе:**
+
+```ts
+import { z } from 'zod'; // ✅
+```
+
+## Неправильно
+
+**Импорт в обход барреля:**
+
+```ts
+// src/consumer.ts
+import { helper } from './feature/internal'; // ❌
 // Import bypasses the module barrel. Use './feature' instead of './feature/internal'.
 ```
 
-С алиасом `'@/*': ['src/*']`:
+**То же через алиас `'@/*': ['src/*']`:**
 
 ```ts
-import { helper } from '@/feature/internal';
+import { helper } from '@/feature/internal'; // ❌
 // Import bypasses the module barrel. Use '@/feature' instead of '@/feature/internal'.
 ```
 

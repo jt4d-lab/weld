@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
+import { DOC_ICONS, mermaidIconsPlugin } from './mermaid-icons.ts';
 
 export default withMermaid(
     defineConfig({
@@ -61,9 +62,29 @@ export default withMermaid(
         mermaid: {
             theme: 'redux',
             look: 'classic',
+            // Цвета treeView приходят из `themeVariables.treeView`, а не из `treeView`.
+            themeVariables: {
+                treeView: {
+                    labelColor: 'currentColor',
+                    lineColor: 'currentColor',
+                },
+            },
+            treeView: {
+                showIcons: true,
+                defaultIconPack: 'vscode-icons',
+                filenameIcons: {
+                    'index.ts': DOC_ICONS.barrel,
+                },
+                extensionIcons: {
+                    '.ts': DOC_ICONS.typescript,
+                    '.vue': DOC_ICONS.vue,
+                    '.tsx': DOC_ICONS.react,
+                },
+            },
         },
 
         vite: {
+            plugins: [mermaidIconsPlugin(DOC_ICONS)],
             optimizeDeps: {
                 include: ['mermaid', 'elkjs'],
             },
