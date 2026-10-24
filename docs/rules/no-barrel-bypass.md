@@ -74,8 +74,9 @@
 
 Дано дерево:
 
-```
-src/
+```mermaid
+treeView-beta
+src/ icon(src)
   feature/
     index.ts
     internal.ts
