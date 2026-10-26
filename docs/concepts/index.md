@@ -4,7 +4,7 @@ prev:
     link: /get-started/overview
 next:
     text: Публичный API директории
-    link: /core-concepts/public-api
+    link: /concepts/public-api
 ---
 
 # Концепции

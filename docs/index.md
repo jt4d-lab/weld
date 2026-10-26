@@ -13,12 +13,12 @@ hero:
           link: /get-started/overview
         - theme: alt
           text: Концепции
-          link: /core-concepts
+          link: /concepts
 
 features:
     - title: Явный публичный API
       details: index.ts в директории явно указывает публичный API этой директории
-      link: /core-concepts/public-api
+      link: /concepts/public-api
     - title: Настройка под нужды проекта
       details: Методология даёт форму, а набор и порядок слоев выбирает проект
     - title: Инструментарий
