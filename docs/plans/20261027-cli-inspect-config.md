@@ -232,11 +232,11 @@ settings.weld:
 - Modify: `src/host/index.ts`
 - Modify: `src/host/fs.test.ts`
 
-- [ ] вынести `resolveRoot` в экспорт `src/host/fs.ts`, `getFsHost` продолжает ее использовать
-- [ ] добавить `resolveRoot` в баррель `src/host/index.ts`
-- [ ] тесты в `src/host/fs.test.ts`: явный `repoRoot` побеждает и игнорирует `coverDirs`; авто-root
+- [x] вынести `resolveRoot` в экспорт `src/host/fs.ts`, `getFsHost` продолжает ее использовать
+- [x] добавить `resolveRoot` в баррель `src/host/index.ts`
+- [x] тесты в `src/host/fs.test.ts`: явный `repoRoot` побеждает и игнорирует `coverDirs`; авто-root
       поднимается до общей директории с якорем; якорь без общего префикса игнорируется
-- [ ] `yarn test` — зеленый до перехода к задаче 2
+- [x] `yarn test` — зеленый до перехода к задаче 2
 
 ### Task 2: Модуль `src/config/` — один источник резолва, без ESLint
 

@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ENTRY_EXTENSIONS } from '@/extensions.js';
-import { basename } from '@/path/index.js';
+import { basename, toPosix } from '@/path/index.js';
 import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
 
-import { createFsHost, getFsHost, resetFsHostCaches } from '@/host/fs.js';
+import { createFsHost, getFsHost, resetFsHostCaches, resolveRoot } from '@/host/fs.js';
 import { createFakeExists, createFakeFsHost } from '@/host/fs.testing.js';
 import { commonRealDirectory } from '@/host/real-path.js';
 
@@ -422,6 +422,36 @@ describe('commonRealDirectory', () => {
 
     it('Windows-диск против unix-корня → общего префикса нет', () => {
         expect(commonRealDirectory('C:/a', '/a')).toBeNull();
+    });
+});
+
+describe('resolveRoot', () => {
+    afterEach(() => {
+        resetFsHostCaches();
+        cleanupTmpProjects();
+    });
+
+    it('явный repoRoot побеждает и игнорирует coverDirs', () => {
+        const settings = { weld: { repoRoot: '/explicit-root' } };
+
+        expect(resolveRoot(settings, '/some/cwd', undefined, ['/some'])).toBe('/explicit-root');
+        // override из опций правила работает так же и по-прежнему главнее настройки.
+        expect(resolveRoot(settings, '/some/cwd', '/override-root', ['/some'])).toBe(
+            '/override-root',
+        );
+    });
+
+    it('авто-root поднимается до общей директории с якорем', () => {
+        const dir = makeTmpProject({ 'package.json': '{}' });
+        const sibling = `${tmpdir()}/weld-fs-sibling`;
+
+        expect(resolveRoot(undefined, dir, undefined, [sibling])).toBe(toPosix(tmpdir()));
+    });
+
+    it('якорь без общего префикса (другой диск) игнорируется', () => {
+        const dir = makeTmpProject({ 'package.json': '{}' });
+
+        expect(resolveRoot(undefined, dir, undefined, ['D:/elsewhere'])).toBe(toPosix(dir));
     });
 });
 
