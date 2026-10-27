@@ -270,6 +270,6 @@ describe('createProgram: цвет', () => {
         await program.parseAsync(['config', '--no-color', 'src/feature'], { from: 'user' });
 
         expect(out.join('')).not.toContain(String.fromCharCode(27));
-        expect(printed(out)).toContain('file:  src/feature/index.ts (sample of src/feature)');
+        expect(printed(out)).toContain('file:   src/feature/index.ts (sample of src/feature)');
     });
 });

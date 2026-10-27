@@ -56,7 +56,8 @@ describe('weld config: файл', () => {
 
         expect(printed(out)).toBe(
             [
-                'file:  src/feature/internal.ts',
+                'file:   src/feature/internal.ts',
+                'config: eslint.config.mjs',
                 'settings.weld:',
                 `  repoRoot:       ${root}`,
                 '  aliasesBaseUrl: .',
@@ -83,7 +84,8 @@ describe('weld config: файл', () => {
 
         expect(printed(out)).toBe(
             [
-                'file:  src/feature/internal.ts',
+                'file:   src/feature/internal.ts',
+                'config: eslint.config.mjs',
                 'settings.weld:',
                 `  repoRoot:       ${root}`,
                 '  aliasesBaseUrl: .',
@@ -105,7 +107,8 @@ describe('weld config: файл', () => {
 
         expect(printed(out)).toBe(
             [
-                'file:  src/feature/internal.ts',
+                'file:   src/feature/internal.ts',
+                'config: eslint.config.mjs',
                 'settings.weld:',
                 `  repoRoot:       ${root}`,
                 '  aliasesBaseUrl: .',
@@ -128,7 +131,7 @@ describe('weld config: директория', () => {
 
         await program.parseAsync(['config', 'src/feature'], { from: 'user' });
 
-        expect(printed(out)).toContain('file:  src/feature/index.ts (sample of src/feature)\n');
+        expect(printed(out)).toContain('file:   src/feature/index.ts (sample of src/feature)\n');
     });
 
     it('--json отдает sampleOf и настройки в машинной форме', async () => {
@@ -143,6 +146,7 @@ describe('weld config: директория', () => {
 
         expect(JSON.parse(printed(out))).toEqual({
             file: 'src/feature/index.ts',
+            configFile: 'eslint.config.mjs',
             sampleOf: 'src/feature',
             settings: {
                 repoRoot: root,
@@ -167,6 +171,7 @@ describe('weld config: --json у файла', () => {
         const data = JSON.parse(printed(out)) as Record<string, unknown>;
         expect(data).not.toHaveProperty('sampleOf');
         expect(data.file).toBe('src/feature/internal.ts');
+        expect(data.configFile).toBe('eslint.config.mjs');
     });
 });
 

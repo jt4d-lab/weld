@@ -314,13 +314,13 @@ smoke, документация, проверка.
 - Modify: `src/cli/program.test.ts`
 - Modify: `src/cli/config.ts` (поле `configFile` в `ConfigData`)
 
-- [ ] `ConfigData.configFile` — уже относительный путь (считается в `config.ts`, как и `file`)
-- [ ] `renderConfig`: строка `config:` между `file:` и `settings.weld:`; ширины колонок по строкам
+- [x] `ConfigData.configFile` — уже относительный путь (считается в `config.ts`, как и `file`)
+- [x] `renderConfig`: строка `config:` между `file:` и `settings.weld:`; ширины колонок по строкам
       своей команды, `TOP_LABEL_WIDTH` убирается
-- [ ] `renderInspect` не меняется по составу строк
-- [ ] тесты: текст с `config:` и выравниванием; `--json` содержит `configFile` рядом с `file`; цвет
+- [x] `renderInspect` не меняется по составу строк
+- [x] тесты: текст с `config:` и выравниванием; `--json` содержит `configFile` рядом с `file`; цвет
       не влияет на текст; фикстуры `ConfigData` в `render.test.ts` получают `configFile`
-- [ ] `yarn test` — зеленый до перехода к задаче 6
+- [x] `yarn test` — зеленый до перехода к задаче 6
 
 ### Задача 6: Smoke-тест упаковки
 

@@ -24,9 +24,6 @@ export type RenderOptions = {
     color?: boolean;
 };
 
-/** Ширина колонки подписи у `file:`/`alias:` — одна на обе команды, чтобы вывод не разъезжался. */
-const TOP_LABEL_WIDTH = 'alias:'.length;
-
 /** Отступ строк внутри блока `settings.weld`. */
 const SETTINGS_INDENT = '  ';
 
@@ -44,28 +41,38 @@ function row(c: Colors, text: string, value: string, width: number): string {
 }
 
 /**
+ * Ширина колонки подписи по строкам своей команды: у `inspect` это `file:`/`alias:`, у `config` —
+ * `file:`/`config:`. Общая константа на обе команды разъезжала бы с любой новой подписью.
+ */
+function labelWidth(...labels: string[]): number {
+    return Math.max(...labels.map((label) => label.length));
+}
+
+/**
  * `weld inspect`: путь файла и путь импорта. Значение `alias` печатается как есть — команда уже
  * подставила виртуальный путь, если алиаса нет.
  */
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
+    const width = labelWidth('file:', 'alias:');
 
-    return [
-        row(c, 'file:', data.file, TOP_LABEL_WIDTH),
-        row(c, 'alias:', c.cyan(data.alias), TOP_LABEL_WIDTH),
-    ].join('\n');
+    return [row(c, 'file:', data.file, width), row(c, 'alias:', c.cyan(data.alias), width)].join(
+        '\n',
+    );
 }
 
 /**
- * `weld config`: файл (или сэмпл директории) и разобранные настройки. Пометок происхождения
- * (`(default)`, `(from tsconfig.json)`) нет: они потребовали бы предиката присутствия ключа в
- * `src/settings/`.
+ * `weld config`: файл (или сэмпл директории), примененный ESLint-конфиг и разобранные настройки.
+ * Пометок происхождения (`(default)`, `(from tsconfig.json)`) нет: они потребовали бы предиката
+ * присутствия ключа в `src/settings/`.
  */
 export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
+    const width = labelWidth('file:', 'config:');
 
     return [
-        row(c, 'file:', withSample(data, c), TOP_LABEL_WIDTH),
+        row(c, 'file:', withSample(data, c), width),
+        row(c, 'config:', data.configFile, width),
         c.dim('settings.weld:'),
         ...settingsRows(c, data.settings).map((text) => `${SETTINGS_INDENT}${text}`),
         ...renderAliases(data.settings.aliases, c),

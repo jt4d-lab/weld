@@ -22,6 +22,8 @@ import { repoPath, repoRootOf, virtualPathOf } from './target.js';
 export type ConfigData = {
     /** Путь файла от корня репозитория (вне корня — абсолютный). */
     file: string;
+    /** Путь примененного ESLint-конфига по тем же правилам, что и `file`. */
+    configFile: string;
     /** Аргумент директории в том виде, как его ввели; у файла отсутствует. */
     sampleOf?: string;
     settings: {
@@ -49,6 +51,7 @@ export function effectiveConfig(lint: LintSettings, cwd: string): ConfigData {
 
     return {
         file: repoPath(repoRoot, lint.filePath),
+        configFile: repoPath(repoRoot, lint.configFile),
         sampleOf: lint.sampleOf,
         settings: {
             repoRoot,

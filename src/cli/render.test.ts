@@ -12,6 +12,7 @@ const INSPECT: InspectData = {
 
 const CONFIG: ConfigData = {
     file: '/repo/src/feature/index.ts',
+    configFile: 'eslint.config.mjs',
     settings: {
         repoRoot: '/repo',
         aliasesBaseUrl: '.',
@@ -51,10 +52,11 @@ describe('renderInspect', () => {
 });
 
 describe('renderConfig: файл', () => {
-    it('печатает настройки без пометки сэмпла', () => {
+    it('печатает примененный конфиг между file: и настройками', () => {
         expect(renderConfig(CONFIG, { color: false })).toBe(
             [
-                'file:  /repo/src/feature/index.ts',
+                'file:   /repo/src/feature/index.ts',
+                'config: eslint.config.mjs',
                 'settings.weld:',
                 '  repoRoot:       /repo',
                 '  aliasesBaseUrl: .',
@@ -63,6 +65,25 @@ describe('renderConfig: файл', () => {
                 '    @/* → /src/*',
             ].join('\n'),
         );
+    });
+
+    it('ширина колонки подписей считается по строкам своей команды', () => {
+        // У `config` подпись `config:` длиннее, чем `file:`, и `file:` добивается до нее; в `inspect`
+        // подписи по пять символов, поэтому общая константа развела бы колонки двух команд.
+        const configLine = renderConfig(CONFIG, { color: false }).split('\n')[0];
+        const inspectLine = renderInspect(INSPECT, { color: false }).split('\n')[0];
+
+        expect(configLine).toBe('file:   /repo/src/feature/index.ts');
+        expect(inspectLine).toBe('file:  /repo/src/feature/internal.ts');
+    });
+
+    it('конфиг вне корня печатается абсолютным путем', () => {
+        const output = renderConfig(
+            { ...CONFIG, configFile: '/elsewhere/eslint.config.mjs' },
+            { color: false },
+        );
+
+        expect(output.split('\n')[1]).toBe('config: /elsewhere/eslint.config.mjs');
     });
 
     it('пустые алиасы — явное (none) в строке подписи', () => {
@@ -151,7 +172,7 @@ describe('renderConfig: директория', () => {
         const output = renderConfig({ ...CONFIG, sampleOf: 'src/feature' }, { color: false });
 
         expect(output.split('\n')[0]).toBe(
-            'file:  /repo/src/feature/index.ts (sample of src/feature)',
+            'file:   /repo/src/feature/index.ts (sample of src/feature)',
         );
     });
 
@@ -181,6 +202,7 @@ describe('renderJson', () => {
     it('config для файла без sampleOf', () => {
         const value = {
             file: CONFIG.file,
+            configFile: CONFIG.configFile,
             settings: CONFIG.settings,
         };
 
@@ -188,11 +210,12 @@ describe('renderJson', () => {
         expect(renderJson(value)).not.toContain('sampleOf');
     });
 
-    it('config для директории: sampleOf и алиасы парами prefix/anchor', () => {
+    it('config для директории: sampleOf, configFile и алиасы парами prefix/anchor', () => {
         const output = renderJson({ ...CONFIG, sampleOf: 'src/feature' });
 
         expect(JSON.parse(output)).toEqual({
             file: '/repo/src/feature/index.ts',
+            configFile: 'eslint.config.mjs',
             sampleOf: 'src/feature',
             settings: {
                 repoRoot: '/repo',
