@@ -391,14 +391,15 @@ settings.weld:
 
 ### Task 9: [Final] Документация
 
-- [ ] `docs/cli.md` — обе команды, имя бинаря `weld`, формат вывода, цвета и `--no-color`, `--json`,
+- [x] `docs/cli.md` — обе команды, имя бинаря `weld`, формат вывода, цвета и `--no-color`, `--json`,
       коды возврата, требование «eslint установлен в проекте», примеры
-- [ ] пункт `CLI` в группах навигации `docs/.vitepress/config.ts`
-- [ ] `README.md` — упоминание CLI рядом с установкой плагина
-- [ ] `AGENTS.md` — новый слой `src/config/` (ленивый резолв без ESLint, адаптер в
+- [x] пункт `CLI` в группах навигации `docs/.vitepress/config.ts`
+- [x] `README.md` — упоминание CLI рядом с установкой плагина
+- [x] `AGENTS.md` — новый слой `src/config/` (ленивый резолв без ESLint, адаптер в
       `src/rules/context.ts`), модуль `src/cli/` и вход `src/bin.ts` (в списки баррелей тоже),
       экспорт `resolveRoot`, `bin`, `commander` и `picocolors` в зависимостях
-- [ ] перенести план в `docs/plans/completed/`
+- [x] перенести план в `docs/plans/completed/` — файл не переносится: план перемещает харнесс после
+      завершения всех фаз
 
 ## Post-Completion
 
