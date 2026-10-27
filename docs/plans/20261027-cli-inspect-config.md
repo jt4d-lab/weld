@@ -364,30 +364,30 @@ settings.weld:
 - Modify: `package.json`
 - Modify: `scripts/smoke-test.sh`
 
-- [ ] `src/bin.ts` — shebang `#!/usr/bin/env node`, `createProgram().parseAsync(process.argv)` и
+- [x] `src/bin.ts` — shebang `#!/usr/bin/env node`, `createProgram().parseAsync(process.argv)` и
       обработка исключения в `error: ...` + `exit 1`
-- [ ] `--version` проверяет, что `createRequire(import.meta.url)('../package.json')` работает из
+- [x] `--version` проверяет, что `createRequire(import.meta.url)('../package.json')` работает из
       собранного `dist/bin.js` (пакет `package.json` попадает в тарбол всегда)
-- [ ] `tsup.config.ts`: второй entry `src/bin.ts` → `dist/bin.js`
-- [ ] `package.json`: `"bin": { "weld": "./dist/bin.js" }`, `commander` и `picocolors` в
+- [x] `tsup.config.ts`: второй entry `src/bin.ts` → `dist/bin.js`
+- [x] `package.json`: `"bin": { "weld": "./dist/bin.js" }`, `commander` и `picocolors` в
       `dependencies` (`yarn add commander picocolors`; если реестр недоступен — ⚠️ остановиться и
       спросить)
-- [ ] `scripts/smoke-test.sh`: в чужом проекте после ESLint запустить
+- [x] `scripts/smoke-test.sh`: в чужом проекте после ESLint запустить
       `npx --no-install weld inspect src/example.js`, `weld config src` и `weld config --json src`,
       проверить `file:` в выводе и разбор JSON
-- [ ] `yarn build` и `yarn smoke` — сборка и упаковка живы, `dist/bin.js` исполняемый
-- [ ] `yarn test` — зеленый до перехода к задаче 8
+- [x] `yarn build` и `yarn smoke` — сборка и упаковка живы, `dist/bin.js` исполняемый
+- [x] `yarn test` — зеленый до перехода к задаче 8
 
 ### Task 8: Verify acceptance criteria
 
-- [ ] все пункты Overview реализованы: две команды, вывод из Technical Details, цвета, `--json`,
+- [x] все пункты Overview реализованы: две команды, вывод из Technical Details, цвета, `--json`,
       коды возврата
-- [ ] крайние случаи: файл вне корня, отсутствующий путь, проект без ESLint-конфига, пустая
+- [x] крайние случаи: файл вне корня, отсутствующий путь, проект без ESLint-конфига, пустая
       директория, `index.<ext>` в `inspect`, пустые алиасы
-- [ ] рефакторинг не изменил поведение: `src/rules/context.test.ts` без правок, плагин линтует сам
+- [x] рефакторинг не изменил поведение: `src/rules/context.test.ts` без правок, плагин линтует сам
       себя (`yarn lint`)
-- [ ] `yarn verify` (линт, prettier --check, типы, тесты, сборка) — зеленый
-- [ ] `yarn smoke` и `yarn smoke 9` — зеленые
+- [x] `yarn verify` (линт, prettier --check, типы, тесты, сборка) — зеленый
+- [x] `yarn smoke` и `yarn smoke 9` — зеленые
 
 ### Task 9: [Final] Документация
 

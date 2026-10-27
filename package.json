@@ -32,6 +32,9 @@
     },
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
+    "bin": {
+        "weld": "./dist/bin.js"
+    },
     "files": [
         "dist",
         "README.md",

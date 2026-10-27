@@ -75,4 +75,36 @@ node --input-type=module -e "
 echo "==> Запускаю ESLint в проекте-потребителе"
 npx --no-install eslint src/example.js
 
+# CLI проверяется здесь, а не в unit-тестах: `bin` из `package.json`, shebang и второй entry `tsup`
+# живут только в упакованном виде, и увидеть их может только установленный пакет.
+CLI="./node_modules/.bin/weld"
+
+echo "==> Проверяю, что бинарь weld установлен и исполняемый"
+test -x "$CLI"
+[ "$($CLI --version)" = "$PKG_VERSION" ] || { echo "    --version не совпал с package.json: $($CLI --version)" >&2; exit 1; }
+echo "    version: $($CLI --version)"
+
+echo "==> Проверяю weld inspect и weld config в проекте-потребителе"
+INSPECT="$($CLI inspect src/example.js)"
+grep -q "^file:  $TMP/project/src/example.js$" <<<"$INSPECT" || { echo "    неверный file: $INSPECT" >&2; exit 1; }
+grep -q '^alias: ' <<<"$INSPECT" || { echo "    нет строки alias: $INSPECT" >&2; exit 1; }
+echo "$INSPECT" | sed 's/^/    /'
+
+CONFIG="$($CLI config src)"
+grep -q "^file:  $TMP/project/src/example.js (sample of src)$" <<<"$CONFIG" || { echo "    неверная строка file: $CONFIG" >&2; exit 1; }
+grep -q '^  repoRoot: ' <<<"$CONFIG" || { echo "    нет repoRoot: $CONFIG" >&2; exit 1; }
+grep -q '^  aliases: (none)$' <<<"$CONFIG" || { echo "    неверные aliases: $CONFIG" >&2; exit 1; }
+echo "$CONFIG" | sed 's/^/    /'
+
+$CLI config --json src > "$TMP/config.json"
+node -e "
+  const assert = require('node:assert/strict');
+  const data = require('$TMP/config.json');
+  assert.equal(data.sampleOf, 'src');
+  assert.ok(data.file.endsWith('/src/example.js'), 'file = ' + data.file);
+  assert.ok(data.settings && typeof data.settings.repoRoot === 'string', 'нет settings.repoRoot');
+  assert.ok(Array.isArray(data.settings.aliases), 'aliases — не массив');
+  console.log('    json: ' + JSON.stringify(data.settings));
+"
+
 echo "==> Smoke-тест пройден"
