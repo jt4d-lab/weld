@@ -12,7 +12,7 @@ import type { Alias } from '@/settings/index.js';
 import { getAliasesBaseUrl, getTsconfigName } from '@/settings/index.js';
 
 import type { LintSettings } from './eslint-config.js';
-import { repoRootOf, virtualPathOf } from './target.js';
+import { repoPath, repoRootOf, virtualPathOf } from './target.js';
 
 /**
  * Данные `weld config`: форма текстового вывода и одновременно форма JSON. Путь и настройки уже
@@ -20,10 +20,12 @@ import { repoRootOf, virtualPathOf } from './target.js';
  * `{ prefix, anchor }`.
  */
 export type ConfigData = {
+    /** Путь файла от корня репозитория (вне корня — абсолютный). */
     file: string;
     /** Аргумент директории в том виде, как его ввели; у файла отсутствует. */
     sampleOf?: string;
     settings: {
+        /** Абсолютный: по нему разрешаются пути вывода. */
         repoRoot: string;
         aliasesBaseUrl: string;
         tsconfig: string;
@@ -43,11 +45,13 @@ export function effectiveConfig(lint: LintSettings, cwd: string): ConfigData {
     // `inspect`.
     virtualPathOf(target, lint.filePath);
 
+    const repoRoot = repoRootOf(target, lint.filePath);
+
     return {
-        file: lint.filePath,
+        file: repoPath(repoRoot, lint.filePath),
         sampleOf: lint.sampleOf,
         settings: {
-            repoRoot: repoRootOf(target, lint.filePath),
+            repoRoot,
             // Опции правила перекрывают `settings.weld` — печатается то же, что увидит линтер.
             aliasesBaseUrl: getAliasesBaseUrl(lint.settings, lint.options?.aliasesBaseUrl),
             tsconfig: getTsconfigName(lint.settings, lint.options?.tsconfig),

@@ -16,10 +16,10 @@ import { renderAliasPath } from '@/imports/index.js';
 import { basename, dirname, splitExtension } from '@/path/index.js';
 
 import type { LintSettings } from './eslint-config.js';
-import { virtualPathOf } from './target.js';
+import { repoPath, repoRootOf, virtualPathOf } from './target.js';
 
 type InspectResult = {
-    /** Реальный путь файла. */
+    /** Путь файла от корня репозитория (вне корня — абсолютный). */
     file: string;
     /** Виртуальный путь модуля: `index.<ext>` схлопнут, алиас не подставлен. */
     virtualPath: string;
@@ -59,7 +59,7 @@ export function inspectFile(lint: LintSettings, cwd: string): InspectResult {
     const rendered = renderAliasPath(virtualPath, target.getAliases());
 
     return {
-        file: lint.filePath,
+        file: repoPath(repoRootOf(target, lint.filePath), lint.filePath),
         virtualPath,
         alias: rendered === null ? null : withEntryName(rendered, fromFile),
     };

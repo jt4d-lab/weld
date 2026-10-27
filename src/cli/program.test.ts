@@ -182,7 +182,7 @@ describe('createProgram: шов loadLintSettings', () => {
 
         await program.parseAsync(['inspect', 'src/a.ts'], { from: 'user' });
 
-        expect(printed(out)).toBe([`file:  ${root}/src/a.ts`, 'alias: @/a.ts'].join('\n') + '\n');
+        expect(printed(out)).toBe(['file:  src/a.ts', 'alias: @/a.ts'].join('\n') + '\n');
     });
 });
 
@@ -214,7 +214,7 @@ describe('runCli: глобальная опция --config', () => {
         );
 
         expect(JSON.parse(printed(out))).toEqual({
-            file: `${root}/src/a.ts`,
+            file: 'src/a.ts',
             alias: '@other/a.ts',
         });
         expect(codes).toEqual([]);
@@ -270,8 +270,6 @@ describe('createProgram: цвет', () => {
         await program.parseAsync(['config', '--no-color', 'src/feature'], { from: 'user' });
 
         expect(out.join('')).not.toContain(String.fromCharCode(27));
-        expect(printed(out)).toContain(
-            `file:  ${root}/src/feature/index.ts (sample of src/feature)`,
-        );
+        expect(printed(out)).toContain('file:  src/feature/index.ts (sample of src/feature)');
     });
 });

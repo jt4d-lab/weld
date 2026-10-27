@@ -68,7 +68,7 @@ afterEach(() => {
 });
 
 describe('weld inspect', () => {
-    it('печатает абсолютный путь файла и путь импорта по алиасу', async () => {
+    it('печатает путь файла от корня репозитория и путь импорта по алиасу', async () => {
         const root = makeCliProject({
             'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
@@ -78,8 +78,7 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            [`file:  ${root}/src/feature/internal.ts`, 'alias: @/feature/internal.ts'].join('\n') +
-                '\n',
+            ['file:  src/feature/internal.ts', 'alias: @/feature/internal.ts'].join('\n') + '\n',
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -95,7 +94,7 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/feature/index.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            [`file:  ${root}/src/feature/index.ts`, 'alias: @/feature'].join('\n') + '\n',
+            ['file:  src/feature/index.ts', 'alias: @/feature'].join('\n') + '\n',
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -113,7 +112,7 @@ describe('weld inspect', () => {
         const index = capture(root);
         await index.program.parseAsync(['inspect', 'src/feature/index.ts'], { from: 'user' });
         expect(printed(index.out)).toBe(
-            [`file:  ${root}/src/feature/index.ts`, 'alias: @/feature/index.ts'].join('\n') + '\n',
+            ['file:  src/feature/index.ts', 'alias: @/feature/index.ts'].join('\n') + '\n',
         );
 
         const internal = capture(root);
@@ -121,8 +120,7 @@ describe('weld inspect', () => {
             from: 'user',
         });
         expect(printed(internal.out)).toBe(
-            [`file:  ${root}/src/feature/internal.ts`, 'alias: @/feature/internal.ts'].join('\n') +
-                '\n',
+            ['file:  src/feature/internal.ts', 'alias: @/feature/internal.ts'].join('\n') + '\n',
         );
     });
 
@@ -138,7 +136,7 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/config/index.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            [`file:  ${root}/src/config/index.ts`, 'alias: @/config'].join('\n') + '\n',
+            ['file:  src/config/index.ts', 'alias: @/config'].join('\n') + '\n',
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -157,7 +155,7 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/config/other.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            [`file:  ${root}/src/config/other.ts`, 'alias: /src/config/other.ts'].join('\n') + '\n',
+            ['file:  src/config/other.ts', 'alias: /src/config/other.ts'].join('\n') + '\n',
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -174,7 +172,7 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/config/other.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            [`file:  ${root}/src/config/other.ts`, 'alias: @/config/other.ts'].join('\n') + '\n',
+            ['file:  src/config/other.ts', 'alias: @/config/other.ts'].join('\n') + '\n',
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -186,9 +184,7 @@ describe('weld inspect', () => {
 
         await program.parseAsync(['inspect', 'src/index.ts'], { from: 'user' });
 
-        expect(printed(out)).toBe(
-            [`file:  ${root}/src/index.ts`, 'alias: @/index.ts'].join('\n') + '\n',
-        );
+        expect(printed(out)).toBe(['file:  src/index.ts', 'alias: @/index.ts'].join('\n') + '\n');
     });
 
     it('index.<ext> в корне репозитория не схлопывается в `/`', async () => {
@@ -197,9 +193,7 @@ describe('weld inspect', () => {
 
         await program.parseAsync(['inspect', 'index.ts'], { from: 'user' });
 
-        expect(printed(out)).toBe(
-            [`file:  ${root}/index.ts`, 'alias: /index.ts'].join('\n') + '\n',
-        );
+        expect(printed(out)).toBe(['file:  index.ts', 'alias: /index.ts'].join('\n') + '\n');
     });
 
     it('без алиасов печатает виртуальный путь', async () => {
@@ -212,9 +206,7 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            [`file:  ${root}/src/feature/internal.ts`, 'alias: /src/feature/internal.ts'].join(
-                '\n',
-            ) + '\n',
+            ['file:  src/feature/internal.ts', 'alias: /src/feature/internal.ts'].join('\n') + '\n',
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -232,7 +224,7 @@ describe('weld inspect', () => {
         });
 
         expect(JSON.parse(printed(out))).toEqual({
-            file: `${root}/src/feature/internal.ts`,
+            file: 'src/feature/internal.ts',
             alias: '@/feature/internal.ts',
         });
     });
@@ -249,7 +241,7 @@ describe('weld inspect', () => {
         });
 
         expect(JSON.parse(printed(out))).toEqual({
-            file: `${root}/src/feature/internal.ts`,
+            file: 'src/feature/internal.ts',
             alias: null,
         });
     });
@@ -267,7 +259,7 @@ describe('weld inspect', () => {
 
         expect(out.join('')).not.toContain(String.fromCharCode(27));
         expect(printed(out)).toBe(
-            [`file:  ${root}/src/feature/index.ts`, 'alias: @/feature'].join('\n') + '\n',
+            ['file:  src/feature/index.ts', 'alias: @/feature'].join('\n') + '\n',
         );
     });
 
@@ -357,11 +349,9 @@ describe('inspectFile: имя файла в алиасе', () => {
         );
 
         // На Windows реальный путь пришел бы с `\`, и posix-`basename` вернул бы его целиком:
-        // `@/C:\repo\src\index.ts` не резолвится ничем.
-        expect(result).toEqual({
-            file: 'C:\\repo\\src\\index.ts',
-            virtualPath: '/src',
-            alias: '@/index.ts',
-        });
+        // `@/C:\repo\src\index.ts` не резолвится ничем. Путь `file` в ассерте не участвует: он
+        // считается от реального корня, а `node:path` этой машины не знает чужих дисков.
+        expect(result.virtualPath).toBe('/src');
+        expect(result.alias).toBe('@/index.ts');
     });
 });
