@@ -172,11 +172,15 @@ export type AliasPath = {
  * кто путь уже имеет и спрашивает, как он записывается в импорте (`weld inspect`), — в отличие от
  * `renderSpecifier`, где форму записи задает исходный импорт.
  *
- * Выигрывает самый длинный покрывающий якорь; `null`, если не покрывает ни один — решение «что
- * печатать вместо алиаса» остается за вызывающим (виртуальный путь или относительный).
+ * Выигрывает самый длинный якорь, из которого получается резолвимый специфаер: точный ключ годится
+ * только на самом якоре (см. `coversAsSpecifier`), поэтому путь ниже него достается более широкому
+ * звездному алиасу. `null`, если не подошел ни один, — решение «что печатать вместо алиаса»
+ * остается за вызывающим (виртуальный путь или относительный).
  */
 export function renderAliasPath(target: string, aliases: Alias[]): AliasPath | null {
-    const alias = longestCoveringAlias(aliases, target);
+    const alias = pickLongest(aliases, (alias) =>
+        coversAsSpecifier(alias, target) ? alias.anchor : null,
+    );
 
     if (alias === null) {
         return null;
@@ -193,7 +197,7 @@ function renderDirectory(form: Form, fromDir: string, barrier: string, aliases: 
         return renderRelative(fromDir, barrier);
     }
 
-    if (coversAnchor(form.alias.anchor, barrier)) {
+    if (coversAsSpecifier(form.alias, barrier)) {
         return renderAlias(form.alias, barrier);
     }
 
@@ -228,9 +232,28 @@ function coversAnchor(anchor: string, value: string): boolean {
     return anchor === '/' || coversPrefix(anchor, value);
 }
 
-/** Самый длинный якорь, покрывающий `dir`; `null`, если ни один не покрывает. */
+/**
+ * Годится ли запись как источник специфаера для `target` — вопрос строже, чем `coversAnchor`, и
+ * единственное правило годности во всем обратном направлении: `renderAliasPath`,
+ * `renderSpecifier` и обе ветки `renderDirectory`.
+ *
+ * Точный ключ (`paths: { '@/config': ['src/config'] }`) резолвит `@/config` и ничего ниже него:
+ * `@/config/other.ts` TypeScript не находит (TS2307), хотя прямое сопоставление WELD читает любой
+ * ключ префиксом. Поэтому в обратном рендере такая запись покрывает только свой якорь, а для пути
+ * ниже поиск продолжается — более широкий звездный ключ (`@/*` → `src/*`) дает для него резолвимый
+ * `@/config/other.ts`. Беззвездочный алиас на корень (`'@root': ['.']`) иначе покрывал бы весь
+ * репозиторий и подменял резолвимый относительный путь нерезолвимым `@root/src/...`.
+ *
+ * Звездный ключ хвост подставляет, поэтому его якорь покрывает поддерево как обычно; неполноту
+ * специфаера на самом якоре по-прежнему называет `needsFileName`.
+ */
+function coversAsSpecifier(alias: Alias, target: string): boolean {
+    return coversAnchor(alias.anchor, target) && (alias.star || alias.anchor === target);
+}
+
+/** Самый длинный якорь, из которого получается резолвимый специфаер; `null`, если ни один. */
 function longestCoveringAlias(aliases: Alias[], dir: string): Alias | null {
-    return pickLongest(aliases, (alias) => (coversAnchor(alias.anchor, dir) ? alias.anchor : null));
+    return pickLongest(aliases, (alias) => (coversAsSpecifier(alias, dir) ? alias.anchor : null));
 }
 
 function renderAlias(alias: Alias, barrier: string): string {

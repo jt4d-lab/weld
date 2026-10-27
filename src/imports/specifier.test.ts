@@ -338,6 +338,41 @@ describe('renderSpecifier', () => {
                 ),
             ).toBe('../target');
         });
+
+        it('беззвездочный корневой алиас не покрывает поддерево: откат на относительный путь', () => {
+            // `paths: { '@root': ['.'] }` резолвит только сам `@root`, поэтому автофикс не должен
+            // предлагать `@root/src/other` (tsc: TS2307) — относительный путь резолвится всегда.
+            const original: Alias = { prefix: '@deep', anchor: '/src/other/deep', star: true };
+            const root: Alias = { prefix: '@root', anchor: '/', star: false };
+
+            expect(
+                renderSpecifier({ kind: 'alias', alias: original }, '/src/feature', '/src/other', [
+                    root,
+                    original,
+                ]),
+            ).toBe('../other');
+        });
+
+        it('исходный беззвездочный корневой алиас тоже не покрывает поддерево', () => {
+            // Импорт записан через точный ключ (`@root/src/other/deep/internal` правило читает
+            // префиксом), но обратно в поддерево такая запись не рендерится: ключ покрывает только
+            // свой якорь, а он — корень репозитория.
+            const root: Alias = { prefix: '@root', anchor: '/', star: false };
+
+            expect(
+                renderSpecifier({ kind: 'alias', alias: root }, '/src/feature', '/src/other', [
+                    root,
+                ]),
+            ).toBe('../other');
+        });
+
+        it('беззвездочный алиас на самом якоре → голый префикс', () => {
+            const root: Alias = { prefix: '@root', anchor: '/', star: false };
+
+            expect(renderSpecifier({ kind: 'alias', alias: root }, '/src', '/', [root])).toBe(
+                '@root',
+            );
+        });
     });
 
     describe('renderSpecifier — специфаер без расширения дает голую директорию', () => {
@@ -427,12 +462,32 @@ describe('renderAliasPath', () => {
         expect(renderAliasPath('/packages/pkg/src', aliases)).toEqual(rendered('@pkg'));
     });
 
-    it('беззвездочная запись ниже якоря подставляет хвост так же', () => {
+    it('беззвездочная запись ниже якоря не годится: путь не выражается точным ключом', () => {
+        // `paths: { '@pkg': ['packages/pkg/src'] }` совпадает только сам с собой: `@pkg/internal/thing`
+        // TypeScript не резолвит (TS2307), хотя прямое сопоставление WELD читает ключ префиксом.
+        // Специфаера, который принял бы и tsc, и правило, у этой записи для такого пути нет, поэтому
+        // ответ `null`: вызывающий печатает виртуальный путь, а не нерезолвимый алиас.
         const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src', star: false }];
 
-        expect(renderAliasPath('/packages/pkg/src/internal/thing', aliases)).toEqual(
-            rendered('@pkg/internal/thing'),
+        expect(renderAliasPath('/packages/pkg/src/internal/thing', aliases)).toBeNull();
+    });
+
+    it('точный ключ ниже якоря уступает широкому звездному: тот дает резолвимый специфаер', () => {
+        const exact: Alias = { prefix: '@config', anchor: '/src/config', star: false };
+        const star: Alias = { prefix: '@', anchor: '/src', star: true };
+
+        // Якорь точного ключа длиннее, но `@config/other.ts` TypeScript не находит; `@/config/other.ts`
+        // из звездной записи резолвится.
+        expect(renderAliasPath('/src/config/other.ts', [exact, star])).toEqual(
+            rendered('@/config/other.ts'),
         );
+    });
+
+    it('точный ключ на самом якоре выигрывает у широкого звездного', () => {
+        const exact: Alias = { prefix: '@config', anchor: '/src/config', star: false };
+        const star: Alias = { prefix: '@', anchor: '/src', star: true };
+
+        expect(renderAliasPath('/src/config', [exact, star])).toEqual(rendered('@config'));
     });
 
     it('выигрывает самый длинный покрывающий якорь', () => {
@@ -482,6 +537,15 @@ describe('renderAliasPath', () => {
         expect(renderAliasPath('/src/feature/internal', aliases)).toEqual(
             rendered('@/src/feature/internal'),
         );
+    });
+
+    it('беззвездочный корневой алиас не покрывает поддерево → null', () => {
+        // Та же годность, что и в `renderSpecifier`: точный ключ (`'@root': ['.']`) выражает только
+        // собственный якорь, поэтому поддерево ему не отдается — специфаер был бы нерезолвимым.
+        const aliases: Alias[] = [{ prefix: '@root', anchor: '/', star: false }];
+
+        expect(renderAliasPath('/src/feature/internal', aliases)).toBeNull();
+        expect(renderAliasPath('/', aliases)).toEqual(rendered('@root'));
     });
 
     it('самый длинный из нескольких: корневой алиас не перебивает точный', () => {

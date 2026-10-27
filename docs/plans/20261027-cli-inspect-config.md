@@ -143,7 +143,13 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
   `renderAliasPath(target, aliases): { specifier, needsFileName } | null` — обратный подбор алиаса
   по виртуальному пути (через существующие `longestCoveringAlias` / `renderAlias`); `needsFileName`
   говорит, что специфаер неполон (звездный ключ на самом якоре) и к нему надо дописать имя файла.
-  `renderSpecifier` не меняется.
+  Годится не любой покрывающий якорь: точный ключ (`@/config → src/config`) резолвит только сам
+  себя, поэтому путь ниже якоря он не выражает (`@/config/other.ts` — TS2307) и уступает более
+  широкому звездному алиасу, а без такого — `null`. Годность якоря (`coversAsSpecifier`) общая на
+  все обратное направление: ее же спрашивают якорная ветка `renderDirectory` и
+  `longestCoveringAlias`, которыми пользуется `renderSpecifier`, — поэтому беззвездочный ключ
+  покрывает только свой якорь и в фиксе правила, который иначе предлагал бы нерезолвимый
+  `@root/src/other` вместо относительного пути.
 - `src/cli/eslint-config.ts` — единственное место CLI, знающее про ESLint. Наружу отдает не
   `Linter.Config`, а минимум: `{ filePath, settings, options?, sampleOf? }`. Поэтому `eslint` не
   течет в рендер и команды. `options` — опции правила `weld/*` из того же конфига: при линте они

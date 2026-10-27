@@ -54,6 +54,15 @@ const EXACT_ALIAS_CONFIG = `export default [
 ];
 `;
 
+/** Точный ключ плюс широкий звездный: путь ниже точного якоря выражает только звездный. */
+const EXACT_AND_STAR_ALIAS_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@/config': ['src/config'], '@/*': ['src/*'] } } },
+    },
+];
+`;
+
 afterEach(() => {
     cleanupTmpProjects();
 });
@@ -130,6 +139,42 @@ describe('weld inspect', () => {
 
         expect(printed(out)).toBe(
             [`file:  ${root}/src/config/index.ts`, 'alias: @/config'].join('\n') + '\n',
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
+
+    it('точный ключ: файл ниже якоря печатается виртуальным путем', async () => {
+        // `paths: { '@/config': ['src/config'] }` не выражает `src/config/other.ts`: точный ключ
+        // совпадает только сам с собой, и `@/config/other.ts` TypeScript не находит. Специфаера из
+        // этой записи для такого файла нет, поэтому печатается виртуальный путь.
+        const root = makeCliProject({
+            'eslint.config.mjs': EXACT_ALIAS_CONFIG,
+            'src/config/other.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/config/other.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [`file:  ${root}/src/config/other.ts`, 'alias: /src/config/other.ts'].join('\n') + '\n',
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
+
+    it('точный ключ ниже якоря уступает широкому звездному', async () => {
+        // Якорь точного ключа длиннее, но резолвится только звездный специфаер.
+        const root = makeCliProject({
+            'eslint.config.mjs': EXACT_AND_STAR_ALIAS_CONFIG,
+            'src/config/other.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/config/other.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [`file:  ${root}/src/config/other.ts`, 'alias: @/config/other.ts'].join('\n') + '\n',
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
