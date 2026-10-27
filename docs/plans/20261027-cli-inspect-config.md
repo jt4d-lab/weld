@@ -316,14 +316,14 @@ settings.weld:
 - Create: `src/cli/render.ts`
 - Create: `src/cli/render.test.ts`
 
-- [ ] `renderInspect(data, { color })` и `renderConfig(data, { color })` — текстовый вывод из
+- [x] `renderInspect(data, { color })` и `renderConfig(data, { color })` — текстовый вывод из
       Technical Details; цвета через `picocolors.createColors(color)`
-- [ ] `renderJson(value)` — `JSON.stringify(value, null, 2)`, без цветов
-- [ ] выравнивание подписей `settings.weld` и форма `prefix/* → anchor/*` для алиасов
-- [ ] тесты: файл и директория; пустые алиасы → `(none)`; один и несколько алиасов; `color: false`
+- [x] `renderJson(value)` — `JSON.stringify(value, null, 2)`, без цветов
+- [x] выравнивание подписей `settings.weld` и форма `prefix/* → anchor/*` для алиасов
+- [x] тесты: файл и директория; пустые алиасы → `(none)`; один и несколько алиасов; `color: false`
       дает чистый текст без escape-последовательностей; JSON-формы обеих команд (`alias: null`,
       отсутствующий `sampleOf`)
-- [ ] `yarn test` — зеленый до перехода к задаче 6
+- [x] `yarn test` — зеленый до перехода к задаче 6
 
 ### Task 6: Команды `inspect` и `config`
 

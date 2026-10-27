@@ -61,7 +61,8 @@
     },
     "dependencies": {
         "debug": "^4.4.0",
-        "get-tsconfig": "^4.14.3"
+        "get-tsconfig": "^4.14.3",
+        "picocolors": "^1.1.1"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.0",
