@@ -247,29 +247,29 @@ settings.weld:
 - Create: `src/config/resolve.test.ts`
 - Modify: `src/rules/context.ts`
 
-- [ ] перенести `resolveHostAndAliases`/`aliasesFromTsconfig` в `src/config/resolve.ts` как
+- [x] перенести `resolveHostAndAliases`/`aliasesFromTsconfig` в `src/config/resolve.ts` как
       `resolveForFile(input, fsHostOverride?)` над обычным объектом; `eslint` в модуль не
       импортируется
-- [ ] вернуть `WeldTarget` с ленивыми `getFromFile`/`getRoot`/`getFsHost`/`getAliases`: каждая часть
+- [x] вернуть `WeldTarget` с ленивыми `getFromFile`/`getRoot`/`getFsHost`/`getAliases`: каждая часть
       считается по первому обращению и мемоизируется; `getRoot` — из `resolveRoot` с якорями
       tsconfig, `null` при инъекции `FsHost`
-- [ ] tsconfig — ленивая часть внутри `getRoot`/`getAliases`: при явных алиасах он не читается вовсе
+- [x] tsconfig — ленивая часть внутри `getRoot`/`getAliases`: при явных алиасах он не читается вовсе
       (сегодняшнее поведение), иначе проекты с `settings.weld.aliases` платили бы за поиск tsconfig
       на первом файле директории
-- [ ] `src/rules/context.ts` — адаптер: собирает вход из `Rule.RuleContext`, читает нужные части и
+- [x] `src/rules/context.ts` — адаптер: собирает вход из `Rule.RuleContext`, читает нужные части и
       возвращает прежний `WeldContext`; про ESLint-типы знает только он
-- [ ] тесты `src/config/resolve.test.ts` на вход без контекста: базовый резолв, `getFromFile()` →
+- [x] тесты `src/config/resolve.test.ts` на вход без контекста: базовый резолв, `getFromFile()` →
       `null` вне корня, приоритет опций, кривой tsconfig, `getRoot()` покрывает якоря, `root: null`
       при инъекции `FsHost`
-- [ ] тесты на ленивость: `getRoot()` не бросает на кривых `aliases`; `resolveForFile` сам по себе
+- [x] тесты на ленивость: `getRoot()` не бросает на кривых `aliases`; `resolveForFile` сам по себе
       не бросает на кривых `aliases` — исключение только из `getAliases()`; повторное обращение к
       части не пересчитывает ее (tsconfig читается один раз)
-- [ ] тест на отсутствие регрессии: при явных алиасах `getRoot()` не бросает на кривом типе
+- [x] тест на отсутствие регрессии: при явных алиасах `getRoot()` не бросает на кривом типе
       `settings.weld.tsconfig` (например, `42`) — значит `getTsconfigName` не вызывался
-- [ ] сохранить семантику: приоритет `options.aliases` → `settings.weld.aliases` → tsconfig; пустой
+- [x] сохранить семантику: приоритет `options.aliases` → `settings.weld.aliases` → tsconfig; пустой
       `{}` выключает автопоиск; `fsHostOverride` выключает автопоиск; кривой tsconfig → debug +
       пустые алиасы; tsconfig вне явного root отбрасывается
-- [ ] `yarn test`: `src/rules/context.test.ts` (≈30 кейсов) и тесты `no-barrel-bypass` проходят
+- [x] `yarn test`: `src/rules/context.test.ts` (≈30 кейсов) и тесты `no-barrel-bypass` проходят
       **без правок** — рефакторинг не изменил поведения
 
 ### Task 3: Обратный рендер алиаса в слое импортов
