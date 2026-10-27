@@ -66,7 +66,7 @@ describe('опции правила перекрывают settings.weld', () =>
             valid: [],
             invalid: [
                 {
-                    name: 'обе настройки заданы только опциями, settings.weld ведёт в никуда',
+                    name: 'обе настройки заданы только опциями, settings.weld ведет в никуда',
                     code: "import { a } from '@other/internal.ts';",
                     filename: '/repo/src/feature/file.ts',
                     settings: {

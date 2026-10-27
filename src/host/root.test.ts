@@ -40,20 +40,20 @@ describe('findRepoRoot', () => {
         expect(findRepoRoot('/a/b', exists)).toBe('/a');
     });
 
-    it('подъём останавливается на корне ФС (unix), не зацикливаясь', () => {
+    it('подъем останавливается на корне ФС (unix), не зацикливаясь', () => {
         const exists = vi.fn(() => false);
 
         expect(findRepoRoot('/a/b', exists)).toBeNull();
         expect(exists.mock.calls.length).toBeLessThan(20);
     });
 
-    it('подъём останавливается на корне ФС (Windows-корень C:/)', () => {
+    it('подъем останавливается на корне ФС (Windows-корень C:/)', () => {
         const exists = createFakeExists(['C:/a/package.json']);
 
         expect(findRepoRoot('C:/a/b/c', exists)).toBe('C:/a');
     });
 
-    it('подъём до Windows-корня не зацикливается, если ничего не найдено', () => {
+    it('подъем до Windows-корня не зацикливается, если ничего не найдено', () => {
         const exists = vi.fn(() => false);
 
         expect(findRepoRoot('C:/a/b', exists)).toBeNull();

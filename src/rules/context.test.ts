@@ -96,7 +96,7 @@ describe('resolveWeldContext', () => {
         expect(weld?.aliases).toEqual([{ prefix: '@a', anchor: '/src/a' }]);
     });
 
-    it('options.tsconfig перекрывает settings.weld.tsconfig в разрешённых опциях', () => {
+    it('options.tsconfig перекрывает settings.weld.tsconfig в разрешенных опциях', () => {
         const weld = resolveWeldContext(
             fakeContext({
                 filename: '/src/feature/file.ts',
@@ -385,7 +385,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
             'app/src/consumer.ts': 'export {};\n',
         });
 
-        // Единственный якорь — в node_modules: root остаётся `cwd`, база paths (корень проекта)
+        // Единственный якорь — в node_modules: root остается `cwd`, база paths (корень проекта)
         // оказывается вне root → алиасов нет, но линт живой.
         const weld = resolveWeldContext(
             fakeContext({ filename: `${proj}/app/src/consumer.ts`, cwd: `${proj}/app` }),
@@ -486,7 +486,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
         expect(weld?.aliases).toEqual([{ prefix: '@shared', anchor: '/shared' }]);
     });
 
-    it('подстановка ${configDir} в baseUrl и значениях paths даёт рабочие алиасы', () => {
+    it('подстановка ${configDir} в baseUrl и значениях paths дает рабочие алиасы', () => {
         const proj = makeTmpProject({
             'tsconfig.json': JSON.stringify({
                 compilerOptions: {

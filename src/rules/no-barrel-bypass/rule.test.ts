@@ -129,7 +129,7 @@ describe('weld/no-barrel-bypass', () => {
         });
     });
 
-    it('нарушение с алиасом приходит с исправленным путём в форме алиаса', () => {
+    it('нарушение с алиасом приходит с исправленным путем в форме алиаса', () => {
         ruleTester.run('no-barrel-bypass alias', rule, {
             valid: [],
             invalid: [
@@ -197,7 +197,7 @@ describe('weld/no-barrel-bypass', () => {
         });
     });
 
-    it('сообщение указывается на строковом литерале пути, а не на всём операторе', () => {
+    it('сообщение указывается на строковом литерале пути, а не на всем операторе', () => {
         ruleTester.run('no-barrel-bypass location', rule, {
             valid: [],
             invalid: [
@@ -219,7 +219,7 @@ describe('weld/no-barrel-bypass', () => {
         });
     });
 
-    it('стиль кавычек в правке берётся из исходного литерала', () => {
+    it('стиль кавычек в правке берется из исходного литерала', () => {
         ruleTester.run('no-barrel-bypass quotes', rule, {
             valid: [],
             invalid: [

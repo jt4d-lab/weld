@@ -73,7 +73,7 @@ describe('getAliasesBaseUrl', () => {
 });
 
 describe('getAliases', () => {
-    it('якоря отсчитываются от aliasesBaseUrl: тот же объект aliases при другом aliasesBaseUrl даёт другие якоря', () => {
+    it('якоря отсчитываются от aliasesBaseUrl: тот же объект aliases при другом aliasesBaseUrl дает другие якоря', () => {
         const aliases = { '@src/*': ['src/*'] };
 
         const fromRoot = getAliases({ weld: { aliases } });
@@ -153,7 +153,7 @@ describe('getAliases — кэш', () => {
 });
 
 describe('getAliasesFromPaths', () => {
-    it('валидные paths дают те же Alias[], что settings.weld.aliases с тем же базовым путём', () => {
+    it('валидные paths дают те же Alias[], что settings.weld.aliases с тем же базовым путем', () => {
         const paths = { '@src/*': ['src/*'], '@lib': ['lib/index.ts'] };
 
         const fromPaths = getAliasesFromPaths(paths, '/packages/app', 'tsconfig.json');
@@ -235,7 +235,7 @@ describe('override', () => {
         ).toEqual([{ prefix: '@src', anchor: '/packages/app/src' }]);
     });
 
-    it('override aliasesBaseUrl задаёт якоря алиасам из settings', () => {
+    it('override aliasesBaseUrl задает якоря алиасам из settings', () => {
         const settings = {
             weld: { aliasesBaseUrl: 'packages/app', aliases: { '@src/*': ['src/*'] } },
         };
@@ -255,7 +255,7 @@ describe('override', () => {
         ]);
     });
 
-    it('тот же объект aliases при другом override aliasesBaseUrl даёт другие якоря', () => {
+    it('тот же объект aliases при другом override aliasesBaseUrl дает другие якоря', () => {
         const aliases = { '@src/*': ['src/*'] };
 
         const fromApp = getAliases({}, aliases, 'packages/app');

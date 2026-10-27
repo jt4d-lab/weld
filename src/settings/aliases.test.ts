@@ -14,7 +14,7 @@ describe('parseAliases — таблица нормализации', () => {
         expect(parse({ '@src/*': ['src/*'] }, '.')).toEqual([{ prefix: '@src', anchor: '/src' }]);
     });
 
-    it("'@pkg': ['packages/pkg/src/index.ts'] → якорь берёт директорию index-файла", () => {
+    it("'@pkg': ['packages/pkg/src/index.ts'] → якорь берет директорию index-файла", () => {
         expect(parse({ '@pkg': ['packages/pkg/src/index.ts'] }, '.')).toEqual([
             { prefix: '@pkg', anchor: '/packages/pkg/src' },
         ]);
@@ -36,11 +36,11 @@ describe('parseAliases — отбрасывание', () => {
         expect(parse({ '*': ['src'] }, '.')).toEqual([]);
     });
 
-    it('звёздочка в середине ключа отбрасывается', () => {
+    it('звездочка в середине ключа отбрасывается', () => {
         expect(parse({ '@a*b': ['src'] }, '.')).toEqual([]);
     });
 
-    it('звёздочка в середине якоря отбрасывается', () => {
+    it('звездочка в середине якоря отбрасывается', () => {
         expect(parse({ '@a': ['sr*c'] }, '.')).toEqual([]);
     });
 

@@ -129,7 +129,7 @@ describe('createFsHost.hasEntryPoint', () => {
         expect(exists).toHaveBeenCalledWith('/repo/src/src');
     });
 
-    it('ответ «директории нет» кэшируется: повторный вызов не дёргает exists снова', () => {
+    it('ответ «директории нет» кэшируется: повторный вызов не дергает exists снова', () => {
         const exists = vi.fn(() => false);
         const fsHost = createFsHost('/repo', { exists, now: () => 0 });
 
@@ -147,7 +147,7 @@ describe('createFsHost.hasEntryPoint', () => {
         expect(exists).not.toHaveBeenCalled();
     });
 
-    it('положительный ответ кэшируется: повторный вызов не дёргает exists снова', () => {
+    it('положительный ответ кэшируется: повторный вызов не дергает exists снова', () => {
         const exists = vi.fn(() => true);
         const fsHost = createFsHost('/repo', { exists, now: () => 0 });
 
@@ -197,7 +197,7 @@ describe('createFsHost.findModuleTarget', () => {
         );
     });
 
-    it('ответ про точку входа остаётся в кэше: hasEntryPoint не дёргает диск заново', () => {
+    it('ответ про точку входа остается в кэше: hasEntryPoint не дергает диск заново', () => {
         const exists = vi.fn(
             createFakeExists([
                 '/repo/src/feature/account.entity',
@@ -240,7 +240,7 @@ describe('createFsHost.findModuleTarget', () => {
         expect(fsHost.findModuleTarget('src/feature/account.entity')).toBeNull();
     });
 
-    it('кэширует результат: повторный вызов не дёргает exists', () => {
+    it('кэширует результат: повторный вызов не дергает exists', () => {
         const exists = vi.fn(createFakeExists(['/repo/src/feature/account.entity.ts']));
         const fsHost = createFsHost('/repo', { exists, now: () => 0 });
 
@@ -253,7 +253,7 @@ describe('createFsHost.findModuleTarget', () => {
 });
 
 describe('createFsHost: TTL-кэш', () => {
-    it('положительный ответ в пределах 10 минут — кэш ещё живой', () => {
+    it('положительный ответ в пределах 10 минут — кэш еще живой', () => {
         let time = 0;
         const exists = vi.fn(() => true);
         const fsHost = createFsHost('/repo', { exists, now: () => time });
@@ -278,7 +278,7 @@ describe('createFsHost: TTL-кэш', () => {
         expect(exists).toHaveBeenCalledTimes(4);
     });
 
-    it('отрицательный ответ живёт своим, коротким сроком: 5 секунд — уже перепроверка', () => {
+    it('отрицательный ответ живет своим, коротким сроком: 5 секунд — уже перепроверка', () => {
         let time = 0;
         const exists = vi.fn(createFakeExists(['/repo/src/feature']));
         const fsHost = createFsHost('/repo', { exists, now: () => time });
@@ -288,11 +288,11 @@ describe('createFsHost: TTL-кэш', () => {
         expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
 
         // Дописанный за это время index.<ext> правило увидит, не дожидаясь десяти минут. Директорию
-        // при этом не перепроверяет: её наличие — положительный ответ, у него срок прежний.
+        // при этом не перепроверяет: ее наличие — положительный ответ, у него срок прежний.
         expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length * 2);
     });
 
-    it('отрицательный ответ в пределах 5 секунд — кэш ещё живой', () => {
+    it('отрицательный ответ в пределах 5 секунд — кэш еще живой', () => {
         let time = 0;
         const exists = vi.fn(createFakeExists(['/repo/src/feature']));
         const fsHost = createFsHost('/repo', { exists, now: () => time });
@@ -338,7 +338,7 @@ describe('getFsHost', () => {
         expect(fsHost.toVirtual('/home/user/repo/packages/app/x.ts')).toBe('/x.ts');
     });
 
-    it('относительный root с подъёмом ..', () => {
+    it('относительный root с подъемом ..', () => {
         const settings = { weld: { repoRoot: '../shared' } };
         const fsHost = getFsHost(settings, '/home/user/repo/packages/app');
 

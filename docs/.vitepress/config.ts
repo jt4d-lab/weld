@@ -12,7 +12,7 @@ export default withMermaid(
             // https://vitepress.dev/reference/default-theme-config
             nav: [
                 { text: 'Документация', link: '/get-started/overview' },
-                { text: 'Концепции', link: '/core-concepts' },
+                { text: 'Концепции', link: '/concepts' },
                 { text: 'ESLint', link: '/rules/install' },
             ],
 
@@ -24,20 +24,20 @@ export default withMermaid(
                 {
                     text: 'Концепции',
                     items: [
-                        { text: 'Публичный API директории', link: '/core-concepts/public-api' },
+                        { text: 'Публичный API директории', link: '/concepts/public-api' },
                         {
                             text: 'Однонаправленность зависимостей',
-                            link: '/core-concepts/direction',
+                            link: '/concepts/direction',
                         },
-                        { text: 'Слои задаёт проект', link: '/core-concepts/layers' },
-                        { text: 'Модули', link: '/core-concepts/modules' },
-                        { text: 'Вложенные модули', link: '/core-concepts/nested-modules' },
+                        { text: 'Слои задает проект', link: '/concepts/layers' },
+                        { text: 'Модули', link: '/concepts/modules' },
+                        { text: 'Вложенные модули', link: '/concepts/nested-modules' },
                     ],
                 },
                 {
                     text: 'Механики',
                     items: [
-                        { text: 'Схема слоёв', link: '/mechanics/layers' },
+                        { text: 'Схема слоев', link: '/mechanics/layers' },
                         { text: 'Приватность', link: '/mechanics/privacy' },
                     ],
                 },

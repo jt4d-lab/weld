@@ -62,7 +62,7 @@ src/
 
 **Например,** конфигурация:
 
-`layers: common, @modules, pages, app` <br/>`moduleLayers: entities, widgets`
+`layers: app, pages, @modules, common` <br/>`moduleLayers: widgets, entities`
 
 задает следующий порядок слоев:
 
@@ -141,7 +141,7 @@ src/ icon(src)
 слоя из `moduleLayers`, вся ветка модуля с этим именем относится к слою — целиком, на любой глубине
 внутри нее. Глубже слой не ищется: имена внутри ветки принадлежность не меняют.
 
-> При `moduleLayers: entities, widgets` в примере выше, директория `users/widgets` и все ее
+> При `moduleLayers: widgets, entities` в примере выше, директория `users/widgets` и все ее
 > содержимое относится к слою `widgets`, а директория `users/entities` - к слою `entities`.
 >
 > Даже если внутри `widgets` появится директория `entities`, она останется частью `widgets`: слой

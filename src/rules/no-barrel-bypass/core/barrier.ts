@@ -31,7 +31,7 @@ export function findBarrier(
     const targetDir = dirname(targetPath);
     const targetDirSegments = segments(targetDir);
 
-    // Глубина общей директории — она же индекс первого сегмента ниже неё.
+    // Глубина общей директории — она же индекс первого сегмента ниже нее.
     const depth = commonDepth(fromDir, targetDir);
 
     // Спуск от общей директории вниз к цели: путь наращивается посегментно, а не пересобирается.
