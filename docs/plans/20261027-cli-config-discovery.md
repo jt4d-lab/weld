@@ -243,23 +243,23 @@ smoke, документация, проверка.
 - Modify: `src/cli/eslint-config.ts`
 - Modify: `src/cli/eslint-config.test.ts`
 
-- [ ] третий аргумент `config?: string`; `configFile` в `LintSettings`
-- [ ] стартовая директория поиска: файл → `dirname`, директория → сам путь (после `statOf`)
-- [ ] конфига нет → `no eslint config found for <path>` до создания ESLint
-- [ ] ESLint создается с `cwd = config === undefined ? dirname(configFile) : cwd` и
+- [x] третий аргумент `config?: string`; `configFile` в `LintSettings`
+- [x] стартовая директория поиска: файл → `dirname`, директория → сам путь (после `statOf`)
+- [x] конфига нет → `no eslint config found for <path>` до создания ESLint
+- [x] ESLint создается с `cwd = config === undefined ? dirname(configFile) : cwd` и
       `overrideConfigFile = configFile`
-- [ ] удалить `isMissingConfigError` и `configForFile`-ветку: при заданном `overrideConfigFile` они
+- [x] удалить `isMissingConfigError` и `configForFile`-ветку: при заданном `overrideConfigFile` они
       недостижимы; тесты «проект без конфига» перевести на свой поиск (текст ошибки тот же)
-- [ ] ошибка загрузки TS-конфига (ESLint 9: `Unknown file extension ".ts"`) отображается в понятное
+- [x] ошибка загрузки TS-конфига (ESLint 9: `Unknown file extension ".ts"`) отображается в понятное
       сообщение про `unstable_ts_config` и `--config` с JS-конфигом
-- [ ] обновить `toEqual`-ассерты (`eslint-config.test.ts:37, 120`): в объект добавляется
+- [x] обновить `toEqual`-ассерты (`eslint-config.test.ts:37, 120`): в объект добавляется
       `configFile`
-- [ ] тесты: вложенный пакетный конфиг выигрывает у корневого (файл в пакете при `cwd` = корень
+- [x] тесты: вложенный пакетный конфиг выигрывает у корневого (файл в пакете при `cwd` = корень
       проекта); `configFile` в результате; `--config` отменяет поиск и считает шаблоны от `cwd`
       (файл вне директории конфига все равно получает его настройки); `--config` на отсутствующий
       путь → `config path does not exist`; проект без конфига → `no eslint config found`; конфиг над
       корнем проекта (выше tmp-директории) — настройки применяются
-- [ ] `yarn test` — зеленый до перехода к задаче 3
+- [x] `yarn test` — зеленый до перехода к задаче 3
 
 ### Задача 3: Глобальная опция `--config`
 

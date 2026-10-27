@@ -140,6 +140,7 @@ describe('createProgram: шов loadLintSettings', () => {
         const { program, out } = capture(root, {
             loadLintSettings: async (path) => ({
                 filePath: `${root}/${path}`,
+                configFile: `${root}/eslint.config.mjs`,
                 settings: { weld: { aliases: { '@/*': ['src/*'] } } },
             }),
         });

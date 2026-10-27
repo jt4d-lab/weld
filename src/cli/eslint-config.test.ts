@@ -3,9 +3,9 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
+import { cleanupTmpProjects, linkRepoNodeModules, makeTmpProject } from '@/testing/index.js';
 
-import { loadLintSettings } from './eslint-config.js';
+import { explainConfigLoadError, loadLintSettings } from './eslint-config.js';
 import { makeCliProject } from './program.testing.js';
 
 /**
@@ -24,18 +24,46 @@ const CONFIG = `export default [
 
 const WELD_SETTINGS = { weld: { aliases: { '@/*': ['src/*'] } } };
 
+/** Конфиг вложенного пакета: свои настройки, чтобы выбор конфига было видно по результату. */
+const PACKAGE_CONFIG = `export default [
+    {
+        files: ['**/*.js'],
+        settings: { weld: { aliases: { '@pkg/*': ['src/*'] } } },
+    },
+];
+`;
+
+const PACKAGE_SETTINGS = { weld: { aliases: { '@pkg/*': ['src/*'] } } };
+
+/**
+ * Конфиг вне директории цели (`--config`): `files` отсчитываются от `cwd` пользователя, поэтому
+ * шаблон покрывает файл, лежащий выше самого конфига.
+ */
+const OTHER_CONFIG_PATH = 'configs/other.config.mjs';
+
+const OTHER_CONFIG = `export default [
+    {
+        files: ['**/*.js'],
+        settings: { weld: { aliases: { '@other/*': ['src/*'] } } },
+    },
+];
+`;
+
+const OTHER_SETTINGS = { weld: { aliases: { '@other/*': ['src/*'] } } };
+
 afterEach(() => {
     cleanupTmpProjects();
 });
 
 describe('loadLintSettings: файл', () => {
-    it('отдает filePath и settings из эффективного конфига, без sampleOf', async () => {
+    it('отдает filePath, configFile и settings из эффективного конфига, без sampleOf', async () => {
         const root = makeCliProject({ 'eslint.config.mjs': CONFIG, 'src/a.js': '' });
 
         const result = await loadLintSettings('src/a.js', root);
 
         expect(result).toEqual({
             filePath: `${root}/src/a.js`,
+            configFile: `${root}/eslint.config.mjs`,
             settings: WELD_SETTINGS,
         });
     });
@@ -47,8 +75,75 @@ describe('loadLintSettings: файл', () => {
 
         expect(result).toEqual({
             filePath: `${root}/src/a.js`,
+            configFile: `${root}/eslint.config.mjs`,
             settings: WELD_SETTINGS,
         });
+    });
+
+    it('вложенный пакетный конфиг выигрывает у корневого', async () => {
+        // Раньше ESLint искал конфиг от `cwd`, и из корня монорепа был виден только корневой: файл
+        // пакета получал чужие настройки.
+        const root = makeCliProject({
+            'eslint.config.mjs': CONFIG,
+            'packages/app/eslint.config.mjs': PACKAGE_CONFIG,
+            'packages/app/src/a.js': '',
+            'src/b.js': '',
+        });
+
+        const inPackage = await loadLintSettings('packages/app/src/a.js', root);
+        const inRoot = await loadLintSettings('src/b.js', root);
+
+        expect(inPackage).toEqual({
+            filePath: `${root}/packages/app/src/a.js`,
+            configFile: `${root}/packages/app/eslint.config.mjs`,
+            settings: PACKAGE_SETTINGS,
+        });
+        expect(inRoot.configFile).toBe(`${root}/eslint.config.mjs`);
+    });
+
+    it('конфиг над корнем проекта тоже применяется', async () => {
+        // Проект без своего конфига: поиск уходит выше временной директории, но `cwd` ESLint —
+        // директория найденного конфига, поэтому файл проекта остается в области его шаблонов.
+        const outer = makeTmpProject({
+            'eslint.config.mjs': CONFIG,
+            'project/src/a.js': '',
+        });
+        const root = join(outer, 'project');
+        linkRepoNodeModules(root);
+
+        const result = await loadLintSettings('src/a.js', root);
+
+        expect(result).toEqual({
+            filePath: `${root}/src/a.js`,
+            configFile: `${outer}/eslint.config.mjs`,
+            settings: WELD_SETTINGS,
+        });
+    });
+
+    it('--config отменяет поиск: настройки берутся из указанного конфига', async () => {
+        // Файл лежит выше директории конфига, и шаблон `files` все равно его покрывает: при
+        // `--config` `cwd` ESLint — директория пользователя, как у `eslint --config`.
+        const root = makeCliProject({
+            'eslint.config.mjs': CONFIG,
+            [OTHER_CONFIG_PATH]: OTHER_CONFIG,
+            'src/a.js': '',
+        });
+
+        const result = await loadLintSettings('src/a.js', root, OTHER_CONFIG_PATH);
+
+        expect(result).toEqual({
+            filePath: `${root}/src/a.js`,
+            configFile: `${root}/${OTHER_CONFIG_PATH}`,
+            settings: OTHER_SETTINGS,
+        });
+    });
+
+    it('--config на отсутствующий путь → ошибка про путь конфига', async () => {
+        const root = makeCliProject({ 'eslint.config.mjs': CONFIG, 'src/a.js': '' });
+
+        await expect(loadLintSettings('src/a.js', root, 'nope.config.mjs')).rejects.toThrow(
+            'config path does not exist: nope.config.mjs',
+        );
     });
 
     it('опции правила уходят наружу вместе с настройками', async () => {
@@ -121,6 +216,7 @@ describe('loadLintSettings: директория', () => {
 
         expect(result).toEqual({
             filePath: `${root}/src/a.js`,
+            configFile: `${root}/eslint.config.mjs`,
             settings: WELD_SETTINGS,
             sampleOf: 'src',
         });
@@ -187,6 +283,23 @@ describe('loadLintSettings: директория', () => {
         expect(result.filePath).toBe(`${root}/src/link.js`);
     });
 
+    it('--config отменяет поиск: сэмпл ищется под указанным конфигом', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': CONFIG,
+            [OTHER_CONFIG_PATH]: OTHER_CONFIG,
+            'src/a.js': '',
+        });
+
+        const result = await loadLintSettings('src', root, OTHER_CONFIG_PATH);
+
+        expect(result).toEqual({
+            filePath: `${root}/src/a.js`,
+            configFile: `${root}/${OTHER_CONFIG_PATH}`,
+            settings: OTHER_SETTINGS,
+            sampleOf: 'src',
+        });
+    });
+
     it('пустая директория → ошибка', async () => {
         const root = makeCliProject({ 'eslint.config.mjs': CONFIG, 'src/keep.txt': '' });
 
@@ -199,5 +312,40 @@ describe('loadLintSettings: директория', () => {
         await expect(loadLintSettings('src', root)).rejects.toThrow(
             'no eslint config found for src',
         );
+    });
+});
+
+describe('explainConfigLoadError', () => {
+    const configFile = '/project/eslint.config.ts';
+
+    it('ошибку ESLint 9 про TS-конфиг объясняет причиной и выходом', () => {
+        const cause = new Error(`Unknown file extension ".ts" for ${configFile}`);
+
+        const error = explainConfigLoadError(cause, configFile);
+
+        expect(error.message).toBe(
+            `eslint config ${configFile} is a TypeScript file and this ESLint version cannot load ` +
+                'it: enable `unstable_ts_config` or point `--config` at a JavaScript config',
+        );
+        expect(error.cause).toBe(cause);
+    });
+
+    it('mts и cts — те же TS-конфиги', () => {
+        const error = explainConfigLoadError(
+            new Error('Unknown file extension ".mts" for /project/eslint.config.mts'),
+            '/project/eslint.config.mts',
+        );
+
+        expect(error.message).toContain('enable `unstable_ts_config`');
+    });
+
+    it('прочие ошибки отдает как есть', () => {
+        const cause = new Error('something else');
+
+        expect(explainConfigLoadError(cause, '/project/eslint.config.mjs')).toBe(cause);
+    });
+
+    it('не-Error превращает в Error с тем же текстом', () => {
+        expect(explainConfigLoadError('boom', '/project/eslint.config.mjs').message).toBe('boom');
     });
 });

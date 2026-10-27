@@ -1,7 +1,7 @@
 /**
  * Единственное место CLI, которое знает про ESLint: путь → `settings` эффективного ESLint-конфига.
- * Наружу отдается минимум (`{ filePath, settings, options?, sampleOf? }`), а не `Linter.Config`,
- * поэтому `eslint` не течет ни в рендер вывода, ни в команды.
+ * Наружу отдается минимум (`{ filePath, configFile, settings, options?, sampleOf? }`), а не
+ * `Linter.Config`, поэтому `eslint` не течет ни в рендер вывода, ни в команды.
  *
  * `eslint` грузится динамически: статический `import` упал бы на загрузке модуля, до любой
  * диагностики, и в проекте без ESLint пользователь увидел бы стектрейс вместо сообщения. Ищется он
@@ -9,17 +9,18 @@
  * `npx` из другой директории обязан найти тот `eslint`, который в проекте действительно есть.
  *
  * Обход директории за сэмплом и `stat` живут отдельно, в `sample.ts`: у этого модуля одна работа —
- * загрузка `eslint` и чтение его конфига.
+ * загрузка `eslint` и чтение его конфига. Поиск самого конфига — в `config-file.ts`.
  */
 
 import { createRequire } from 'node:module';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { ESLint, Linter } from 'eslint';
 
 import type { WeldResolveOptions } from '@/config/index.js';
 
+import { findConfigFile, resolveConfigFile } from './config-file.js';
 import { findSample, messageOf, statOf } from './sample.js';
 
 /**
@@ -29,6 +30,11 @@ import { findSample, messageOf, statOf } from './sample.js';
  */
 export type LintSettings = {
     filePath: string;
+    /**
+     * Абсолютный путь конфига, чьи настройки ушли наружу. Его печатает `weld config`, и он же —
+     * `cwd` инстанса ESLint: шаблоны `files`/`ignores` считаются от директории конфига.
+     */
+    configFile: string;
     settings: unknown;
     options?: WeldResolveOptions;
     sampleOf?: string;
@@ -82,48 +88,54 @@ async function importEslint(cwd: string) {
     }
 }
 
-/** `ESLint` из проекта: `loadESLint()` берет flat-конфиг и на ESLint 9, и на ESLint 10. */
-async function createEslint(cwd: string): Promise<ESLint> {
-    const { loadESLint } = await importEslint(cwd);
+/**
+ * `ESLint` из проекта: `loadESLint()` берет flat-конфиг и на ESLint 9, и на ESLint 10.
+ * `userCwd` — только якорь поиска пакета `eslint`; `eslintOptions` — что видит сам ESLint.
+ */
+async function createEslint(
+    userCwd: string,
+    eslintOptions: { cwd: string; overrideConfigFile: string },
+): Promise<ESLint> {
+    const { loadESLint } = await importEslint(userCwd);
     const ESLintCtor = await loadESLint();
 
-    return new ESLintCtor({ cwd });
+    return new ESLintCtor(eslintOptions);
 }
 
 /**
- * Отсутствие конфига в проекте ESLint помечает `messageTemplate`, а не только текстом: текст правила
- * еще и переводят, а признак — часть API. Регэксп остается запасным вариантом для версий, где
- * `messageTemplate` у этой ошибки нет.
+ * Ошибка загрузки конфига в понятном виде. На ESLint 9 TS-конфиг падает на нативном `import()`
+ * (`Unknown file extension ".ts"`): находить его поиском правильно — так же поступает ESLint 10, — но
+ * пользователю нужна причина и выход, а не текст движка. Остальные ошибки отдаются как есть.
  */
-function isMissingConfigError(error: unknown): boolean {
+export function explainConfigLoadError(error: unknown, configFile: string): Error {
     if (!(error instanceof Error)) {
-        return false;
+        return new Error(messageOf(error));
     }
 
-    const { messageTemplate } = error as { messageTemplate?: unknown };
-    return (
-        messageTemplate === 'config-file-missing' ||
-        /could not find config file/i.test(error.message)
+    if (!/unknown file extension "\.[mc]?ts"/i.test(error.message)) {
+        return error;
+    }
+
+    return new Error(
+        `eslint config ${configFile} is a TypeScript file and this ESLint version cannot load it: ` +
+            'enable `unstable_ts_config` or point `--config` at a JavaScript config',
+        { cause: error },
     );
 }
 
 /**
- * Конфиг конкретного файла. Отсутствие конфига в проекте и игнорируемый файл — разные ошибки:
- * первое означает, что CLI нечего показать, второе — что файл вне зоны действия ESLint.
+ * Конфиг конкретного файла. Наличие конфига в проекте проверено до создания ESLint, поэтому здесь
+ * остаются только ошибки загрузки и `undefined` — файл, который ESLint игнорирует.
  */
 async function configForFile(
     eslint: ESLint,
+    configFile: string,
     filePath: string,
-    shownPath: string,
 ): Promise<Linter.Config | undefined> {
     try {
         return await eslint.calculateConfigForFile(filePath);
     } catch (error) {
-        if (!isMissingConfigError(error)) {
-            throw error;
-        }
-
-        throw new Error(`no eslint config found for ${shownPath}`, { cause: error });
+        throw explainConfigLoadError(error, configFile);
     }
 }
 
@@ -149,7 +161,7 @@ function weldOptions(config: Linter.Config): WeldResolveOptions | undefined {
 }
 
 /** Настройки и опции файла: `settings.weld` вместе с опциями правила, если они в конфиге есть. */
-function settingsOf(config: Linter.Config): Omit<LintSettings, 'filePath'> {
+function settingsOf(config: Linter.Config): Omit<LintSettings, 'filePath' | 'configFile'> {
     const options = weldOptions(config);
 
     return options === undefined
@@ -158,11 +170,16 @@ function settingsOf(config: Linter.Config): Omit<LintSettings, 'filePath'> {
 }
 
 /**
- * Настройки ESLint для файла или директории. Путь резолвится от `cwd`; для директории берется
- * сэмпл — первый линтуемый файл, потому что эффективный конфиг спрашивается у файла, а не у
- * директории.
+ * Настройки ESLint для файла или директории. Путь резолвится от `cwd`, конфиг ищется вверх от
+ * директории цели (у файла — от его директории): для директории он выбирается по самому пути, а
+ * сэмпл — лишь представительский файл, чьи настройки читаются. `config` (флаг `--config`) отменяет
+ * поиск и ведет себя как `eslint --config`.
  */
-export async function loadLintSettings(path: string, cwd: string): Promise<LintSettings> {
+export async function loadLintSettings(
+    path: string,
+    cwd: string,
+    config?: string,
+): Promise<LintSettings> {
     const target = resolve(cwd, path);
     const stats = statOf(target);
 
@@ -170,25 +187,47 @@ export async function loadLintSettings(path: string, cwd: string): Promise<LintS
         throw new Error(`path does not exist: ${path}`);
     }
 
-    const eslint = await createEslint(cwd);
+    const configFile =
+        config === undefined
+            ? findConfigFile(stats.isDirectory() ? target : dirname(target))
+            : resolveConfigFile(config, cwd);
+
+    if (configFile === null) {
+        throw new Error(`no eslint config found for ${path}`);
+    }
+
+    // `cwd` инстанса — директория найденного конфига: тогда `basePath` шаблонов `files`/`ignores`
+    // совпадает с тем, что ESLint нашел бы сам, а найденный нами конфиг гарантированно применяется.
+    // Без этого на ESLint 9 из корня монорепа действовал бы корневой конфиг вместо пакетного.
+    // Явный `--config` оставляет `cwd` пользователя — ровно как `eslint --config`: файл вне
+    // директории конфига все равно получает его настройки.
+    const eslint = await createEslint(cwd, {
+        cwd: config === undefined ? dirname(configFile) : cwd,
+        overrideConfigFile: configFile,
+    });
 
     if (!stats.isDirectory()) {
-        const config = await configForFile(eslint, target, path);
+        const fileConfig = await configForFile(eslint, configFile, target);
 
-        if (config === undefined) {
+        if (fileConfig === undefined) {
             throw new Error(`eslint ignores ${path}`);
         }
 
-        return { filePath: target, ...settingsOf(config) };
+        return { filePath: target, configFile, ...settingsOf(fileConfig) };
     }
 
     const sample = await findSample(target, path, (filePath) =>
-        configForFile(eslint, filePath, path),
+        configForFile(eslint, configFile, filePath),
     );
 
     if (sample === null) {
         throw new Error(`no lintable files in ${path}`);
     }
 
-    return { filePath: sample.filePath, ...settingsOf(sample.result), sampleOf: path };
+    return {
+        filePath: sample.filePath,
+        configFile,
+        ...settingsOf(sample.result),
+        sampleOf: path,
+    };
 }

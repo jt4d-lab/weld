@@ -348,7 +348,11 @@ describe('inspectFile: имя файла в алиасе', () => {
         });
 
         const result = inspectFile(
-            { filePath: 'C:\\repo\\src\\index.ts', settings: {} },
+            {
+                filePath: 'C:\\repo\\src\\index.ts',
+                configFile: 'C:\\repo\\eslint.config.mjs',
+                settings: {},
+            },
             'C:\\repo',
         );
 
