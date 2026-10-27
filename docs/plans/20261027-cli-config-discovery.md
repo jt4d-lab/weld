@@ -225,16 +225,16 @@ smoke, документация, проверка.
 - Create: `src/cli/config-file.ts`
 - Create: `src/cli/config-file.test.ts`
 
-- [ ] `CONFIG_FILE_NAMES` — все шесть имен в порядке ESLint 10 (`js`, `mjs`, `cjs`, `ts`, `mts`,
+- [x] `CONFIG_FILE_NAMES` — все шесть имен в порядке ESLint 10 (`js`, `mjs`, `cjs`, `ts`, `mts`,
       `cts`); TS-варианты нужны, потому что на 10 они грузятся через `jiti` без флагов
-- [ ] `findConfigFile(startDir)`: обход вверх до корня ФС, первый найденный файл; `null`, если дошли
+- [x] `findConfigFile(startDir)`: обход вверх до корня ФС, первый найденный файл; `null`, если дошли
       до корня; `statOf` из `sample.ts`, чтобы отсутствие пути было обычным ответом, а не падением
-- [ ] `resolveConfigFile(path, cwd)`: резолв от `cwd`, ошибка `config path does not exist: <path>`
+- [x] `resolveConfigFile(path, cwd)`: резолв от `cwd`, ошибка `config path does not exist: <path>`
       для отсутствующего пути и для директории
-- [ ] тесты на `makeTmpProject`: конфиг в корне проекта находится из глубокой директории; ближайший
+- [x] тесты на `makeTmpProject`: конфиг в корне проекта находится из глубокой директории; ближайший
       выигрывает у более далекого; `js` выигрывает у `mjs`, `mjs` у `cjs`, `cjs` у `ts`; конфига нет
       → `null`; `resolveConfigFile` — существующий файл, отсутствующий путь, директория
-- [ ] `yarn test` — зеленый до перехода к задаче 2
+- [x] `yarn test` — зеленый до перехода к задаче 2
 
 ### Задача 2: `loadLintSettings` выбирает конфиг по пути
 
