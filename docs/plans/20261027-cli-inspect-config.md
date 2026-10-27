@@ -336,24 +336,24 @@ settings.weld:
 - Create: `src/cli/inspect.test.ts`
 - Create: `src/cli/config.test.ts`
 
-- [ ] `inspect`: `resolveForFile` по настройкам файла → `getFromFile()` (нет — ошибка «вне корня»),
+- [x] `inspect`: `resolveForFile` по настройкам файла → `getFromFile()` (нет — ошибка «вне корня»),
       `index.<ext>` схлопывается в директорию, `renderAliasPath`, иначе `getFromFile()`
-- [ ] `config`: `getAliasesBaseUrl`/`getTsconfigName` из `src/settings/` плюс `getRoot()` и
+- [x] `config`: `getAliasesBaseUrl`/`getTsconfigName` из `src/settings/` плюс `getRoot()` и
       `getAliases()` того же `WeldTarget`, затем `renderConfig`; CLI читает все части намеренно —
       здесь ошибка в конфиге и должна быть видна
-- [ ] `createProgram(deps)` — инъекция `loadLintSettings`, `write`, `writeError`: команды не знают,
+- [x] `createProgram(deps)` — инъекция `loadLintSettings`, `write`, `writeError`: команды не знают,
       откуда берется конфиг и куда идет вывод; `cwd` берется из `deps` (в бою — `process.cwd()`)
-- [ ] глобальные флаги `--json`, `--no-color`, `--version` (версия из `package.json`); при `--json`
+- [x] глобальные флаги `--json`, `--no-color`, `--version` (версия из `package.json`); при `--json`
       текст не печатается, ошибки уходят в stdout как `{ "error": "..." }`; читаются действием через
       `command.optsWithGlobals()`
-- [ ] ошибка действия → `error: <текст>` в stderr и `exitCode = 1`; `inspect` с директорией → ошибка
+- [x] ошибка действия → `error: <текст>` в stderr и `exitCode = 1`; `inspect` с директорией → ошибка
       «expected a file»
-- [ ] баррель `src/cli/index.ts` отдает `createProgram` и тип зависимостей
-- [ ] тесты: `inspect` с алиасом, `inspect` без алиасов → виртуальный путь, `inspect --json`;
+- [x] баррель `src/cli/index.ts` отдает `createProgram` и тип зависимостей
+- [x] тесты: `inspect` с алиасом, `inspect` без алиасов → виртуальный путь, `inspect --json`;
       `config` для файла, для директории, `config --json`; ошибки (нет пути, нет конфига, вне корня)
       → сообщение и код возврата, при `--json` — JSON с `error`; `--version` печатает версию из
       `package.json`
-- [ ] `yarn test` — зеленый до перехода к задаче 7
+- [x] `yarn test` — зеленый до перехода к задаче 7
 
 ### Task 7: Исполняемый вход и упаковка
 
