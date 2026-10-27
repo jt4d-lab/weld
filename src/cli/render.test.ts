@@ -206,7 +206,12 @@ describe('renderJson', () => {
             settings: CONFIG.settings,
         };
 
-        expect(JSON.parse(renderJson(value))).toEqual(value);
+        // Ключи перечислены буквально: "--json" не должен добавлять полей, которых в данных не было.
+        expect(Object.keys(JSON.parse(renderJson(value)) as object)).toEqual([
+            'file',
+            'configFile',
+            'settings',
+        ]);
         expect(renderJson(value)).not.toContain('sampleOf');
     });
 

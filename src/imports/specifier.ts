@@ -148,7 +148,10 @@ export function renderSpecifier(
     aliases: Alias[],
     extension: string | null = null,
 ): string {
-    const dir = renderDirectory(form, fromDir, barrier, aliases);
+    // Имя точки входа дописывается только при известном расширении: без него звездный алиас,
+    // совпавший с якорем, дал бы нерезолвимый специфаер (голый `@`), и от такого алиаса лучше
+    // отказаться в пользу относительного пути.
+    const dir = renderDirectory(form, fromDir, barrier, aliases, extension !== null);
     return extension === null ? dir : withEntry(dir, extension);
 }
 
@@ -156,11 +159,8 @@ export function renderSpecifier(
  * Итог обратного подбора алиаса: `specifier` — путь в алиасной форме, `needsFileName` — специфаер
  * неполон, к нему надо дописать имя файла.
  *
- * Признак считается здесь, потому что для него нужны оба факта сразу: путь совпал с якорем и ключ
- * записи звездный. У точного ключа (`@/config` → `src/config`) сам префикс — уже готовый специфаер,
- * а у записи `@/feature/*` → `src/feature/*` голый `@/feature` не резолвится: звездочке нечего
- * подставить. Дописать имя файла должен тот, кто файл знает, — поэтому решение выходит наружу
- * готовым ответом, а не парой низкоуровневых признаков, которые вызывающий складывал бы сам.
+ * Дописать имя файла должен тот, кто файл знает, — поэтому решение выходит наружу готовым ответом, а
+ * не парой низкоуровневых признаков, которые вызывающий складывал бы сам (см. `needsFileName`).
  */
 export type AliasPath = {
     specifier: string;
@@ -178,9 +178,8 @@ export type AliasPath = {
  * остается за вызывающим (виртуальный путь или относительный).
  */
 export function renderAliasPath(target: string, aliases: Alias[]): AliasPath | null {
-    const alias = pickLongest(aliases, (alias) =>
-        coversAsSpecifier(alias, target) ? alias.anchor : null,
-    );
+    // `canAddEntry: true` — неполный специфаер здесь годится: имя файла допишет вызывающий.
+    const alias = longestCoveringAlias(aliases, target, true);
 
     if (alias === null) {
         return null;
@@ -188,20 +187,30 @@ export function renderAliasPath(target: string, aliases: Alias[]): AliasPath | n
 
     return {
         specifier: renderAlias(alias, target),
-        needsFileName: alias.star && alias.anchor === target,
+        needsFileName: needsFileName(alias, target),
     };
 }
 
-function renderDirectory(form: Form, fromDir: string, barrier: string, aliases: Alias[]): string {
+/**
+ * `canAddEntry` — допишется ли к специфаеру имя точки входа (`@/index.ts`): от этого зависит,
+ * годится ли звездный алиас, совпавший с якорем.
+ */
+function renderDirectory(
+    form: Form,
+    fromDir: string,
+    barrier: string,
+    aliases: Alias[],
+    canAddEntry: boolean,
+): string {
     if (form.kind === 'relative') {
         return renderRelative(fromDir, barrier);
     }
 
-    if (coversAsSpecifier(form.alias, barrier)) {
+    if (usableAsSpecifier(form.alias, barrier, canAddEntry)) {
         return renderAlias(form.alias, barrier);
     }
 
-    const longest = longestCoveringAlias(aliases, barrier);
+    const longest = longestCoveringAlias(aliases, barrier, canAddEntry);
     return longest === null ? renderRelative(fromDir, barrier) : renderAlias(longest, barrier);
 }
 
@@ -233,9 +242,9 @@ function coversAnchor(anchor: string, value: string): boolean {
 }
 
 /**
- * Годится ли запись как источник специфаера для `target` — вопрос строже, чем `coversAnchor`, и
- * единственное правило годности во всем обратном направлении: `renderAliasPath`,
- * `renderSpecifier` и обе ветки `renderDirectory`.
+ * Годится ли запись как источник специфаера — вопрос строже, чем `coversAnchor`, и общее правило
+ * годности во всем обратном направлении: `renderAliasPath`, `renderSpecifier` и обе ветки
+ * `renderDirectory`.
  *
  * Точный ключ (`paths: { '@/config': ['src/config'] }`) резолвит `@/config` и ничего ниже него:
  * `@/config/other.ts` TypeScript не находит (TS2307), хотя прямое сопоставление WELD читает любой
@@ -251,9 +260,39 @@ function coversAsSpecifier(alias: Alias, target: string): boolean {
     return coversAnchor(alias.anchor, target) && (alias.star || alias.anchor === target);
 }
 
+/**
+ * То же, но с учетом того, допишется ли к результату имя файла. Звездный ключ ровно на своем якоре
+ * без имени файла дает неспецифаер (см. `needsFileName`), поэтому такой якорь уступает более
+ * широкому алиасу или относительному пути — как в `renderSpecifier` без расширения.
+ */
+function usableAsSpecifier(alias: Alias, target: string, canAddEntry: boolean): boolean {
+    if (!coversAsSpecifier(alias, target)) {
+        return false;
+    }
+
+    return canAddEntry || !needsFileName(alias, target);
+}
+
+/**
+ * Неполон ли специфаер, который дает запись на этом пути: звездный ключ ровно на своем якоре не
+ * резолвится без имени файла (голый `@`), и такая запись годится только там, где имя допишут.
+ *
+ * Признак считается здесь, а не на месте вызова: нужны оба факта сразу — путь совпал с якорем и ключ
+ * звездный. У точного ключа (`@/config` → `src/config`) сам префикс — уже готовый специфаер.
+ */
+function needsFileName(alias: Alias, target: string): boolean {
+    return alias.star && alias.anchor === target;
+}
+
 /** Самый длинный якорь, из которого получается резолвимый специфаер; `null`, если ни один. */
-function longestCoveringAlias(aliases: Alias[], dir: string): Alias | null {
-    return pickLongest(aliases, (alias) => (coversAsSpecifier(alias, dir) ? alias.anchor : null));
+function longestCoveringAlias(
+    aliases: Alias[],
+    target: string,
+    canAddEntry: boolean,
+): Alias | null {
+    return pickLongest(aliases, (alias) =>
+        usableAsSpecifier(alias, target, canAddEntry) ? alias.anchor : null,
+    );
 }
 
 function renderAlias(alias: Alias, barrier: string): string {

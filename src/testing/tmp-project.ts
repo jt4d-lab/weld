@@ -18,7 +18,7 @@ const created: string[] = [];
 
 /**
  * Вид ссылки: на Windows директорную ссылку (`dir`) создает только процесс с правами
- * администратора или включенным Developer Mode, аjunction доступен всем и целится абсолютным путём.
+ * администратора или включенным Developer Mode, а junction доступен всем и целится абсолютным путем.
  * На posix `junction` не существует, поэтому там обычная ссылка на директорию.
  */
 const DIRECTORY_LINK_TYPE: 'dir' | 'junction' = process.platform === 'win32' ? 'junction' : 'dir';

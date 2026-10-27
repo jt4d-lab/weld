@@ -41,11 +41,12 @@ function row(c: Colors, text: string, value: string, width: number): string {
 }
 
 /**
- * Ширина колонки подписи по строкам своей команды: у `inspect` это `file:`/`alias:`, у `config` —
- * `file:`/`config:`. Общая константа на обе команды разъезжала бы с любой новой подписью.
+ * Ширина колонки подписи по строкам одного блока: у `inspect` это `file:`/`alias:`, у `config` —
+ * `file:`/`config:`, в блоке настроек — три подписи подряд. Считается по тем же строкам, которые
+ * печатаются, поэтому новая подпись не может разъехаться с шириной, как было бы со списком литералов.
  */
-function labelWidth(...labels: string[]): number {
-    return Math.max(...labels.map((label) => label.length));
+function widthOf(rows: readonly { label: string }[]): number {
+    return Math.max(...rows.map((entry) => entry.label.length));
 }
 
 /**
@@ -54,11 +55,13 @@ function labelWidth(...labels: string[]): number {
  */
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
-    const width = labelWidth('file:', 'alias:');
+    const rows = [
+        { label: 'file:', value: data.file },
+        { label: 'alias:', value: c.cyan(data.alias) },
+    ];
+    const width = widthOf(rows);
 
-    return [row(c, 'file:', data.file, width), row(c, 'alias:', c.cyan(data.alias), width)].join(
-        '\n',
-    );
+    return rows.map(({ label, value }) => row(c, label, value, width)).join('\n');
 }
 
 /**
@@ -68,11 +71,14 @@ export function renderInspect(data: InspectData, options: RenderOptions): string
  */
 export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
-    const width = labelWidth('file:', 'config:');
+    const rows = [
+        { label: 'file:', value: withSample(data, c) },
+        { label: 'config:', value: data.configFile },
+    ];
+    const width = widthOf(rows);
 
     return [
-        row(c, 'file:', withSample(data, c), width),
-        row(c, 'config:', data.configFile, width),
+        ...rows.map(({ label, value }) => row(c, label, value, width)),
         c.dim('settings.weld:'),
         ...settingsRows(c, data.settings).map((text) => `${SETTINGS_INDENT}${text}`),
         ...renderAliases(data.settings.aliases, c),
@@ -89,7 +95,7 @@ function settingsRows(c: Colors, settings: ConfigData['settings']): string[] {
         { label: 'aliasesBaseUrl:', value: settings.aliasesBaseUrl },
         { label: 'tsconfig:', value: settings.tsconfig },
     ];
-    const width = Math.max(...rows.map((entry) => entry.label.length));
+    const width = widthOf(rows);
 
     return rows.map(({ label, value }) => row(c, label, value, width));
 }

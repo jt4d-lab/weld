@@ -34,6 +34,21 @@ export const OUTSIDE_ROOT_CONFIG = `export default [
 `;
 
 /**
+ * Конфиг, который передают флагом `--config`: лежит в поддиректории, чтобы поиск от цели его не
+ * нашел, и объявляет свои настройки — выбор конфига видно по выводу. Расширения — те же, что в
+ * проектах тестов, чтобы одна фикстура годилась и слою CLI, и загрузке настроек.
+ */
+export const OTHER_CONFIG_PATH = 'configs/other.config.mjs';
+
+export const OTHER_CONFIG = `export default [
+    {
+        files: ['**/*.ts', '**/*.js'],
+        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] } } },
+    },
+];
+`;
+
+/**
  * Проект с `node_modules`: `weld` грузит `eslint` из проекта, как в бою. `package.json` добавлен
  * всегда: он делает корень проекта (`findRepoRoot`) предсказуемым, а не зависящим от того, что
  * лежит в директориях над временной.
@@ -68,19 +83,35 @@ type Captured = {
     codes: number[];
 };
 
-/** Программа с перехваченным выводом: терминал и `process.exitCode` тесту не нужны. */
-export function capture(root: string, overrides: Partial<ProgramDeps> = {}): Captured {
+/** Собираемое швами: вывод, ошибки и коды возврата — одни и те же для обоих способов запуска. */
+type Sinks = {
+    out: string[];
+    err: string[];
+    codes: number[];
+    write: (text: string) => void;
+    writeError: (text: string) => void;
+    setExitCode: (code: number) => void;
+};
+
+function makeSinks(): Sinks {
     const out: string[] = [];
     const err: string[] = [];
     const codes: number[] = [];
 
-    const program = createProgram({
-        cwd: root,
+    return {
+        out,
+        err,
+        codes,
         write: (text) => void out.push(text),
         writeError: (text) => void err.push(text),
         setExitCode: (code) => void codes.push(code),
-        ...overrides,
-    });
+    };
+}
+
+/** Программа с перехваченным выводом: терминал и `process.exitCode` тесту не нужны. */
+export function capture(root: string, overrides: Partial<ProgramDeps> = {}): Captured {
+    const { out, err, codes, write, writeError, setExitCode } = makeSinks();
+    const program = createProgram({ cwd: root, ...overrides, write, writeError, setExitCode });
 
     return { program, out, err, codes };
 }
@@ -96,16 +127,14 @@ export async function runCliCapture(
     root: string,
     overrides: Partial<ProgramDeps> = {},
 ): Promise<CapturedRun> {
-    const out: string[] = [];
-    const err: string[] = [];
-    const codes: number[] = [];
+    const { out, err, codes, write, writeError, setExitCode } = makeSinks();
 
     await runCli(['node', 'weld', ...argv], {
         cwd: root,
-        write: (text) => void out.push(text),
-        writeError: (text) => void err.push(text),
-        setExitCode: (code) => void codes.push(code),
         ...overrides,
+        write,
+        writeError,
+        setExitCode,
     });
 
     return { out, err, codes };

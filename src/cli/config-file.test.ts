@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -11,15 +11,12 @@ afterEach(() => {
 });
 
 describe('CONFIG_FILE_NAMES', () => {
-    it('имена в порядке ESLint 10, включая TS-варианты', () => {
-        expect(CONFIG_FILE_NAMES).toEqual([
-            'eslint.config.js',
-            'eslint.config.mjs',
-            'eslint.config.cjs',
-            'eslint.config.ts',
-            'eslint.config.mts',
-            'eslint.config.cts',
-        ]);
+    it.each(CONFIG_FILE_NAMES)('%s находится поиском', (name) => {
+        // Список проверяется действием, а не сравнением с самим собой: каждое имя в нем обязано
+        // находиться поиском, включая TS-варианты.
+        const root = makeTmpProject({ [name]: '' });
+
+        expect(findConfigFile(root)).toBe(join(root, name));
     });
 });
 
@@ -31,7 +28,7 @@ describe('findConfigFile', () => {
         });
 
         expect(findConfigFile(join(root, 'packages/app/src/deep'))).toBe(
-            `${root}/eslint.config.mjs`,
+            join(root, 'eslint.config.mjs'),
         );
     });
 
@@ -42,7 +39,7 @@ describe('findConfigFile', () => {
         });
 
         expect(findConfigFile(join(root, 'packages/app'))).toBe(
-            `${root}/packages/app/eslint.config.mjs`,
+            join(root, 'packages/app/eslint.config.mjs'),
         );
     });
 
@@ -54,31 +51,47 @@ describe('findConfigFile', () => {
         });
 
         expect(findConfigFile(join(root, 'packages/app/src'))).toBe(
-            `${root}/packages/eslint.config.mjs`,
+            join(root, 'packages/eslint.config.mjs'),
         );
     });
 
     it('js выигрывает у mjs', () => {
         const root = makeTmpProject({ 'eslint.config.mjs': '', 'eslint.config.js': '' });
 
-        expect(findConfigFile(root)).toBe(`${root}/eslint.config.js`);
+        expect(findConfigFile(root)).toBe(join(root, 'eslint.config.js'));
     });
 
     it('mjs выигрывает у cjs', () => {
         const root = makeTmpProject({ 'eslint.config.cjs': '', 'eslint.config.mjs': '' });
 
-        expect(findConfigFile(root)).toBe(`${root}/eslint.config.mjs`);
+        expect(findConfigFile(root)).toBe(join(root, 'eslint.config.mjs'));
     });
 
     it('cjs выигрывает у ts', () => {
         const root = makeTmpProject({ 'eslint.config.ts': '', 'eslint.config.cjs': '' });
 
-        expect(findConfigFile(root)).toBe(`${root}/eslint.config.cjs`);
+        expect(findConfigFile(root)).toBe(join(root, 'eslint.config.cjs'));
+    });
+
+    it('ts выигрывает у mts', () => {
+        const root = makeTmpProject({ 'eslint.config.mts': '', 'eslint.config.ts': '' });
+
+        expect(findConfigFile(root)).toBe(join(root, 'eslint.config.ts'));
+    });
+
+    it('mts выигрывает у cts', () => {
+        // Последняя пара списка: без нее порядок двух старших TS-имен не проверен ничем.
+        const root = makeTmpProject({ 'eslint.config.cts': '', 'eslint.config.mts': '' });
+
+        expect(findConfigFile(root)).toBe(join(root, 'eslint.config.mts'));
     });
 
     it('конфига нет до корня ФС → null', () => {
         const root = makeTmpProject({ 'src/a.js': '' });
 
+        // Допущение теста — над временной директорией конфига нет. Проверяется явно, чтобы при
+        // появлении такого файла тест падал здесь, а не на непонятном «нашелся конфиг» выше.
+        expect(findConfigFile(dirname(root))).toBeNull();
         expect(findConfigFile(join(root, 'src'))).toBeNull();
     });
 
@@ -100,15 +113,15 @@ describe('resolveConfigFile', () => {
         const root = makeTmpProject({ 'configs/eslint.config.mjs': '' });
 
         expect(resolveConfigFile('configs/eslint.config.mjs', root)).toBe(
-            `${root}/configs/eslint.config.mjs`,
+            join(root, 'configs/eslint.config.mjs'),
         );
     });
 
     it('абсолютный путь принимается как есть', () => {
         const root = makeTmpProject({ 'eslint.config.mjs': '' });
 
-        expect(resolveConfigFile(`${root}/eslint.config.mjs`, '/elsewhere')).toBe(
-            `${root}/eslint.config.mjs`,
+        expect(resolveConfigFile(join(root, 'eslint.config.mjs'), '/elsewhere')).toBe(
+            join(root, 'eslint.config.mjs'),
         );
     });
 
@@ -120,11 +133,11 @@ describe('resolveConfigFile', () => {
         );
     });
 
-    it('директория → ошибка', () => {
+    it('существующий путь, который не файл → ошибка про файл, а не про отсутствие', () => {
         const root = makeTmpProject({ 'configs/keep.txt': '' });
 
         expect(() => resolveConfigFile('configs', root)).toThrow(
-            'config path does not exist: configs',
+            'config path is not a file: configs',
         );
     });
 });

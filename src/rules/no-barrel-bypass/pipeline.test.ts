@@ -26,12 +26,14 @@ describe('checkImport — нарушение и замена', () => {
         });
     });
 
-    it('то же нарушение через алиас — тот же D, другой suggestion', () => {
+    it('то же нарушение через алиас без расширения → правка относительная', () => {
+        // Звездный ключ `@other/*` на самом якоре не резолвится: голого `@other` TypeScript не
+        // находит, а имя точки входа без расширения неизвестно — поэтому правка относительная.
         expect(checker(barrelFiles, otherAlias)('@other/internal')).toEqual({
             kind: 'replace',
             target: '/repo/src/other/internal',
             barrier: '/repo/src/other',
-            suggestion: '@other',
+            suggestion: '../other',
         });
     });
 

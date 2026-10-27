@@ -299,10 +299,26 @@ describe('renderSpecifier', () => {
             ).toBe('@src/feature');
         });
 
-        it('D === anchor → голый префикс без завершающего слэша', () => {
-            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
+        it('D === anchor у точного ключа → голый префикс без завершающего слэша', () => {
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: false };
             expect(renderSpecifier({ kind: 'alias', alias }, '/other', '/src', [alias])).toBe(
                 '@src',
+            );
+        });
+
+        it('D === anchor у звездного ключа без расширения → относительный путь: `@src` не резолвится', () => {
+            // Звездочке в `@src/*` на самом якоре нечего подставить, а имя точки входа без
+            // расширения не собрать: `@src` такой записью TypeScript не находит, а `../src`- находится.
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
+            expect(renderSpecifier({ kind: 'alias', alias }, '/other', '/src', [alias])).toBe(
+                '../src',
+            );
+        });
+
+        it('D === anchor у звездного ключа с расширением → префикс с именем точки входа', () => {
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
+            expect(renderSpecifier({ kind: 'alias', alias }, '/other', '/src', [alias], 'ts')).toBe(
+                '@src/index.ts',
             );
         });
 
@@ -443,7 +459,7 @@ describe('renderAliasPath', () => {
         expect(renderAliasPath('/src', aliases)).toEqual(rendered('@', true));
     });
 
-    it('якорь с хвостом в самом ключе: путь на якоре даёт голый префикс и признак неполноты', () => {
+    it('якорь с хвостом в самом ключе: путь на якоре дает голый префикс и признак неполноты', () => {
         const aliases: Alias[] = [{ prefix: '@/feature', anchor: '/src/feature', star: true }];
 
         // Специфаер `@/feature` в записи `@/feature/*` → `src/feature/*` не резолвится: звездочке
@@ -454,7 +470,7 @@ describe('renderAliasPath', () => {
         );
     });
 
-    it('точный ключ: путь на якоре даёт готовый специфаер, а не неполный префикс', () => {
+    it('точный ключ: путь на якоре дает готовый специфаер, а не неполный префикс', () => {
         // `paths: { '@pkg': ['packages/pkg/src'] }` резолвит сам `@pkg`, а `@pkg/index.ts` — нет:
         // звездочки в ключе нет, и хвост к точной записи не подставляется.
         const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src', star: false }];

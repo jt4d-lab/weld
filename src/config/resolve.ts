@@ -85,8 +85,9 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
     const options = input.options ?? {};
     const { settings, cwd, filename } = input;
 
-    // «Заданы явно» — присутствие ключа: пустой `{}` тоже выключает автопоиск.
-    const explicitAliases = lazy(() => hasAliases(settings, options.aliases));
+    // «Заданы явно» — присутствие ключа: пустой `{}` тоже выключает автопоиск. Кэшировать здесь нечего:
+    // `hasAliases` только читает объект конфига, диска не касается.
+    const explicitAliases = (): boolean => hasAliases(settings, options.aliases);
 
     // tsconfig — общая ленивая часть `getRoot` и `getAliases`, и только внутри них: при явных
     // алиасах он не читается вовсе (сегодняшнее поведение), иначе проекты с

@@ -36,14 +36,6 @@ export const WELD_OPTION_PROPERTIES = {
     tsconfig: { type: 'string' },
 } as const;
 
-/**
- * Значения общих опций правила. Типы уже отсеяны `meta.schema` — в резолв они идут как `unknown`,
- * а здесь нужны, чтобы подмешать общие опции к собственным опциям правила. Наружу тип не выходит:
- * правилу незачем его называть, пересечение делается здесь. Свойства те же, что у входа резолва,
- * поэтому тип не дублируется, а берется оттуда.
- */
-type WeldOptions = WeldResolveOptions;
-
 /** Всё, что правило берет из контекста до обхода AST. */
 export type WeldContext<TOwnOptions = unknown> = {
     /** Файл, который сейчас линтуется, — виртуальный путь от корня репозитория. */
@@ -51,11 +43,12 @@ export type WeldContext<TOwnOptions = unknown> = {
     aliases: Alias[];
     fsHost: FsHost;
     /**
-     * Опции правила, уже разобранные: собственные опции правила плюс общие. Правило читает их
+     * Опции правила, уже разобранные: собственные опции правила плюс общие (`WeldResolveOptions` —
+     * тип входа резолва, свойства те же, что у `WELD_OPTION_PROPERTIES`). Правило читает их
      * отсюда, а не из `context.options[0]`: иначе каждое повторяло бы каст и дефолт, и форма опций
      * знала бы о себе в двух местах.
      */
-    options: TOwnOptions & WeldOptions;
+    options: TOwnOptions & WeldResolveOptions;
 };
 
 /**
@@ -72,7 +65,7 @@ export function resolveWeldContext<TOwnOptions = unknown>(
     context: Rule.RuleContext,
     fsHostOverride?: FsHost,
 ): WeldContext<TOwnOptions> | null {
-    const options = (context.options[0] ?? {}) as TOwnOptions & WeldOptions;
+    const options = (context.options[0] ?? {}) as TOwnOptions & WeldResolveOptions;
     const target = resolveForFile(
         {
             filename: context.filename,

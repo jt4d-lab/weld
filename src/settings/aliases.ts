@@ -79,13 +79,19 @@ export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source
     return result;
 }
 
-/** Для debug: по строке на алиас, `<префикс> - <якорь>`. Пустой список — явным словом. */
+/**
+ * Для debug: по строке на алиас, `<ключ> - <якорь>`. Ключ печатается в своей форме: `'@a'` и
+ * `'@a/*'` — разные записи, и без хвоста две строки вышли бы одинаковыми. Пустой список — явным
+ * словом.
+ */
 function formatAliases(aliases: Alias[]): string {
     if (aliases.length === 0) {
         return '(none)';
     }
 
-    return aliases.map(({ prefix, anchor }) => `${prefix} - ${anchor}`).join('\n');
+    return aliases
+        .map(({ prefix, anchor, star }) => `${star ? `${prefix}/*` : prefix} - ${anchor}`)
+        .join('\n');
 }
 
 /** Значение записи `paths`: строка (частая опечатка) или массив строк. */

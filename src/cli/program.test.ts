@@ -10,23 +10,13 @@ import type { ProgramDeps } from './program.js';
 import { runCli } from './program.js';
 import {
     ALIAS_CONFIG,
+    OTHER_CONFIG,
+    OTHER_CONFIG_PATH,
     capture,
     makeCliProject,
     printed,
     runCliCapture,
 } from './program.testing.js';
-
-/**
- * Конфиг, который передается флагом `--config`: свои настройки и алиас, поэтому выбор конфига видно
- * по выводу. Лежит в поддиректории, чтобы поиск от цели его не нашел.
- */
-const OTHER_CONFIG = `export default [
-    {
-        files: ['**/*.ts'],
-        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] } } },
-    },
-];
-`;
 
 /** Алиас из `OTHER_CONFIG` в той форме, в какой его печатает `--json`. */
 const OTHER_ALIASES = [{ prefix: '@other', anchor: '/src', star: true }];
@@ -40,7 +30,7 @@ function aliasesOf(chunks: string[]): unknown {
 function projectWithTwoConfigs(): string {
     return makeCliProject({
         'eslint.config.mjs': ALIAS_CONFIG,
-        'configs/other.config.mjs': OTHER_CONFIG,
+        [OTHER_CONFIG_PATH]: OTHER_CONFIG,
         'src/a.ts': '',
     });
 }
@@ -60,8 +50,14 @@ const { version: PACKAGE_VERSION } = createRequire(import.meta.url)('../../packa
     version: string;
 };
 
-afterEach(() => {
+afterEach(async () => {
     cleanupTmpProjects();
+
+    // `mockImplementationOnce` в одном тесте иначе оставлял бы разовую реализацию (или ее очередь)
+    // для следующих: сначала сбрасываем мок, потом возвращаем настоящую версию.
+    const actual = await vi.importActual<typeof PackageModule>('../package.js');
+    vi.mocked(packageVersion).mockReset();
+    vi.mocked(packageVersion).mockImplementation(actual.packageVersion);
 });
 
 describe('runCli: версия и справка', () => {
@@ -192,11 +188,11 @@ describe('runCli: глобальная опция --config', () => {
 
         const searched = await runCliCapture(['--json', 'config', 'src/a.ts'], root);
         const afterCommand = await runCliCapture(
-            ['--json', 'config', '--config', 'configs/other.config.mjs', 'src/a.ts'],
+            ['--json', 'config', '--config', OTHER_CONFIG_PATH, 'src/a.ts'],
             root,
         );
         const beforeCommand = await runCliCapture(
-            ['--config', 'configs/other.config.mjs', '--json', 'config', 'src/a.ts'],
+            ['--config', OTHER_CONFIG_PATH, '--json', 'config', 'src/a.ts'],
             root,
         );
 
@@ -209,7 +205,7 @@ describe('runCli: глобальная опция --config', () => {
     it('--config работает и для inspect: алиас берется из указанного конфига', async () => {
         const root = projectWithTwoConfigs();
         const { out, codes } = await runCliCapture(
-            ['--json', 'inspect', '--config', 'configs/other.config.mjs', 'src/a.ts'],
+            ['--json', 'inspect', '--config', OTHER_CONFIG_PATH, 'src/a.ts'],
             root,
         );
 
@@ -223,7 +219,7 @@ describe('runCli: глобальная опция --config', () => {
     it('--config с директорией: сэмпл ищется под указанным конфигом', async () => {
         const root = projectWithTwoConfigs();
         const { out } = await runCliCapture(
-            ['--config', 'configs/other.config.mjs', '--json', 'config', 'src'],
+            ['--config', OTHER_CONFIG_PATH, '--json', 'config', 'src'],
             root,
         );
         const data = JSON.parse(printed(out)) as {
@@ -233,6 +229,17 @@ describe('runCli: глобальная опция --config', () => {
 
         expect(data.sampleOf).toBe('src');
         expect(data.settings.aliases).toEqual(OTHER_ALIASES);
+    });
+
+    it('configFile в --json — тот же путь, что в строке config:', async () => {
+        const root = projectWithTwoConfigs();
+        const { out } = await runCliCapture(
+            ['--json', 'config', '--config', OTHER_CONFIG_PATH, 'src/a.ts'],
+            root,
+        );
+        const data = JSON.parse(printed(out)) as { configFile: unknown };
+
+        expect(data.configFile).toBe(OTHER_CONFIG_PATH);
     });
 
     it('отсутствующий --config → ошибка про путь конфига и код 1', async () => {
@@ -256,6 +263,14 @@ describe('runCli: глобальная опция --config', () => {
         });
         expect(json.err).toEqual([]);
         expect(json.codes).toEqual([1]);
+    });
+
+    it('--config без значения → ошибка использования и код 1', async () => {
+        const root = makeCliProject();
+        const { err, codes } = await runCliCapture(['config', '--config'], root);
+
+        expect(printed(err)).toContain("option '--config <path>' argument missing");
+        expect(codes).toEqual([1]);
     });
 });
 

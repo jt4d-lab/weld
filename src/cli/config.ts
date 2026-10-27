@@ -12,12 +12,12 @@ import type { Alias } from '@/settings/index.js';
 import { getAliasesBaseUrl, getTsconfigName } from '@/settings/index.js';
 
 import type { LintSettings } from './eslint-config.js';
-import { repoPath, repoRootOf, virtualPathOf } from './target.js';
+import { assertInsideRoot, repoPath, repoRootOf } from './target.js';
 
 /**
  * Данные `weld config`: форма текстового вывода и одновременно форма JSON. Путь и настройки уже
  * разобраны; печатает их `program.ts`. `sampleOf` у файла отсутствует, `aliases` — уже в виде
- * `{ prefix, anchor }`.
+ * `{ prefix, anchor, star }`.
  */
 export type ConfigData = {
     /** Путь файла от корня репозитория (вне корня — абсолютный). */
@@ -45,7 +45,7 @@ export function effectiveConfig(lint: LintSettings, cwd: string): ConfigData {
 
     // Файл вне корня отсекается до разбора алиасов — тем же отказом и в том же порядке, что и
     // `inspect`.
-    virtualPathOf(target, lint.filePath);
+    assertInsideRoot(target, lint.filePath);
 
     const repoRoot = repoRootOf(target, lint.filePath);
 

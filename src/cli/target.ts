@@ -25,6 +25,14 @@ export function virtualPathOf(target: WeldTarget, filePath: string): string {
 }
 
 /**
+ * Тот же отказ, но без виртуального пути: `weld config` его не печатает, а проверка «файл внутри
+ * корня» нужна ему так же, как `inspect`.
+ */
+export function assertInsideRoot(target: WeldTarget, filePath: string): void {
+    virtualPathOf(target, filePath);
+}
+
+/**
  * Реальный корень репозитория. `null` резолв отдает только поддельному `FsHost` — шов, которым CLI не
  * пользуется; проверка нужна, чтобы сузить тип, и на бою недостижима.
  */
@@ -45,13 +53,32 @@ export function repoRootOf(target: WeldTarget, filePath: string): string {
  * файлу, которого под корнем нет, ничего не адресует.
  */
 export function repoPath(root: string, absolutePath: string): string {
-    const fromRoot = relative(root, absolutePath);
+    // Обратные слэши Windows в выводе разошлись бы с виртуальными путями (`/src/…`), которые печатает
+    // тот же CLI, и с posix-формой, в которой примеры записаны в документации. Касается это и пути
+    // вне корня: он тоже выводится в posix-форме, хотя и остается абсолютным.
+    return (insidePath(root, absolutePath) ?? absolutePath).split(sep).join('/');
+}
 
-    // Первый сегмент `..` — путь выше корня, `isAbsolute` — другой диск на Windows; пустая строка —
-    // сам корень, у которого относительного пути нет.
-    if (fromRoot === '' || isAbsolute(fromRoot) || fromRoot.split(sep)[0] === '..') {
-        return absolutePath;
+/**
+ * Лежит ли путь внутри директории включительно — тот же вопрос, что у `repoPath`, но без вывода:
+ * по нему `eslint-config.ts` отличает файл вне области действия `--config` от игнорируемого файла.
+ */
+export function isInside(dir: string, absolutePath: string): boolean {
+    return absolutePath === dir || insidePath(dir, absolutePath) !== null;
+}
+
+/**
+ * Относительный путь внутри `dir`; `null` — путь ей не принадлежит. Реальная арифметика, поэтому не
+ * `src/path/` (та работает над виртуальными путями): первый сегмент `..` — путь выше директории,
+ * `isAbsolute` — другой диск на Windows, пустая строка — сама директория, у которой относительного
+ * пути нет.
+ */
+function insidePath(dir: string, absolutePath: string): string | null {
+    const fromDir = relative(dir, absolutePath);
+
+    if (fromDir === '' || isAbsolute(fromDir) || fromDir.split(sep)[0] === '..') {
+        return null;
     }
 
-    return fromRoot;
+    return fromDir;
 }

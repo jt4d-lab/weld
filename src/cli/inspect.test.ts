@@ -63,8 +63,14 @@ const EXACT_AND_STAR_ALIAS_CONFIG = `export default [
 ];
 `;
 
-afterEach(() => {
+afterEach(async () => {
     cleanupTmpProjects();
+
+    // `mockReturnValueOnce` в одном тесте иначе оставлял бы разовую реализацию (или ее очередь) для
+    // следующих: сначала сбрасываем мок, потом возвращаем настоящий резолв.
+    const actual = await vi.importActual<typeof ConfigLayer>('../config/index.js');
+    vi.mocked(resolveForFile).mockReset();
+    vi.mocked(resolveForFile).mockImplementation(actual.resolveForFile);
 });
 
 describe('weld inspect', () => {
@@ -100,7 +106,7 @@ describe('weld inspect', () => {
         expect(codes).toEqual([]);
     });
 
-    it('алиас с хвостом в ключе: index.<ext> не даёт неразрешимый голый префикс', async () => {
+    it('алиас с хвостом в ключе: index.<ext> не дает неразрешимый голый префикс', async () => {
         // У записи `@/feature/*` → `src/feature/*` голый `@/feature` не резолвится: звездочке
         // нечего подставить. Швом алиаса становится имя самого файла.
         const root = makeCliProject({

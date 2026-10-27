@@ -1,8 +1,7 @@
 /**
- * Работа с диском в CLI: `stat` без исключения и поиск сэмпла в директории — единственное место
- * слоя, которое само ходит по файловой системе. Обход не знает ни про ESLint, ни про WELD: предикат
- * для файла приходит от вызывающего, и вызывающий же получает ответ, — поэтому сэмплом может стать
- * что угодно (сейчас это конфиг ESLint).
+ * Работа с диском в CLI: `stat` без исключения и обход директории за сэмплом. Оба нужны не одному
+ * месту: `statOf` используют и поиск ESLint-конфига (`config-file.ts`), и загрузка настроек, а
+ * решает, кто годится в сэмплы, вызывающий — сам обход про ESLint не знает.
  *
  * Отдельный модуль, потому что у `eslint-config.ts` другая работа — загрузка `eslint` из проекта и
  * чтение его конфига; обход директории с бюджетом и фильтрами к ней не относится.
@@ -78,7 +77,7 @@ function isLintableFile(entry: Dirent, full: string): boolean {
 }
 
 /** Найденный сэмпл: путь файла и ответ предиката на него. */
-type Sample<T> = {
+export type Sample<T> = {
     filePath: string;
     result: T;
 };
@@ -87,13 +86,19 @@ type Sample<T> = {
  * Первый в алфавитном порядке файл директории, для которого `lookup` вернул значение. Файлы, на
  * которые `lookup` ответил `undefined`, пропускаются: сэмплом должен быть файл, который вызывающий
  * действительно обрабатывает.
+ *
+ * `remembered` — то, что вызывающий отложил как годное, но не лучшее: если обход уперся в предел
+ * записей, отвечаем им, а не ошибкой. Предел ограничивает работу, а не выбор: у вызывающего уже есть
+ * ответ, и терять его из-за размера дерева незачем. Что откладывается, знает только он, поэтому
+ * параметр обязателен: пустой ответ по умолчанию отключал бы это правило молча.
  */
 export async function findSample<T>(
     dir: string,
     shownPath: string,
     lookup: (filePath: string) => Promise<T | undefined>,
+    remembered: () => Sample<T> | null,
 ): Promise<Sample<T> | null> {
-    return findSampleWithin(dir, shownPath, lookup, { left: MAX_VISITED_ENTRIES });
+    return findSampleWithin(dir, shownPath, lookup, remembered, { left: MAX_VISITED_ENTRIES });
 }
 
 /** Сколько записей директории еще можно посмотреть — общий бюджет на весь обход. */
@@ -103,12 +108,19 @@ async function findSampleWithin<T>(
     dir: string,
     shownPath: string,
     lookup: (filePath: string) => Promise<T | undefined>,
+    remembered: () => Sample<T> | null,
     budget: Budget,
 ): Promise<Sample<T> | null> {
     for (const entry of readEntries(dir)) {
         budget.left -= 1;
 
         if (budget.left < 0) {
+            const sample = remembered();
+
+            if (sample !== null) {
+                return sample;
+            }
+
             throw new Error(
                 `no lintable files in ${shownPath} (stopped after ${MAX_VISITED_ENTRIES} entries)`,
             );
@@ -121,7 +133,7 @@ async function findSampleWithin<T>(
                 continue;
             }
 
-            const nested = await findSampleWithin(full, shownPath, lookup, budget);
+            const nested = await findSampleWithin(full, shownPath, lookup, remembered, budget);
             if (nested !== null) {
                 return nested;
             }
