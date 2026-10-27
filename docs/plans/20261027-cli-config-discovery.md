@@ -328,13 +328,13 @@ smoke, документация, проверка.
 
 - Modify: `scripts/smoke-test.sh`
 
-- [ ] ожидание `file:` — относительный путь (`^file:  src/example.js$`, у директории
+- [x] ожидание `file:` — относительный путь (`^file:  src/example.js$`, у директории
       `(sample of src)`)
-- [ ] проверка строки `config:` и относительного `file` в `config --json`
-- [ ] `weld config --config <другой конфиг> src` в проекте-потребителе: рядом с `eslint.config.mjs`
+- [x] проверка строки `config:` и относительного `file` в `config --json`
+- [x] `weld config --config <другой конфиг> src` в проекте-потребителе: рядом с `eslint.config.mjs`
       кладется `eslint.config.other.mjs` с другим `settings.weld` (другой алиас), и проверяется, что
       напечатался именно он — иначе проверка ничего не отличает
-- [ ] `yarn build` и `yarn smoke` — зеленые
+- [x] `yarn build` и `yarn smoke` — зеленые
 
 ### Задача 7: Документация
 

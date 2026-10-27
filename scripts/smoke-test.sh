@@ -86,13 +86,15 @@ echo "    version: $($CLI --version)"
 
 echo "==> Проверяю weld inspect и weld config в проекте-потребителе"
 # `--no-color` в проверках с grep: под FORCE_COLOR вывод был бы с escape-последовательностями.
+# `file:` и `config:` печатаются от корня репозитория: корень зависит от места запуска, а вывод — нет.
 INSPECT="$($CLI inspect --no-color src/example.js)"
-grep -q "^file:  $TMP/project/src/example.js$" <<<"$INSPECT" || { echo "    неверный file: $INSPECT" >&2; exit 1; }
+grep -q '^file:  src/example.js$' <<<"$INSPECT" || { echo "    неверный file: $INSPECT" >&2; exit 1; }
 grep -q '^alias: ' <<<"$INSPECT" || { echo "    нет строки alias: $INSPECT" >&2; exit 1; }
 echo "$INSPECT" | sed 's/^/    /'
 
 CONFIG="$($CLI config --no-color src)"
-grep -q "^file:  $TMP/project/src/example.js (sample of src)$" <<<"$CONFIG" || { echo "    неверная строка file: $CONFIG" >&2; exit 1; }
+grep -qxF 'file:   src/example.js (sample of src)' <<<"$CONFIG" || { echo "    неверная строка file: $CONFIG" >&2; exit 1; }
+grep -qxF 'config: eslint.config.js' <<<"$CONFIG" || { echo "    неверная строка config: $CONFIG" >&2; exit 1; }
 grep -q '^  repoRoot: ' <<<"$CONFIG" || { echo "    нет repoRoot: $CONFIG" >&2; exit 1; }
 grep -q '^  aliases: (none)$' <<<"$CONFIG" || { echo "    неверные aliases: $CONFIG" >&2; exit 1; }
 echo "$CONFIG" | sed 's/^/    /'
@@ -102,11 +104,33 @@ node -e "
   const assert = require('node:assert/strict');
   const data = require('$TMP/config.json');
   assert.equal(data.sampleOf, 'src');
-  assert.ok(data.file.endsWith('/src/example.js'), 'file = ' + data.file);
-  assert.ok(data.settings && typeof data.settings.repoRoot === 'string', 'нет settings.repoRoot');
+  assert.equal(data.file, 'src/example.js');
+  assert.equal(data.configFile, 'eslint.config.js');
+  assert.equal(data.settings.repoRoot, '$TMP/project', 'repoRoot должен остаться абсолютным');
   assert.ok(Array.isArray(data.settings.aliases), 'aliases — не массив');
   console.log('    json: ' + JSON.stringify(data.settings));
 "
+
+echo "==> Проверяю, что --config отменяет поиск конфига"
+# Настройки второго конфига отличаются от найденного (`@smoke/*` против пустых алиасов), иначе
+# проверка не отличила бы примененный конфиг от подобранного поиском.
+cat > eslint.config.other.mjs <<'JS'
+import weld from 'eslint-plugin-weld';
+
+export default [
+  weld.configs.recommended,
+  {
+    files: ['src/**/*.js'],
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    settings: { weld: { aliases: { '@smoke/*': ['./src/*'] } } },
+  },
+];
+JS
+
+OTHER="$($CLI config --no-color --config eslint.config.other.mjs src)"
+grep -qxF 'config: eslint.config.other.mjs' <<<"$OTHER" || { echo "    применен не тот конфиг: $OTHER" >&2; exit 1; }
+grep -qxF '    @smoke/* → /src/*' <<<"$OTHER" || { echo "    настройки не из --config: $OTHER" >&2; exit 1; }
+echo "$OTHER" | sed 's/^/    /'
 
 echo "==> Проверяю отрицательные случаи: код 1 и сообщение об ошибке"
 set +e
