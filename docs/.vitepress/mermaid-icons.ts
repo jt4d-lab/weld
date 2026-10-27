@@ -61,7 +61,7 @@ function findIcon(pack: IconPack, name: string): IconData | undefined {
     return parent ? pack.icons[parent] : undefined;
 }
 
-/** Урезает пак Iconify до иконок из словаря и отдаёт его виртуальным модулем. */
+/** Урезает пак Iconify до иконок из словаря и отдает его виртуальным модулем. */
 export function mermaidIconsPlugin(iconNames: Readonly<Record<string, string>>): Plugin {
     return {
         name: 'weld-mermaid-icons',

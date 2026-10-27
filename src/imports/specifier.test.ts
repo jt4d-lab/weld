@@ -54,7 +54,7 @@ describe('parseSpecifier', () => {
     });
 
     describe('parseSpecifier — алиасы', () => {
-        it('точное совпадение со специфаером даёт якорь как путь', () => {
+        it('точное совпадение со специфаером дает якорь как путь', () => {
             const aliases: Alias[] = [{ prefix: '@src', anchor: '/src' }];
             expect(parseSpecifier('@src', '/other', aliases, resolve)).toEqual({
                 kind: 'target',
@@ -78,7 +78,7 @@ describe('parseSpecifier', () => {
             });
         });
 
-        it('беззвёздочная запись с хвостом — тот же обход, что и звёздочная', () => {
+        it('беззвездочная запись с хвостом — тот же обход, что и звездочная', () => {
             const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src' }];
             expect(parseSpecifier('@pkg/internal/thing', '/other', aliases, resolve)).toEqual({
                 kind: 'target',
@@ -181,7 +181,7 @@ describe('parseSpecifier', () => {
             });
         });
 
-        it('относительный подъём выше виртуального корня → out-of-repo', () => {
+        it('относительный подъем выше виртуального корня → out-of-repo', () => {
             expect(parseSpecifier('../../../../shared/x', '/src', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'out-of-repo',
@@ -190,7 +190,7 @@ describe('parseSpecifier', () => {
     });
 
     describe('parseSpecifier — неизвестное расширение уточняется по диску', () => {
-        it('резолвер нашёл файл — цель берётся с диска, расширение остаётся неуказанным', () => {
+        it('резолвер нашел файл — цель берется с диска, расширение остается неуказанным', () => {
             expect(parseSpecifier('./account.entity', '/src/feature', [], resolve)).toEqual({
                 kind: 'target',
                 target: {
@@ -201,7 +201,7 @@ describe('parseSpecifier', () => {
             });
         });
 
-        it('резолвер ничего не нашёл → no-module-found', () => {
+        it('резолвер ничего не нашел → no-module-found', () => {
             expect(parseSpecifier('./account.unknown', '/src/feature', [], resolve)).toEqual({
                 kind: 'skip',
                 reason: 'no-module-found',
@@ -262,7 +262,7 @@ describe('renderSpecifier', () => {
             );
         });
 
-        it("'.storybook' — путь с точки, но остаётся относительной формой с префиксом ./", () => {
+        it("'.storybook' — путь с точки, но остается относительной формой с префиксом ./", () => {
             expect(
                 renderSpecifier(
                     { kind: 'relative' },
@@ -322,7 +322,7 @@ describe('renderSpecifier', () => {
         });
     });
 
-    describe('renderSpecifier — специфаер без расширения даёт голую директорию', () => {
+    describe('renderSpecifier — специфаер без расширения дает голую директорию', () => {
         it('форма relative: цель без расширения и /index', () => {
             expect(
                 renderSpecifier({ kind: 'relative' }, '/src/feature', '/src/feature/inner', []),
@@ -358,13 +358,13 @@ describe('renderSpecifier', () => {
             );
         });
 
-        it('относительный путь, оканчивающийся на /, не даёт удвоенного слэша', () => {
+        it('относительный путь, оканчивающийся на /, не дает удвоенного слэша', () => {
             expect(
                 renderSpecifier({ kind: 'relative' }, '/src/feature', '/src/feature', [], 'ts'),
             ).toBe('./index.ts');
         });
 
-        it('расширение берётся из специфаера, а не с диска: .js остаётся .js', () => {
+        it('расширение берется из специфаера, а не с диска: .js остается .js', () => {
             expect(
                 renderSpecifier({ kind: 'relative' }, '/src/feature', '/src/other', [], 'js'),
             ).not.toContain('.ts');

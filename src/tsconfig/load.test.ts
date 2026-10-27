@@ -91,7 +91,7 @@ describe('loadTsconfigPaths: поиск и разбор', () => {
         expect(read).not.toHaveBeenCalled();
     });
 
-    it('передаёт кастомное имя конфигурации в read-шов', () => {
+    it('передает кастомное имя конфигурации в read-шов', () => {
         const read = vi.fn((_searchDir: string, configName: string) => {
             expect(configName).toBe('tsconfig.app.json');
             return {
@@ -109,7 +109,7 @@ describe('loadTsconfigPaths: поиск и разбор', () => {
         expect(result?.configPath).toBe('/proj/tsconfig.app.json');
     });
 
-    it('по умолчанию передаёт `tsconfig.json` в read-шов', () => {
+    it('по умолчанию передает `tsconfig.json` в read-шов', () => {
         const read = vi.fn(() => null);
 
         loadTsconfigPaths('/proj/src/file.ts', { read });

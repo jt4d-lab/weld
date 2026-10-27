@@ -29,7 +29,7 @@ export default withMermaid(
                             text: 'Однонаправленность зависимостей',
                             link: '/concepts/direction',
                         },
-                        { text: 'Слои задаёт проект', link: '/concepts/layers' },
+                        { text: 'Слои задает проект', link: '/concepts/layers' },
                         { text: 'Модули', link: '/concepts/modules' },
                         { text: 'Вложенные модули', link: '/concepts/nested-modules' },
                     ],
@@ -37,7 +37,7 @@ export default withMermaid(
                 {
                     text: 'Механики',
                     items: [
-                        { text: 'Схема слоёв', link: '/mechanics/layers' },
+                        { text: 'Схема слоев', link: '/mechanics/layers' },
                         { text: 'Приватность', link: '/mechanics/privacy' },
                     ],
                 },

@@ -14,7 +14,7 @@ describe('toPosix', () => {
         expect(toPosix('C:\\proj\\src\\x.ts')).toBe('C:/proj/src/x.ts');
     });
 
-    it('буква диска остаётся первым сегментом', () => {
+    it('буква диска остается первым сегментом', () => {
         expect(toPosix('C:\\proj')).toBe('C:/proj');
     });
 
@@ -64,11 +64,11 @@ describe('splitExtension', () => {
         expect(splitExtension('index.ts')).toEqual({ name: 'index', ext: 'ts' });
     });
 
-    it('точка в середине имени берёт последний сегмент как расширение', () => {
+    it('точка в середине имени берет последний сегмент как расширение', () => {
         expect(splitExtension('index.test.ts')).toEqual({ name: 'index.test', ext: 'ts' });
     });
 
-    it('ведущая точка без другого расширения — вся строка остаётся именем', () => {
+    it('ведущая точка без другого расширения — вся строка остается именем', () => {
         expect(splitExtension('.storybook')).toEqual({ name: '.storybook', ext: '' });
     });
 });
