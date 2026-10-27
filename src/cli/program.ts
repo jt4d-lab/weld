@@ -29,7 +29,11 @@ import { renderConfig, renderInspect, renderJson } from './render.js';
 export type ProgramDeps = {
     /** База для относительных аргументов; в бою — `process.cwd()`. */
     cwd: string;
-    loadLintSettings: (path: string, cwd: string) => Promise<LintSettings>;
+    /**
+     * Настройки цели. Третий аргумент — путь из `--config`: он отменяет поиск конфига, а без него
+     * поведение прежнее, поэтому подставленные швы в тестах его не объявляют.
+     */
+    loadLintSettings: (path: string, cwd: string, config?: string) => Promise<LintSettings>;
     write: (text: string) => void;
     writeError: (text: string) => void;
     setExitCode: (code: number) => void;
@@ -50,8 +54,11 @@ function resolveDeps(overrides: Partial<ProgramDeps>): ProgramDeps {
     };
 }
 
-/** То, что читает действие: глобальные флаги плюс `color`, объявленный отрицательной опцией. */
-type GlobalOptions = { json?: boolean; color?: boolean };
+/**
+ * То, что читает действие: глобальные флаги плюс `color`, объявленный отрицательной опцией.
+ * `config` — путь ESLint-конфига, который отменяет поиск ближайшего к аргументу.
+ */
+type GlobalOptions = { json?: boolean; color?: boolean; config?: string };
 
 /**
  * Цвет по умолчанию не навязывается: `--no-color` объявлен отрицательной опцией, поэтому commander
@@ -97,7 +104,8 @@ function buildProgram(deps: ProgramDeps): Command {
         .description('effective WELD configuration of a file or a directory')
         .version(packageVersion())
         .option('--json', 'print the result as JSON')
-        .option('--no-color', 'disable colored output');
+        .option('--no-color', 'disable colored output')
+        .option('--config <path>', 'eslint config file to use instead of searching');
 
     /** Глобальные флаги текущего разбора — нужны и печати ошибок, и действиям. */
     const globalOptions = (): GlobalOptions => program.opts<GlobalOptions>();
@@ -137,7 +145,7 @@ function buildProgram(deps: ProgramDeps): Command {
         .argument('<file>', 'file to inspect')
         .action(
             action(async (path, options) => {
-                const lint = await deps.loadLintSettings(path, deps.cwd);
+                const lint = await deps.loadLintSettings(path, deps.cwd, options.config);
                 const { file, virtualPath, alias } = inspectFile(lint, deps.cwd);
                 const text =
                     options.json === true
@@ -157,7 +165,7 @@ function buildProgram(deps: ProgramDeps): Command {
         .argument('<path>', 'file or directory')
         .action(
             action(async (path, options) => {
-                const lint = await deps.loadLintSettings(path, deps.cwd);
+                const lint = await deps.loadLintSettings(path, deps.cwd, options.config);
                 const data = effectiveConfig(lint, deps.cwd);
                 const text =
                     options.json === true

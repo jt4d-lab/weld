@@ -8,7 +8,42 @@ import type * as PackageModule from '../package.js';
 import { packageVersion } from '../package.js';
 import type { ProgramDeps } from './program.js';
 import { runCli } from './program.js';
-import { capture, makeCliProject, printed, runCliCapture } from './program.testing.js';
+import {
+    ALIAS_CONFIG,
+    capture,
+    makeCliProject,
+    printed,
+    runCliCapture,
+} from './program.testing.js';
+
+/**
+ * Конфиг, который передается флагом `--config`: свои настройки и алиас, поэтому выбор конфига видно
+ * по выводу. Лежит в поддиректории, чтобы поиск от цели его не нашел.
+ */
+const OTHER_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] } } },
+    },
+];
+`;
+
+/** Алиас из `OTHER_CONFIG` в той форме, в какой его печатает `--json`. */
+const OTHER_ALIASES = [{ prefix: '@other', anchor: '/src', star: true }];
+
+/** Алиасы из машинного вывода `weld config`: выбор конфига видно по ним, без разбора текста. */
+function aliasesOf(chunks: string[]): unknown {
+    return (JSON.parse(printed(chunks)) as { settings: { aliases: unknown } }).settings.aliases;
+}
+
+/** Проект с двумя конфигами: корневой, который нашел бы поиск, и тот, что передают флагом. */
+function projectWithTwoConfigs(): string {
+    return makeCliProject({
+        'eslint.config.mjs': ALIAS_CONFIG,
+        'configs/other.config.mjs': OTHER_CONFIG,
+        'src/a.ts': '',
+    });
+}
 
 /**
  * Шов на чтение версии: сломанный `package.json` виден только ошибкой, а иначе его не показать. По
@@ -148,6 +183,79 @@ describe('createProgram: шов loadLintSettings', () => {
         await program.parseAsync(['inspect', 'src/a.ts'], { from: 'user' });
 
         expect(printed(out)).toBe([`file:  ${root}/src/a.ts`, 'alias: @/a.ts'].join('\n') + '\n');
+    });
+});
+
+describe('runCli: глобальная опция --config', () => {
+    it('отменяет поиск: настройки из указанного конфига в любой позиции флага', async () => {
+        const root = projectWithTwoConfigs();
+
+        const searched = await runCliCapture(['--json', 'config', 'src/a.ts'], root);
+        const afterCommand = await runCliCapture(
+            ['--json', 'config', '--config', 'configs/other.config.mjs', 'src/a.ts'],
+            root,
+        );
+        const beforeCommand = await runCliCapture(
+            ['--config', 'configs/other.config.mjs', '--json', 'config', 'src/a.ts'],
+            root,
+        );
+
+        // Без флага выигрывает ближайший к файлу конфиг — корневой: иначе тест не отличал бы флаг.
+        expect(aliasesOf(searched.out)).toEqual([{ prefix: '@', anchor: '/src', star: true }]);
+        expect(aliasesOf(afterCommand.out)).toEqual(OTHER_ALIASES);
+        expect(aliasesOf(beforeCommand.out)).toEqual(OTHER_ALIASES);
+    });
+
+    it('--config работает и для inspect: алиас берется из указанного конфига', async () => {
+        const root = projectWithTwoConfigs();
+        const { out, codes } = await runCliCapture(
+            ['--json', 'inspect', '--config', 'configs/other.config.mjs', 'src/a.ts'],
+            root,
+        );
+
+        expect(JSON.parse(printed(out))).toEqual({
+            file: `${root}/src/a.ts`,
+            alias: '@other/a.ts',
+        });
+        expect(codes).toEqual([]);
+    });
+
+    it('--config с директорией: сэмпл ищется под указанным конфигом', async () => {
+        const root = projectWithTwoConfigs();
+        const { out } = await runCliCapture(
+            ['--config', 'configs/other.config.mjs', '--json', 'config', 'src'],
+            root,
+        );
+        const data = JSON.parse(printed(out)) as {
+            sampleOf: unknown;
+            settings: { aliases: unknown };
+        };
+
+        expect(data.sampleOf).toBe('src');
+        expect(data.settings.aliases).toEqual(OTHER_ALIASES);
+    });
+
+    it('отсутствующий --config → ошибка про путь конфига и код 1', async () => {
+        const root = projectWithTwoConfigs();
+        const text = await runCliCapture(
+            ['config', '--config', 'nope.config.mjs', 'src/a.ts'],
+            root,
+        );
+
+        expect(text.out).toEqual([]);
+        expect(printed(text.err)).toBe('error: config path does not exist: nope.config.mjs\n');
+        expect(text.codes).toEqual([1]);
+
+        const json = await runCliCapture(
+            ['--json', 'inspect', '--config', 'nope.config.mjs', 'src/a.ts'],
+            root,
+        );
+
+        expect(JSON.parse(printed(json.out))).toEqual({
+            error: 'config path does not exist: nope.config.mjs',
+        });
+        expect(json.err).toEqual([]);
+        expect(json.codes).toEqual([1]);
     });
 });
 

@@ -270,15 +270,15 @@ smoke, документация, проверка.
 - Modify: `src/cli/program.testing.ts` (заглушка шва в `program.test.ts:141` возвращает объект без
   `configFile` — поле обязательное)
 
-- [ ] `.option('--config <path>', 'eslint config file to use instead of searching')` рядом с
+- [x] `.option('--config <path>', 'eslint config file to use instead of searching')` рядом с
       `--json`/`--no-color`; `GlobalOptions.config?: string`
-- [ ] `ProgramDeps.loadLintSettings` получает третий аргумент; действия передают `options.config`
+- [x] `ProgramDeps.loadLintSettings` получает третий аргумент; действия передают `options.config`
       (обе команды, `optsWithGlobals()` уже используется)
-- [ ] тесты: `weld config --config <path> <path>` и `weld --config <path> config <path>` дают
+- [x] тесты: `weld config --config <path> <path>` и `weld --config <path> config <path>` дают
       настройки из указанного конфига; `--config` работает и для `inspect`; `--config` с директорией
       (сэмпл ищется под указанным конфигом); отсутствующий `--config` →
       `error: config path does not exist: …` и код 1, при `--json` — `{ "error": … }`
-- [ ] `yarn test` — зеленый до перехода к задаче 4
+- [x] `yarn test` — зеленый до перехода к задаче 4
 
 ### Задача 4: Пути от корня репозитория
 
