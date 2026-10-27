@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Alias } from '@/settings/index.js';
-import { parseSpecifier, renderSpecifier } from '@/imports/specifier.js';
+import { parseSpecifier, renderAliasPath, renderSpecifier } from '@/imports/specifier.js';
 
 const resolve = (path: string): string | null =>
     path === '/src/feature/account.entity' ? '/src/feature/account.entity.ts' : null;
@@ -369,5 +369,64 @@ describe('renderSpecifier', () => {
                 renderSpecifier({ kind: 'relative' }, '/src/feature', '/src/other', [], 'js'),
             ).not.toContain('.ts');
         });
+    });
+});
+
+describe('renderAliasPath', () => {
+    it('якорь покрывает путь → путь подставляется в префикс', () => {
+        const aliases: Alias[] = [{ prefix: '@', anchor: '/src' }];
+
+        expect(renderAliasPath('/src/feature/internal', aliases)).toBe('@/feature/internal');
+    });
+
+    it('путь совпадает с якорем → голый префикс без завершающего слэша', () => {
+        const aliases: Alias[] = [{ prefix: '@', anchor: '/src' }];
+
+        expect(renderAliasPath('/src', aliases)).toBe('@');
+    });
+
+    it('беззвездочный префикс подставляет хвост так же', () => {
+        const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src' }];
+
+        expect(renderAliasPath('/packages/pkg/src/internal/thing', aliases)).toBe(
+            '@pkg/internal/thing',
+        );
+    });
+
+    it('выигрывает самый длинный покрывающий якорь', () => {
+        const short: Alias = { prefix: '@', anchor: '/src' };
+        const long: Alias = { prefix: '@feature', anchor: '/src/feature' };
+
+        expect(renderAliasPath('/src/feature/internal', [short, long])).toBe('@feature/internal');
+    });
+
+    it('при равной длине якоря выигрывает первая запись по порядку', () => {
+        const first: Alias = { prefix: '@one', anchor: '/src' };
+        const second: Alias = { prefix: '@two', anchor: '/src' };
+
+        expect(renderAliasPath('/src/feature', [first, second])).toBe('@one/feature');
+    });
+
+    it('граница по сегменту: /src/features не покрывает /src/features-old', () => {
+        const aliases: Alias[] = [{ prefix: '@features', anchor: '/src/features' }];
+
+        expect(renderAliasPath('/src/features-old', aliases)).toBeNull();
+    });
+
+    it('граница по сегменту: при широком алиасе путь остается покрыт им', () => {
+        const narrow: Alias = { prefix: '@features', anchor: '/src/features' };
+        const wide: Alias = { prefix: '@', anchor: '/src' };
+
+        expect(renderAliasPath('/src/features-old', [narrow, wide])).toBe('@/features-old');
+    });
+
+    it('ни один алиас не покрывает путь → null', () => {
+        const aliases: Alias[] = [{ prefix: '@', anchor: '/src' }];
+
+        expect(renderAliasPath('/test/feature', aliases)).toBeNull();
+    });
+
+    it('пустой список алиасов → null', () => {
+        expect(renderAliasPath('/src/feature/internal', [])).toBeNull();
     });
 });

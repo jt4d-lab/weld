@@ -280,12 +280,12 @@ settings.weld:
 - Modify: `src/imports/index.ts`
 - Modify: `src/imports/specifier.test.ts`
 
-- [ ] добавить `renderAliasPath(target, aliases)` — самый длинный алиас, покрывающий путь; `null`,
+- [x] добавить `renderAliasPath(target, aliases)` — самый длинный алиас, покрывающий путь; `null`,
       если не покрывает ни один
-- [ ] отдать через баррель `src/imports/index.ts`
-- [ ] тесты: покрытие якорем, самый длинный из нескольких, граница по сегменту (`@/features` не
+- [x] отдать через баррель `src/imports/index.ts`
+- [x] тесты: покрытие якорем, самый длинный из нескольких, граница по сегменту (`@/features` не
       покрывает `@/features-old`), `null` без покрытия
-- [ ] `yarn test` — зеленый до перехода к задаче 4
+- [x] `yarn test` — зеленый до перехода к задаче 4
 
 ### Task 4: Источник ESLint-конфига для пути
 

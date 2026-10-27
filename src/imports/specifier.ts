@@ -150,6 +150,19 @@ export function renderSpecifier(
     return extension === null ? dir : withEntry(dir, extension);
 }
 
+/**
+ * Обратный подбор алиаса по виртуальному пути: `target` → специфаер в алиасной форме. Нужен тем,
+ * кто путь уже имеет и спрашивает, как он записывается в импорте (`weld inspect`), — в отличие от
+ * `renderSpecifier`, где форму записи задает исходный импорт.
+ *
+ * Выигрывает самый длинный покрывающий якорь; `null`, если не покрывает ни один — решение «что
+ * печатать вместо алиаса» остается за вызывающим (виртуальный путь или относительный).
+ */
+export function renderAliasPath(target: string, aliases: Alias[]): string | null {
+    const alias = longestCoveringAlias(aliases, target);
+    return alias === null ? null : renderAlias(alias, target);
+}
+
 function renderDirectory(form: Form, fromDir: string, barrier: string, aliases: Alias[]): string {
     if (form.kind === 'relative') {
         return renderRelative(fromDir, barrier);
