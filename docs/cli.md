@@ -15,24 +15,47 @@ WELD не в `settings.weld`, а в опциях правила `weld/*`, CLI в
 - ESLint 9 или 10, установленный в самом проекте: CLI загружает пакет `eslint` из `node_modules`
   проекта, чтобы прочитать его конфиг.
 
-Команды запускаются из корня проекта: относительные аргументы отсчитываются от текущей директории,
-ESLint-конфиг ищется оттуда же.
+Относительные аргументы отсчитываются от текущей директории, а не от корня репозитория: запускать
+команды можно откуда угодно.
 
 ```sh
 npx weld config src/feature
 yarn weld config src/feature
 ```
 
+## Выбор ESLint-конфига
+
+Конфиг выбирается по пути аргумента, а не по текущей директории: вверх от директории цели ищется
+ближайший `eslint.config.*`, и первый найденный выигрывает у более далекого. У файла обход
+начинается с его директории, у директории — с нее самой, поэтому для директории конфиг выбирается по
+самому пути, а сэмпл остается лишь представительским файлом. Обход идет до корня файловой системы:
+конфиг, лежащий выше `.git`, тоже будет найден и применен.
+
+Внутри одной директории имя выбирается в порядке `eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`,
+`.cts` — том же, в котором ищет ESLint 10.
+
+Поиск свой, а не на стороне ESLint: на 9.x ESLint ищет конфиг только от текущей директории, на 10.x
+— от самого файла, и ответ CLI не должен зависеть от того, какую версию поставили. Корень
+репозитория (`repoRoot`) при этом по-прежнему ищется от текущей директории: путь аргумента влияет
+только на выбор конфига.
+
+Имя `eslint.config.ts` (как и `.mts`/`.cts`) входит в поиск: ESLint 10 грузит такой конфиг через
+`jiti` без дополнительных настроек. На ESLint 9 нативный загрузчик TypeScript не читает, и CLI
+объясняет причину: включите `unstable_ts_config` или укажите `--config` на JS-конфиг.
+
+Флаг `--config <path>` отменяет поиск и работает как `eslint --config`.
+
 ## `weld inspect <file>`
 
-Печатает абсолютный путь файла и путь, которым файл записывается в импорте по алиасу:
+Печатает путь файла и путь, которым файл записывается в импорте по алиасу:
 
 ```
 $ weld inspect src/feature/internal.ts
-file:  /srv/jt4d-lab/weld/src/feature/internal.ts
+file:  src/feature/internal.ts
 alias: @/feature/internal.ts
 ```
 
+- `file` печатается от корня репозитория: корень зависит от места запуска, а вывод — нет.
 - Файл точки входа схлопывается в директорию: `src/feature/index.ts` печатается как `@/feature`.
   Если у ключа алиаса есть собственный хвост (`@/feature/* → src/feature/*`), голый `@/feature`
   такой записью не резолвится, поэтому печатается `@/feature/index.ts`.
@@ -57,7 +80,8 @@ alias: @/feature/internal.ts
 
 ```
 $ weld config src/feature/internal.ts
-file:  /srv/jt4d-lab/weld/src/feature/internal.ts
+file:   src/feature/internal.ts
+config: eslint.config.js
 settings.weld:
   repoRoot:       /srv/jt4d-lab/weld
   aliasesBaseUrl: .
@@ -70,7 +94,8 @@ settings.weld:
 
 ```
 $ weld config src/feature
-file:  /srv/jt4d-lab/weld/src/feature/index.ts (sample of src/feature)
+file:   src/feature/index.ts (sample of src/feature)
+config: eslint.config.js
 settings.weld:
   repoRoot:       /srv/jt4d-lab/weld
   aliasesBaseUrl: .
@@ -79,6 +104,10 @@ settings.weld:
     @/* → /src/*
 ```
 
+- `file` и `config` печатаются от корня репозитория; конфиг вне корня (через `--config` или
+  найденный выше `.git`) — абсолютным путем: относительного пути от корня для него не существует.
+- `config` — примененный ESLint-конфиг. Когда конфигов в проекте несколько, эта строка и есть ответ
+  на вопрос, откуда взялись напечатанные настройки.
 - Обход директории идет в алфавитном порядке; `node_modules` и скрытые директории пропускаются.
 - Сэмплом становится первый файл с модульным расширением, для которого ESLint вернул конфиг:
   игнорируемые конфигом файлы пропускаются.
@@ -93,6 +122,19 @@ settings.weld:
   `/*` нет ни с одной стороны (`@/config → /src/config`).
 - Обход директории ограничен: просмотрев 5000 записей и не найдя линтуемого файла, команда сообщает
   об этом в тексте ошибки.
+
+## `--config <path>`
+
+Глобальный флаг: вместо поиска ближайшего конфига применяется указанный. Путь резолвится от текущей
+директории, шаблоны `files`/`ignores` считаются от нее же, а файл вне директории конфига все равно
+получает его настройки — это семантика `eslint --config`.
+
+```sh
+weld config --config eslint.config.ci.mjs src/feature
+```
+
+Отсутствующий путь и директория вместо файла дают ошибку `config path does not exist: <path>` и код
+`1`.
 
 ## Цвета
 
@@ -111,7 +153,7 @@ weld config --no-color src/feature
 ```
 $ weld inspect --json src/feature/internal.ts
 {
-  "file": "/srv/jt4d-lab/weld/src/feature/internal.ts",
+  "file": "src/feature/internal.ts",
   "alias": "@/feature/internal.ts"
 }
 ```
@@ -119,7 +161,8 @@ $ weld inspect --json src/feature/internal.ts
 ```
 $ weld config --json src/feature
 {
-  "file": "/srv/jt4d-lab/weld/src/feature/index.ts",
+  "file": "src/feature/index.ts",
+  "configFile": "eslint.config.js",
   "sampleOf": "src/feature",
   "settings": {
     "repoRoot": "/srv/jt4d-lab/weld",
@@ -136,6 +179,9 @@ $ weld config --json src/feature
 }
 ```
 
+- `file` и `configFile` в JSON повторяют строки `file:` и `config:` текстового вывода, включая
+  абсолютный путь у конфига вне корня. `settings.repoRoot` остается абсолютным: по нему эти пути и
+  разрешаются.
 - `alias` равен `null`, если файл не покрыт ни одним алиасом; в текстовом режиме на этом месте
   печатается виртуальный путь.
 - `star` у записи алиаса — форма ключа из `paths`: `true` у `@/* → src/*`, `false` у точного
@@ -173,7 +219,8 @@ $ weld config --json src/missing
 | `eslint could not be loaded from <cwd>`    | пакет есть, но не загружается                            |
 | `path does not exist: <path>`              | аргумент не существует                                   |
 | `cannot read <path>`                       | путь есть, но файловая система отвечает ошибкой          |
-| `no eslint config found for <path>`        | ESLint-конфиг проекта не найден                          |
+| `no eslint config found for <path>`        | ни в директории аргумента, ни выше нет `eslint.config.*` |
+| `config path does not exist: <path>`       | `--config` указал на отсутствующий путь или директорию   |
 | `eslint ignores <path>`                    | файл игнорируется конфигом                               |
 | `no lintable files in <path>`              | в директории нет файла, который линтер обрабатывает      |
 | `expected a file, got a directory: <path>` | `inspect` получил директорию                             |
