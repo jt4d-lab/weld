@@ -294,20 +294,20 @@ settings.weld:
 - Create: `src/cli/eslint-config.ts`
 - Create: `src/cli/eslint-config.test.ts`
 
-- [ ] `loadLintSettings(path, cwd)` → `{ filePath, settings, sampleOf? }`: `loadESLint()` →
+- [x] `loadLintSettings(path, cwd)` → `{ filePath, settings, sampleOf? }`: `loadESLint()` →
       `new ESLintCtor({ cwd })`, путь резолвится от `cwd`; файл → `calculateConfigForFile`
       (`loadESLint()` берет flat-конфиг на ESLint 9 и 10 — проект поддерживает оба)
-- [ ] `eslint` грузить динамически: статический `import` упал бы на загрузке модуля раньше
+- [x] `eslint` грузить динамически: статический `import` упал бы на загрузке модуля раньше
       диагностики; отсутствие пакета → понятная ошибка «eslint is not installed in this project»
-- [ ] отдавать наружу только `settings`, без `Linter.Config`: про ESLint знает только этот модуль
-- [ ] директория → сэмпл: обход `node:fs` в алфавитном порядке, пропуск `node_modules`, `.git`,
+- [x] отдавать наружу только `settings`, без `Linter.Config`: про ESLint знает только этот модуль
+- [x] директория → сэмпл: обход `node:fs` в алфавитном порядке, пропуск `node_modules`, `.git`,
       dot-директорий, первый файл с `MODULE_EXTENSIONS`, для которого конфиг определен
-- [ ] понятные `Error`-сообщения: пути нет; конфига нет; путь игнорируется; в директории нет
+- [x] понятные `Error`-сообщения: пути нет; конфига нет; путь игнорируется; в директории нет
       линтуемых файлов
-- [ ] тесты на `makeTmpProject`: файл с `settings.weld`; директория → сэмпл и `sampleOf`;
+- [x] тесты на `makeTmpProject`: файл с `settings.weld`; директория → сэмпл и `sampleOf`;
       игнорируемый файл (`ignores`) пропускается; пустая директория → ошибка; проект без конфига →
       ошибка; передан каталог вместо файла в `inspect` → ошибка; `cleanupTmpProjects` в `afterEach`
-- [ ] `yarn test` — зеленый до перехода к задаче 5
+- [x] `yarn test` — зеленый до перехода к задаче 5
 
 ### Task 5: Рендер вывода — текст с цветом и JSON
 
