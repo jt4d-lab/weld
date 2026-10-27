@@ -1,22 +1,31 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
+import { resolveForFile } from '@/config/index.js';
+import type * as ConfigLayer from '@/config/index.js';
+import { createFakeFsHost } from '@/host/index.js';
+import { cleanupTmpProjects } from '@/testing/index.js';
 
-import type { ProgramDeps } from './program.js';
-import { createProgram } from './program.js';
+import { inspectFile } from './inspect.js';
+import {
+    ALIAS_CONFIG,
+    OUTSIDE_ROOT_CONFIG,
+    capture,
+    makeCliProject,
+    printed,
+} from './program.testing.js';
 
 /**
- * ESLint на реальном диске: настройки приходят из эффективного конфига проекта, а не подставляются
- * руками, — иначе тест проверял бы не CLI, а собственную заглушку. `.ts` объявлен в `files`, потому
- * что без совпадающей записи flat config файл считается игнорируемым.
+ * Шов на резолв нужен одному тесту: платформенную разницу реального и виртуального пути иначе не
+ * показать (на Linux их basename совпадает всегда). По умолчанию мок делегирует настоящей
+ * реализации, поэтому остальные тесты идут через реальный резолв и ESLint. Путь относительный:
+ * `vi.mock` с алиасом `@/` в реестр моков не попадает, а резолвится он от самого теста — при этом
+ * модуль тот же, что импортирует слой.
  */
-const CONFIG = `export default [
-    {
-        files: ['**/*.ts'],
-        settings: { weld: { aliases: { '@/*': ['src/*'] } } },
-    },
-];
-`;
+vi.mock('../config/index.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof ConfigLayer>();
+
+    return { ...actual, resolveForFile: vi.fn(actual.resolveForFile) };
+});
 
 /** Тот же проект, но без алиасов: автопоиск tsconfig в tmp-директории ничего не найдет. */
 const NO_ALIASES_CONFIG = `export default [
@@ -27,11 +36,20 @@ const NO_ALIASES_CONFIG = `export default [
 ];
 `;
 
-/** Границы корня: файл в `src/` заведомо вне явного root `packages/app`. */
-const OUTSIDE_ROOT_CONFIG = `export default [
+/** Алиас с собственным хвостом в ключе: голый префикс такой записью не резолвится. */
+const FEATURE_ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { repoRoot: 'packages/app', aliases: { '@/*': ['src/*'] } } },
+        settings: { weld: { aliases: { '@/feature/*': ['src/feature/*'] } } },
+    },
+];
+`;
+
+/** Точный ключ без звездочки: специфаером становится сам префикс. */
+const EXACT_ALIAS_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@/config': ['src/config'] } } },
     },
 ];
 `;
@@ -40,42 +58,10 @@ afterEach(() => {
     cleanupTmpProjects();
 });
 
-/** `ESC` из литерала не собрать: правило `no-control-regex` запрещает control-символы в регэкспе. */
-const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
-
-type Captured = {
-    program: ReturnType<typeof createProgram>;
-    out: string[];
-    err: string[];
-    codes: number[];
-};
-
-/** Программа с перехваченным выводом: терминал и `process.exitCode` тесту не нужны. */
-function capture(root: string, overrides: Partial<ProgramDeps> = {}): Captured {
-    const out: string[] = [];
-    const err: string[] = [];
-    const codes: number[] = [];
-
-    const program = createProgram({
-        cwd: root,
-        write: (text) => void out.push(text),
-        writeError: (text) => void err.push(text),
-        setExitCode: (code) => void codes.push(code),
-        ...overrides,
-    });
-
-    return { program, out, err, codes };
-}
-
-/** Напечатанное без color-escape-последовательностей. */
-function printed(chunks: string[]): string {
-    return chunks.join('').replace(ANSI, '');
-}
-
 describe('weld inspect', () => {
     it('печатает абсолютный путь файла и путь импорта по алиасу', async () => {
-        const root = makeTmpProject({
-            'eslint.config.mjs': CONFIG,
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
         });
         const { program, out, err, codes } = capture(root);
@@ -91,20 +77,92 @@ describe('weld inspect', () => {
     });
 
     it('index.<ext> схлопывается в директорию модуля', async () => {
-        const root = makeTmpProject({ 'eslint.config.mjs': CONFIG, 'src/feature/index.ts': '' });
-        const { program, out } = capture(root);
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'src/feature/index.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
 
         await program.parseAsync(['inspect', 'src/feature/index.ts'], { from: 'user' });
 
-        expect(printed(out)).toContain('alias: @/feature\n');
+        expect(printed(out)).toBe(
+            [`file:  ${root}/src/feature/index.ts`, 'alias: @/feature'].join('\n') + '\n',
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
+
+    it('алиас с хвостом в ключе: index.<ext> не даёт неразрешимый голый префикс', async () => {
+        // У записи `@/feature/*` → `src/feature/*` голый `@/feature` не резолвится: звездочке
+        // нечего подставить. Швом алиаса становится имя самого файла.
+        const root = makeCliProject({
+            'eslint.config.mjs': FEATURE_ALIAS_CONFIG,
+            'src/feature/index.ts': '',
+            'src/feature/internal.ts': '',
+        });
+
+        const index = capture(root);
+        await index.program.parseAsync(['inspect', 'src/feature/index.ts'], { from: 'user' });
+        expect(printed(index.out)).toBe(
+            [`file:  ${root}/src/feature/index.ts`, 'alias: @/feature/index.ts'].join('\n') + '\n',
+        );
+
+        const internal = capture(root);
+        await internal.program.parseAsync(['inspect', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+        expect(printed(internal.out)).toBe(
+            [`file:  ${root}/src/feature/internal.ts`, 'alias: @/feature/internal.ts'].join('\n') +
+                '\n',
+        );
+    });
+
+    it('точный ключ: index.<ext> печатается как сам префикс, без имени файла', async () => {
+        // `paths: { '@/config': ['src/config'] }` резолвит `@/config`, а `@/config/index.ts` — нет:
+        // хвост к точной записи не подставляется, поэтому дописывать имя файла к ней нельзя.
+        const root = makeCliProject({
+            'eslint.config.mjs': EXACT_ALIAS_CONFIG,
+            'src/config/index.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/config/index.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [`file:  ${root}/src/config/index.ts`, 'alias: @/config'].join('\n') + '\n',
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
+
+    it('index.<ext> прямо в якоре алиаса печатается с именем файла', async () => {
+        const root = makeCliProject({ 'eslint.config.mjs': ALIAS_CONFIG, 'src/index.ts': '' });
+        const { program, out } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/index.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [`file:  ${root}/src/index.ts`, 'alias: @/index.ts'].join('\n') + '\n',
+        );
+    });
+
+    it('index.<ext> в корне репозитория не схлопывается в `/`', async () => {
+        const root = makeCliProject({ 'eslint.config.mjs': NO_ALIASES_CONFIG, 'index.ts': '' });
+        const { program, out } = capture(root);
+
+        await program.parseAsync(['inspect', 'index.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [`file:  ${root}/index.ts`, 'alias: /index.ts'].join('\n') + '\n',
+        );
     });
 
     it('без алиасов печатает виртуальный путь', async () => {
-        const root = makeTmpProject({
+        const root = makeCliProject({
             'eslint.config.mjs': NO_ALIASES_CONFIG,
             'src/feature/internal.ts': '',
         });
-        const { program, out } = capture(root);
+        const { program, out, err, codes } = capture(root);
 
         await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
 
@@ -113,11 +171,13 @@ describe('weld inspect', () => {
                 '\n',
             ) + '\n',
         );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
     });
 
     it('--json печатает только JSON, без текстовых подписей', async () => {
-        const root = makeTmpProject({
-            'eslint.config.mjs': CONFIG,
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
         });
         const { program, out } = capture(root);
@@ -133,7 +193,7 @@ describe('weld inspect', () => {
     });
 
     it('--json без алиаса печатает alias: null', async () => {
-        const root = makeTmpProject({
+        const root = makeCliProject({
             'eslint.config.mjs': NO_ALIASES_CONFIG,
             'src/feature/internal.ts': '',
         });
@@ -149,9 +209,26 @@ describe('weld inspect', () => {
         });
     });
 
+    it('--no-color печатает тот же текст без escape-последовательностей', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'src/feature/index.ts': '',
+        });
+        const { program, out } = capture(root);
+
+        await program.parseAsync(['--no-color', 'inspect', 'src/feature/index.ts'], {
+            from: 'user',
+        });
+
+        expect(out.join('')).not.toContain(String.fromCharCode(27));
+        expect(printed(out)).toBe(
+            [`file:  ${root}/src/feature/index.ts`, 'alias: @/feature'].join('\n') + '\n',
+        );
+    });
+
     it('директория вместо файла → ошибка expected a file', async () => {
-        const root = makeTmpProject({
-            'eslint.config.mjs': CONFIG,
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
         });
         const { program, out, err, codes } = capture(root);
@@ -163,8 +240,26 @@ describe('weld inspect', () => {
         expect(codes).toEqual([1]);
     });
 
+    it('директория без линтуемых файлов → ошибка про отсутствие файлов', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'src/keep.css': '',
+            'src/data.json': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src'], { from: 'user' });
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe('error: no lintable files in src\n');
+        expect(codes).toEqual([1]);
+    });
+
     it('несуществующий путь → ошибка, при --json она уходит в stdout', async () => {
-        const root = makeTmpProject({ 'eslint.config.mjs': CONFIG, 'src/feature/internal.ts': '' });
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'src/feature/internal.ts': '',
+        });
 
         const text = capture(root);
         await text.program.parseAsync(['inspect', 'src/missing.ts'], { from: 'user' });
@@ -182,7 +277,7 @@ describe('weld inspect', () => {
     });
 
     it('файл вне корня репозитория → ошибка', async () => {
-        const root = makeTmpProject({
+        const root = makeCliProject({
             'eslint.config.mjs': OUTSIDE_ROOT_CONFIG,
             'packages/app/placeholder.ts': '',
             'src/feature/internal.ts': '',
@@ -195,5 +290,29 @@ describe('weld inspect', () => {
             `error: ${root}/src/feature/internal.ts is outside the repository root\n`,
         );
         expect(codes).toEqual([1]);
+    });
+});
+
+describe('inspectFile: имя файла в алиасе', () => {
+    it('берется из виртуального пути, а не из реального (Windows)', () => {
+        vi.mocked(resolveForFile).mockReturnValueOnce({
+            getFromFile: () => '/src/index.ts',
+            getRoot: () => 'C:\\repo',
+            getFsHost: () => createFakeFsHost([]),
+            getAliases: () => [{ prefix: '@', anchor: '/src', star: true }],
+        });
+
+        const result = inspectFile(
+            { filePath: 'C:\\repo\\src\\index.ts', settings: {} },
+            'C:\\repo',
+        );
+
+        // На Windows реальный путь пришел бы с `\`, и posix-`basename` вернул бы его целиком:
+        // `@/C:\repo\src\index.ts` не резолвится ничем.
+        expect(result).toEqual({
+            file: 'C:\\repo\\src\\index.ts',
+            virtualPath: '/src',
+            alias: '@/index.ts',
+        });
     });
 });

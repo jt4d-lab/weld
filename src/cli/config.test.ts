@@ -1,30 +1,41 @@
-import { createRequire } from 'node:module';
-
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
+import { cleanupTmpProjects } from '@/testing/index.js';
 
-import type { ProgramDeps } from './program.js';
-import { createProgram } from './program.js';
+import {
+    ALIAS_CONFIG,
+    OUTSIDE_ROOT_CONFIG,
+    capture,
+    makeCliProject,
+    printed,
+} from './program.testing.js';
 
-const { version: PACKAGE_VERSION } = createRequire(import.meta.url)('../../package.json') as {
-    version: string;
-};
-
-/** ESLint на реальном диске: `settings.weld` приходит из эффективного конфига проекта. */
-const CONFIG = `export default [
+/** Тот же проект без алиасов в `settings.weld`: алиасы ищутся в tsconfig. */
+const TSCONFIG_AUTODETECT_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@/*': ['src/*'] } } },
+        settings: { weld: {} },
     },
 ];
 `;
 
-/** Корень уже, чем директория проекта: файл в `src/` оказывается вне него. */
-const OUTSIDE_ROOT_CONFIG = `export default [
+/** Алиасы заданы опциями правила — как у проекта, который настраивает WELD на правиле. */
+const RULE_OPTIONS_CONFIG = `const weld = {
+    rules: {
+        'no-barrel-bypass': { meta: { schema: [{ type: 'object' }] }, create: () => ({}) },
+    },
+};
+
+export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { repoRoot: 'packages/app', aliases: { '@/*': ['src/*'] } } },
+        plugins: { weld },
+        rules: {
+            'weld/no-barrel-bypass': [
+                'error',
+                { aliases: { '@/*': ['src/*'] }, tsconfig: 'tsconfig.custom.json' },
+            ],
+        },
     },
 ];
 `;
@@ -33,42 +44,10 @@ afterEach(() => {
     cleanupTmpProjects();
 });
 
-/** `ESC` из литерала не собрать: правило `no-control-regex` запрещает control-символы в регэкспе. */
-const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
-
-type Captured = {
-    program: ReturnType<typeof createProgram>;
-    out: string[];
-    err: string[];
-    codes: number[];
-};
-
-/** Программа с перехваченным выводом: терминал и `process.exitCode` тесту не нужны. */
-function capture(root: string, overrides: Partial<ProgramDeps> = {}): Captured {
-    const out: string[] = [];
-    const err: string[] = [];
-    const codes: number[] = [];
-
-    const program = createProgram({
-        cwd: root,
-        write: (text) => void out.push(text),
-        writeError: (text) => void err.push(text),
-        setExitCode: (code) => void codes.push(code),
-        ...overrides,
-    });
-
-    return { program, out, err, codes };
-}
-
-/** Напечатанное без color-escape-последовательностей. */
-function printed(chunks: string[]): string {
-    return chunks.join('').replace(ANSI, '');
-}
-
 describe('weld config: файл', () => {
     it('печатает корень, базу алиасов, имя tsconfig и разобранные алиасы', async () => {
-        const root = makeTmpProject({
-            'eslint.config.mjs': CONFIG,
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
         });
         const { program, out, err, codes } = capture(root);
@@ -89,12 +68,59 @@ describe('weld config: файл', () => {
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
     });
+
+    it('алиасы из tsconfig: автопоиск включается, когда в settings.weld их нет', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': TSCONFIG_AUTODETECT_CONFIG,
+            'tsconfig.json': JSON.stringify({
+                compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } },
+            }),
+            'src/feature/internal.ts': '',
+        });
+        const { program, out } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                `file:  ${root}/src/feature/internal.ts`,
+                'settings.weld:',
+                `  repoRoot:       ${root}`,
+                '  aliasesBaseUrl: .',
+                '  tsconfig:       tsconfig.json',
+                '  aliases:',
+                '    @/* → /src/*',
+            ].join('\n') + '\n',
+        );
+    });
+
+    it('опции правила из конфига перекрывают settings.weld, как и при линте', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': RULE_OPTIONS_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                `file:  ${root}/src/feature/internal.ts`,
+                'settings.weld:',
+                `  repoRoot:       ${root}`,
+                '  aliasesBaseUrl: .',
+                '  tsconfig:       tsconfig.custom.json',
+                '  aliases:',
+                '    @/* → /src/*',
+            ].join('\n') + '\n',
+        );
+    });
 });
 
 describe('weld config: директория', () => {
     it('показывает сэмпл директории и помечает его', async () => {
-        const root = makeTmpProject({
-            'eslint.config.mjs': CONFIG,
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
             'src/feature/index.ts': '',
         });
@@ -108,8 +134,8 @@ describe('weld config: директория', () => {
     });
 
     it('--json отдает sampleOf и настройки в машинной форме', async () => {
-        const root = makeTmpProject({
-            'eslint.config.mjs': CONFIG,
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
             'src/feature/index.ts': '',
         });
@@ -124,7 +150,7 @@ describe('weld config: директория', () => {
                 repoRoot: root,
                 aliasesBaseUrl: '.',
                 tsconfig: 'tsconfig.json',
-                aliases: [{ prefix: '@', anchor: '/src' }],
+                aliases: [{ prefix: '@', anchor: '/src', star: true }],
             },
         });
     });
@@ -132,8 +158,8 @@ describe('weld config: директория', () => {
 
 describe('weld config: --json у файла', () => {
     it('не содержит sampleOf', async () => {
-        const root = makeTmpProject({
-            'eslint.config.mjs': CONFIG,
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
         });
         const { program, out } = capture(root);
@@ -148,7 +174,10 @@ describe('weld config: --json у файла', () => {
 
 describe('weld config: ошибки', () => {
     it('несуществующий путь → ошибка и код 1', async () => {
-        const root = makeTmpProject({ 'eslint.config.mjs': CONFIG, 'src/feature/internal.ts': '' });
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'src/feature/internal.ts': '',
+        });
         const { program, out, err, codes } = capture(root);
 
         await program.parseAsync(['config', 'src/missing.ts'], { from: 'user' });
@@ -159,7 +188,7 @@ describe('weld config: ошибки', () => {
     });
 
     it('проект без ESLint-конфига → ошибка про конфиг', async () => {
-        const root = makeTmpProject({ 'src/a.ts': '' });
+        const root = makeCliProject({ 'src/a.ts': '' });
         const { program, err, codes } = capture(root);
 
         await program.parseAsync(['config', 'src/a.ts'], { from: 'user' });
@@ -169,7 +198,7 @@ describe('weld config: ошибки', () => {
     });
 
     it('путь вне корня репозитория → ошибка', async () => {
-        const root = makeTmpProject({
+        const root = makeCliProject({
             'eslint.config.mjs': OUTSIDE_ROOT_CONFIG,
             'packages/app/placeholder.ts': '',
             'src/a.ts': '',
@@ -183,7 +212,7 @@ describe('weld config: ошибки', () => {
     });
 
     it('при --json ошибка уходит в stdout как { "error": ... }', async () => {
-        const root = makeTmpProject({ 'src/a.ts': '' });
+        const root = makeCliProject({ 'src/a.ts': '' });
         const { program, out, err, codes } = capture(root);
 
         await program.parseAsync(['--json', 'config', 'src/a.ts'], { from: 'user' });
@@ -193,21 +222,5 @@ describe('weld config: ошибки', () => {
         });
         expect(err).toEqual([]);
         expect(codes).toEqual([1]);
-    });
-});
-
-describe('createProgram: версия', () => {
-    it('--version печатает версию из package.json', async () => {
-        const root = makeTmpProject();
-        const { program, out } = capture(root);
-
-        // `exitOverride` не дает commander завершить процесс; `--version` — не ошибка, а выход с 0.
-        program.exitOverride();
-
-        await expect(program.parseAsync(['--version'], { from: 'user' })).rejects.toMatchObject({
-            exitCode: 0,
-        });
-
-        expect(printed(out).trim()).toBe(PACKAGE_VERSION);
     });
 });

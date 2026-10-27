@@ -21,6 +21,7 @@
 import type { Rule } from 'eslint';
 
 import { resolveForFile } from '@/config/index.js';
+import type { WeldResolveOptions } from '@/config/index.js';
 import type { FsHost } from '@/host/index.js';
 import type { Alias } from '@/settings/index.js';
 
@@ -38,14 +39,10 @@ export const WELD_OPTION_PROPERTIES = {
 /**
  * Значения общих опций правила. Типы уже отсеяны `meta.schema` — в резолв они идут как `unknown`,
  * а здесь нужны, чтобы подмешать общие опции к собственным опциям правила. Наружу тип не выходит:
- * правилу незачем его называть, пересечение делается здесь.
+ * правилу незачем его называть, пересечение делается здесь. Свойства те же, что у входа резолва,
+ * поэтому тип не дублируется, а берется оттуда.
  */
-type WeldOptions = {
-    repoRoot?: string;
-    aliasesBaseUrl?: string;
-    aliases?: Record<string, unknown>;
-    tsconfig?: string;
-};
+type WeldOptions = WeldResolveOptions;
 
 /** Всё, что правило берет из контекста до обхода AST. */
 export type WeldContext<TOwnOptions = unknown> = {

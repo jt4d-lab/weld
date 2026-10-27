@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ConfigData, InspectData } from './render.js';
+import type { ConfigData } from './config.js';
+import type { InspectData } from './inspect.js';
+import { plain } from './program.testing.js';
 import { renderConfig, renderInspect, renderJson } from './render.js';
-
-/** `ESC` из литерала не собрать: правило `no-control-regex` запрещает control-символы в регэкспе. */
-const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
-
-/** Текст без color-escape-последовательностей: так проверяется, что цвет не меняет сам вывод. */
-function plain(text: string): string {
-    return text.replace(ANSI, '');
-}
 
 const INSPECT: InspectData = {
     file: '/repo/src/feature/internal.ts',
@@ -22,7 +16,7 @@ const CONFIG: ConfigData = {
         repoRoot: '/repo',
         aliasesBaseUrl: '.',
         tsconfig: 'tsconfig.json',
-        aliases: [{ prefix: '@', anchor: '/src' }],
+        aliases: [{ prefix: '@', anchor: '/src', star: true }],
     },
 };
 
@@ -80,6 +74,29 @@ describe('renderConfig: файл', () => {
         expect(output).toContain('\n  aliases: (none)');
     });
 
+    it('точный ключ печатается без хвоста /* с обеих сторон', () => {
+        // Запись `{ '@/config': ['src/config'] }` в `paths` объявлена без звездочки, и печатать ее
+        // звездной значило бы показать не тот ключ, который видит TypeScript.
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    aliases: [
+                        { prefix: '@/config', anchor: '/src/config', star: false },
+                        { prefix: '@', anchor: '/src', star: true },
+                    ],
+                },
+            },
+            { color: false },
+        );
+
+        expect(output.split('\n').slice(-2)).toEqual([
+            '    @/config → /src/config',
+            '    @/* → /src/*',
+        ]);
+    });
+
     it('несколько алиасов печатаются каждый на своей строке', () => {
         const output = renderConfig(
             {
@@ -87,8 +104,29 @@ describe('renderConfig: файл', () => {
                 settings: {
                     ...CONFIG.settings,
                     aliases: [
-                        { prefix: '@', anchor: '/src' },
-                        { prefix: '@app', anchor: '/src/app' },
+                        { prefix: '@', anchor: '/src', star: true },
+                        { prefix: '@app', anchor: '/src/app', star: true },
+                    ],
+                },
+            },
+            { color: false },
+        );
+
+        expect(output.split('\n').slice(-2)).toEqual([
+            '    @/* → /src/*',
+            '    @app/* → /src/app/*',
+        ]);
+    });
+
+    it('хвост `/*` не удваивается, если он частично уже есть в записи', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    aliases: [
+                        { prefix: '@/', anchor: '/src/', star: true },
+                        { prefix: '@app', anchor: '/src/app', star: true },
                     ],
                 },
             },
@@ -160,7 +198,7 @@ describe('renderJson', () => {
                 repoRoot: '/repo',
                 aliasesBaseUrl: '.',
                 tsconfig: 'tsconfig.json',
-                aliases: [{ prefix: '@', anchor: '/src' }],
+                aliases: [{ prefix: '@', anchor: '/src', star: true }],
             },
         });
     });

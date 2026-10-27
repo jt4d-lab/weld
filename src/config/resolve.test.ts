@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveForFile } from '@/config/index.js';
 import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
 import {
     cleanupTmpProjects,
@@ -10,6 +9,8 @@ import {
 } from '@/testing/index.js';
 import { loadTsconfigPaths, resetTsconfigCache } from '@/tsconfig/index.js';
 import type * as TsconfigLayer from '@/tsconfig/index.js';
+
+import { resolveForFile } from './resolve.js';
 
 /**
  * Счетчик обращений к автопоиску tsconfig: ленивость видна только по нему. Мокается баррель слоя (а
@@ -25,14 +26,18 @@ vi.mock('../tsconfig/index.js', async (importOriginal) => {
 
 const loadTsconfigPathsMock = vi.mocked(loadTsconfigPaths);
 
-describe('resolveForFile', () => {
-    afterEach(() => {
-        resetFsHostCaches();
-        resetTsconfigCache();
-        cleanupTmpProjects();
-        loadTsconfigPathsMock.mockClear();
-    });
+/**
+ * Каждый сценарий этого файла работает с кэшами обоих слоев и со счетчиком мока, поэтому сброс один
+ * на файл, а не в каждом `describe`.
+ */
+afterEach(() => {
+    resetFsHostCaches();
+    resetTsconfigCache();
+    cleanupTmpProjects();
+    loadTsconfigPathsMock.mockClear();
+});
 
+describe('resolveForFile', () => {
     it('базовый резолв: виртуальный путь, алиасы и та же файловая система', () => {
         const fsHost = createFakeFsHost([]);
 
@@ -48,7 +53,9 @@ describe('resolveForFile', () => {
         );
 
         expect(target.getFromFile()).toBe('/src/feature/file.ts');
-        expect(target.getAliases()).toEqual([{ prefix: '@other', anchor: '/src/other' }]);
+        expect(target.getAliases()).toEqual([
+            { prefix: '@other', anchor: '/src/other', star: true },
+        ]);
         expect(target.getFsHost()).toBe(fsHost);
     });
 
@@ -83,7 +90,7 @@ describe('resolveForFile', () => {
             createFakeFsHost([]),
         );
 
-        expect(target.getAliases()).toEqual([{ prefix: '@a', anchor: '/src/a' }]);
+        expect(target.getAliases()).toEqual([{ prefix: '@a', anchor: '/src/a', star: true }]);
     });
 
     it('алиасы приходят из tsconfig внутри явного root', () => {
@@ -96,8 +103,8 @@ describe('resolveForFile', () => {
         expect(target.getFromFile()).toBe('/src/consumer.ts');
         expect(target.getRoot()).toBe(tsconfigBasicFixture);
         expect(target.getAliases()).toEqual([
-            { prefix: '@', anchor: '/src' },
-            { prefix: '#lib', anchor: '/src/lib' },
+            { prefix: '@', anchor: '/src', star: true },
+            { prefix: '#lib', anchor: '/src/lib', star: false },
         ]);
     });
 
@@ -122,7 +129,7 @@ describe('resolveForFile', () => {
 
         expect(target.getRoot()).toBe(proj);
         expect(target.getFromFile()).toBe('/packages/app/src/consumer.ts');
-        expect(target.getAliases()).toEqual([{ prefix: '@shared', anchor: '/shared' }]);
+        expect(target.getAliases()).toEqual([{ prefix: '@shared', anchor: '/shared', star: true }]);
     });
 
     it('пустой {} в settings.weld.aliases выключает автопоиск', () => {
@@ -192,18 +199,11 @@ describe('resolveForFile', () => {
             settings: { weld: { repoRoot: proj, tsconfig: 'tsconfig.app.json' } },
         });
 
-        expect(target.getAliases()).toEqual([{ prefix: '@app', anchor: '/app' }]);
+        expect(target.getAliases()).toEqual([{ prefix: '@app', anchor: '/app', star: true }]);
     });
 });
 
 describe('resolveForFile: ленивость', () => {
-    afterEach(() => {
-        resetFsHostCaches();
-        resetTsconfigCache();
-        cleanupTmpProjects();
-        loadTsconfigPathsMock.mockClear();
-    });
-
     it('resolveForFile и части, которым алиасы не нужны, не бросают на кривых aliases', () => {
         const target = resolveForFile({
             filename: `${repoRoot}/src/config/resolve.ts`,
@@ -265,7 +265,7 @@ describe('resolveForFile: ленивость', () => {
 
         expect(() => target.getRoot()).not.toThrow();
         expect(target.getRoot()).toBe(repoRoot);
-        expect(target.getAliases()).toEqual([{ prefix: '@a', anchor: '/src/a' }]);
+        expect(target.getAliases()).toEqual([{ prefix: '@a', anchor: '/src/a', star: true }]);
         expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
     });
 

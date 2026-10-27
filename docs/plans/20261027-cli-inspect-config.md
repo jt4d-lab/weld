@@ -1,6 +1,6 @@
 # CLI на commander: команды `inspect` и `config`
 
-## Overview
+## Обзор
 
 У плагина появляется исполняемый вход `weld` на базе `commander` с двумя командами:
 
@@ -19,7 +19,7 @@
 2. **CLI**: второй потребитель того же резолва, поэтому правила и CLI получают данные из одного
    источника, а не из двух похожих реализаций.
 
-## Context (from discovery)
+## Контекст (из разведки)
 
 - `src/rules/context.ts` — `resolveWeldContext(context, fsHostOverride?)`; читает из контекста
   `settings`, `cwd`, `filename`, `options[0]`; приоритет алиасов `options.aliases` →
@@ -45,16 +45,16 @@
 - `commander` есть в `node_modules` только транзитивно (7.2.0); `picocolors` тоже транзитивно (через
   vite/prettier) — оба нужны в `dependencies`.
 
-## Development Approach
+## Подход к разработке
 
 - **testing approach**: Regular — сначала код, тесты в той же задаче до перехода к следующей.
-- каждая задача завершается зелёным `yarn test`.
+- каждая задача завершается зеленым `yarn test`.
 - тесты лежат рядом с кодом (`src/<...>/*.test.ts`), поверх `src/testing/` где нужен реальный диск.
 - форматирование руками не трогаем: prettier/eslint прогоняет `lint-staged` на коммите.
 - `yarn verify` гоняется на восьмой задаче, отдельно `yarn smoke` — там же.
 - план правится при изменении объема работ (➕ новые задачи, ⚠️ блокеры).
 
-## Testing Strategy
+## Стратегия тестирования
 
 - **unit**: `src/config/`, `src/imports/`, `src/cli/` — на каждый новый модуль свой `*.test.ts`.
 - **поведенческая регрессия**: `src/rules/context.test.ts` и тесты `no-barrel-bypass` остаются без
@@ -63,13 +63,13 @@
   `weld config --json` в чужом проекте — единственная проверка `bin`, shebang и второго entry
   `tsup`.
 
-## Progress Tracking
+## Отслеживание прогресса
 
 - выполненные пункты помечаются `[x]` сразу;
 - найденные по ходу задачи — `➕`, блокеры — `⚠️`;
 - при отклонении от плана правится сам план.
 
-## Solution Overview
+## Обзор решения
 
 Порядок работ: сначала один источник правды для резолва, только потом CLI.
 
@@ -87,7 +87,7 @@
 часть не должна валить его на первом же файле. Ленивость здесь дешевле, чем появившийся позже второй
 резолв с другим набором полей.
 
-## Technical Details
+## Технические детали
 
 ```ts
 // src/config/resolve.ts — без импорта eslint
@@ -122,7 +122,7 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
   просит очередное правило, — граница остается узкой.
 - Производительность не должна просесть, поэтому tsconfig — ленивая часть **внутри** `getRoot`/
   `getAliases`, а не на уровне `resolveForFile`: при явных алиасах (`options.aliases` или
-  `settings.weld.aliases`) tsconfig не читается вовсе, как и сейчас. Мемо живёт в пределах одного
+  `settings.weld.aliases`) tsconfig не читается вовсе, как и сейчас. Мемо живет в пределах одного
   вызова; кросс-файловое переиспользование остается в существующих кэшах (`src/tsconfig/`, инстансы
   `getFsHost`, TTL-кэш `getAliases`). Успешный разбор кэшируется, исключение — нет.
 - `getFromFile()` → `null` — `filename` вне корня репозитория (то же условие, что сейчас у
@@ -139,15 +139,19 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
   `rules → config`, обратных импортов нет.
 - `src/host/fs.ts`: `resolveRoot` выходит через баррель (ее же использует `getFsHost`), `FsHost` не
   расширяется — реальный путь правилам по-прежнему недоступен.
-- `src/imports/specifier.ts`: новый экспорт `renderAliasPath(target, aliases): string | null` —
-  обратный подбор алиаса по виртуальному пути (через существующие `longestCoveringAlias` /
-  `renderAlias`). `renderSpecifier` не меняется.
+- `src/imports/specifier.ts`: новый экспорт
+  `renderAliasPath(target, aliases): { specifier, needsFileName } | null` — обратный подбор алиаса
+  по виртуальному пути (через существующие `longestCoveringAlias` / `renderAlias`); `needsFileName`
+  говорит, что специфаер неполон (звездный ключ на самом якоре) и к нему надо дописать имя файла.
+  `renderSpecifier` не меняется.
 - `src/cli/eslint-config.ts` — единственное место CLI, знающее про ESLint. Наружу отдает не
-  `Linter.Config`, а минимум: `{ filePath, settings, sampleOf? }`. Поэтому `eslint` не течет в
-  рендер и команды.
-- `eslint` грузится динамически (`await import('eslint')`), а не статическим импортом: статический
-  упал бы на загрузке модуля, до любой диагностики. Если пакета нет в проекте, наружу уходит ошибка
-  «eslint is not installed in this project» вместо стектрейса.
+  `Linter.Config`, а минимум: `{ filePath, settings, options?, sampleOf? }`. Поэтому `eslint` не
+  течет в рендер и команды. `options` — опции правила `weld/*` из того же конфига: при линте они
+  перекрывают `settings.weld`, значит и CLI обязан передавать их в резолв.
+- `eslint` грузится динамически, а не статическим импортом: статический упал бы на загрузке модуля,
+  до любой диагностики. Ищется он в проекте пользователя (точка входа резолвится от `cwd`), а не
+  рядом с файлом плагина. Если пакета нет в проекте, наружу уходит ошибка «eslint is not installed
+  in this project» вместо стектрейса.
 - `cwd` у CLI — `process.cwd()`; отдельного `--cwd` нет. Относительные аргументы резолвятся от него
   и в выводе показываются абсолютным путем в `file:`.
 - Ошибки: в текстовом режиме `error: <текст>` в stderr; при `--json` — в stdout `{ "error": "..." }`
@@ -158,10 +162,11 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
 ```
 $ weld inspect src/feature/internal.ts
 file:  /srv/jt4d-lab/weld/src/feature/internal.ts
-alias: @/feature/internal
+alias: @/feature/internal.ts
 ```
 
-- `index.<ext>` схлопывается в директорию: `src/feature/index.ts` → `@/feature`.
+- `index.<ext>` схлопывается в директорию: `src/feature/index.ts` → `@/feature`; у самого якоря
+  хвостом становится имя файла (`src/index.ts` → `@/index.ts`).
 - Ни один алиас не покрывает файл → печатается виртуальный путь (`/src/feature/internal.ts`), а не
   относительный `./src/...` от `renderSpecifier`.
 
@@ -169,7 +174,7 @@ alias: @/feature/internal
 
 ```
 $ weld config src/feature
-file:   /srv/jt4d-lab/weld/src/feature/index.ts (sample of src/feature)
+file:  /srv/jt4d-lab/weld/src/feature/index.ts (sample of src/feature)
 settings.weld:
   repoRoot:       /srv/jt4d-lab/weld
   aliasesBaseUrl: .
@@ -191,12 +196,13 @@ settings.weld:
 Цвета и машинный вывод:
 
 - Цвета по умолчанию: подписи и пометки приглушенные, значение алиаса акцентное. Выключаются
-  `--no-color`, а также штатно через `NO_COLOR`/`FORCE_COLOR` (это дает `picocolors`).
+  `--no-color` и `NO_COLOR`, включаются (в том числе принудительно) `FORCE_COLOR` — это поведение
+  `picocolors`.
 - `--json` (глобальный флаг программы) печатает только JSON, без цветов и без текстовых подписей:
 
 ```json
 // weld inspect --json src/feature/internal.ts
-{ "file": "/srv/jt4d-lab/weld/src/feature/internal.ts", "alias": "@/feature/internal" }
+{ "file": "/srv/jt4d-lab/weld/src/feature/internal.ts", "alias": "@/feature/internal.ts" }
 
 // weld config --json src/feature
 {
@@ -214,17 +220,19 @@ settings.weld:
 - `alias` в JSON — `null`, когда алиаса нет; `sampleOf` отсутствует у файла.
 - `sampleOf` — аргумент директории в том виде, как его ввели.
 - `--version` и `--help` — от commander; версия берется из `package.json` через
-  `createRequire(import.meta.url)` (тот же прием, что в `src/index.ts`), а не дублируется литералом.
+  `createRequire(import.meta.url)('eslint-plugin-weld/package.json')` (self-reference пакета, а не
+  относительный `../package.json`: из `dist/bin.js` он указывает в корень пакета, а из
+  `src/cli/program.ts` — в `src/`), а не дублируется литералом.
 
-## What Goes Where
+## Что где лежит
 
 **Implementation Steps** — задачи 1–7, проверка и документация — 8–9.
 
 **Post-Completion** — ничего внешнего: публикация пакета не входит в план.
 
-## Implementation Steps
+## Шаги реализации
 
-### Task 1: Экспорт `resolveRoot` из слоя ФС
+### Задача 1: Экспорт `resolveRoot` из слоя ФС
 
 **Files:**
 
@@ -238,7 +246,7 @@ settings.weld:
       поднимается до общей директории с якорем; якорь без общего префикса игнорируется
 - [x] `yarn test` — зеленый до перехода к задаче 2
 
-### Task 2: Модуль `src/config/` — один источник резолва, без ESLint
+### Задача 2: Модуль `src/config/` — один источник резолва, без ESLint
 
 **Files:**
 
@@ -272,7 +280,7 @@ settings.weld:
 - [x] `yarn test`: `src/rules/context.test.ts` (≈30 кейсов) и тесты `no-barrel-bypass` проходят
       **без правок** — рефакторинг не изменил поведения
 
-### Task 3: Обратный рендер алиаса в слое импортов
+### Задача 3: Обратный рендер алиаса в слое импортов
 
 **Files:**
 
@@ -280,14 +288,16 @@ settings.weld:
 - Modify: `src/imports/index.ts`
 - Modify: `src/imports/specifier.test.ts`
 
-- [x] добавить `renderAliasPath(target, aliases)` — самый длинный алиас, покрывающий путь; `null`,
-      если не покрывает ни один
+- [x] добавить `renderAliasPath(target, aliases)` — самый длинный алиас, покрывающий путь;
+      `{ specifier, needsFileName }`, а `null`, если не покрывает ни один (признак учитывает форму
+      ключа: `Alias.star`, — поэтому точный ключ остаётся готовым специфаером)
 - [x] отдать через баррель `src/imports/index.ts`
-- [x] тесты: покрытие якорем, самый длинный из нескольких, граница по сегменту (`@/features` не
-      покрывает `@/features-old`), `null` без покрытия
+- [x] тесты: покрытие якорем, признак `needsFileName` (в том числе у записи с хвостом в ключе и у
+      точного ключа), самый длинный из нескольких, граница по сегменту (`@/features` не покрывает
+      `@/features-old`), `null` без покрытия
 - [x] `yarn test` — зеленый до перехода к задаче 4
 
-### Task 4: Источник ESLint-конфига для пути
+### Задача 4: Источник ESLint-конфига для пути
 
 **Files:**
 
@@ -309,7 +319,7 @@ settings.weld:
       ошибка; передан каталог вместо файла в `inspect` → ошибка; `cleanupTmpProjects` в `afterEach`
 - [x] `yarn test` — зеленый до перехода к задаче 5
 
-### Task 5: Рендер вывода — текст с цветом и JSON
+### Задача 5: Рендер вывода — текст с цветом и JSON
 
 **Files:**
 
@@ -325,7 +335,7 @@ settings.weld:
       отсутствующий `sampleOf`)
 - [x] `yarn test` — зеленый до перехода к задаче 6
 
-### Task 6: Команды `inspect` и `config`
+### Задача 6: Команды `inspect` и `config`
 
 **Files:**
 
@@ -355,7 +365,7 @@ settings.weld:
       `package.json`
 - [x] `yarn test` — зеленый до перехода к задаче 7
 
-### Task 7: Исполняемый вход и упаковка
+### Задача 7: Исполняемый вход и упаковка
 
 **Files:**
 
@@ -364,10 +374,11 @@ settings.weld:
 - Modify: `package.json`
 - Modify: `scripts/smoke-test.sh`
 
-- [x] `src/bin.ts` — shebang `#!/usr/bin/env node`, `createProgram().parseAsync(process.argv)` и
-      обработка исключения в `error: ...` + `exit 1`
-- [x] `--version` проверяет, что `createRequire(import.meta.url)('../package.json')` работает из
-      собранного `dist/bin.js` (пакет `package.json` попадает в тарбол всегда)
+- [x] `src/bin.ts` — shebang `#!/usr/bin/env node`, `runCli(process.argv)`: ошибки печатает слой CLI
+      (`error: ...` + `exit 1`), вход только запускает разбор
+- [x] `--version` проверяет, что версия из `package.json` читается из собранного `dist/bin.js`
+      (self-reference `eslint-plugin-weld/package.json`; пакет `package.json` попадает в тарбол
+      всегда)
 - [x] `tsup.config.ts`: второй entry `src/bin.ts` → `dist/bin.js`
 - [x] `package.json`: `"bin": { "weld": "./dist/bin.js" }`, `commander` и `picocolors` в
       `dependencies` (`yarn add commander picocolors`; если реестр недоступен — ⚠️ остановиться и
@@ -378,18 +389,18 @@ settings.weld:
 - [x] `yarn build` и `yarn smoke` — сборка и упаковка живы, `dist/bin.js` исполняемый
 - [x] `yarn test` — зеленый до перехода к задаче 8
 
-### Task 8: Verify acceptance criteria
+### Задача 8: Проверка критериев приемки
 
 - [x] все пункты Overview реализованы: две команды, вывод из Technical Details, цвета, `--json`,
       коды возврата
 - [x] крайние случаи: файл вне корня, отсутствующий путь, проект без ESLint-конфига, пустая
       директория, `index.<ext>` в `inspect`, пустые алиасы
-- [x] рефакторинг не изменил поведение: `src/rules/context.test.ts` без правок, плагин линтует сам
-      себя (`yarn lint`)
+- [x] рефакторинг не изменил поведение: `src/rules/context.test.ts` без правок, `yarn lint` чистый
+      (WELD-правила в конфиге этого репозитория не включены — линтует `typescript-eslint`)
 - [x] `yarn verify` (линт, prettier --check, типы, тесты, сборка) — зеленый
 - [x] `yarn smoke` и `yarn smoke 9` — зеленые
 
-### Task 9: [Final] Документация
+### Задача 9: Финальная документация
 
 - [x] `docs/cli.md` — обе команды, имя бинаря `weld`, формат вывода, цвета и `--no-color`, `--json`,
       коды возврата, требование «eslint установлен в проекте», примеры
@@ -401,7 +412,7 @@ settings.weld:
 - [x] перенести план в `docs/plans/completed/` — файл не переносится: план перемещает харнесс после
       завершения всех фаз
 
-## Post-Completion
+## После завершения
 
 Ничего внешнего: публикация в npm и обновление потребляющих проектов вне этого плана. Если при
 реализации окажется, что `commander@^14` или `picocolors` недоступны в реестре, версии подбираются

@@ -6,7 +6,7 @@
 ## Контекст
 
 Правилу, чтобы проверить импорт, нужно из `settings.weld` получить корень репозитория, алиасы и имя
-tsconfig, а при автопоиске — ещё и поднять корень до якорей найденного tsconfig. Эта логика живет в
+tsconfig, а при автопоиске — еще и поднять корень до якорей найденного tsconfig. Эта логика живет в
 `src/rules/context.ts` и доступна только через `resolveWeldContext(context: Rule.RuleContext)`: вход
 завязан на объект ESLint (`settings`, `cwd`, `filename`, `options`), а сам модуль знает типы
 `eslint`.

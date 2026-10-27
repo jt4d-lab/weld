@@ -1,70 +1,110 @@
 /**
  * Единственное место CLI, которое знает про ESLint: путь → `settings` эффективного ESLint-конфига.
- * Наружу отдается минимум (`{ filePath, settings, sampleOf? }`), а не `Linter.Config`, поэтому
- * `eslint` не течет ни в рендер вывода, ни в команды.
+ * Наружу отдается минимум (`{ filePath, settings, options?, sampleOf? }`), а не `Linter.Config`,
+ * поэтому `eslint` не течет ни в рендер вывода, ни в команды.
  *
  * `eslint` грузится динамически: статический `import` упал бы на загрузке модуля, до любой
- * диагностики, и в проекте без ESLint пользователь увидел бы стектрейс вместо сообщения.
+ * диагностики, и в проекте без ESLint пользователь увидел бы стектрейс вместо сообщения. Ищется он
+ * в проекте пользователя (от `cwd`), а не рядом с файлом плагина: глобально установленный `weld` или
+ * `npx` из другой директории обязан найти тот `eslint`, который в проекте действительно есть.
+ *
+ * Обход директории за сэмплом и `stat` живут отдельно, в `sample.ts`: у этого модуля одна работа —
+ * загрузка `eslint` и чтение его конфига.
  */
 
-import type { Dirent, Stats } from 'node:fs';
-import { readdirSync, statSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { isModuleExtension } from '@/extensions.js';
+import type { ESLint, Linter } from 'eslint';
+
+import type { WeldResolveOptions } from '@/config/index.js';
+
+import { findSample, messageOf, statOf } from './sample.js';
 
 /**
  * То, что CLI получает от ESLint-конфига. `settings` — сырая секция, ее формат знает
- * `src/settings/`; `sampleOf` — аргумент директории в том виде, как его ввели.
+ * `src/settings/`; `options` — опции правила WELD из того же конфига, которые при линте перекрывают
+ * `settings.weld`; `sampleOf` — аргумент директории в том виде, как его ввели.
  */
 export type LintSettings = {
     filePath: string;
     settings: unknown;
+    options?: WeldResolveOptions;
     sampleOf?: string;
-};
-
-/** Минимум от ESLint-конфига: `settings` без `Linter.Config` и без типов ESLint за границей модуля. */
-type EslintConfig = { settings?: unknown };
-
-/** Минимум от инстанса ESLint — ровно один вопрос, который задает CLI. */
-type EslintInstance = {
-    calculateConfigForFile(filePath: string): Promise<EslintConfig | undefined>;
 };
 
 /** Сообщение для проекта, в котором `eslint` не установлен: стектрейс тут ничего не объясняет. */
 const ESLINT_MISSING = 'eslint is not installed in this project';
 
-/** Директории, в которые обход не заходит: `node_modules` и всё скрытое (`.git` и прочее). */
-function isSkippedDir(name: string): boolean {
-    return name === 'node_modules' || name.startsWith('.');
+/** Имя пакета, который CLI ищет в проекте пользователя. */
+const ESLINT_PACKAGE = 'eslint';
+
+/**
+ * Якорь для `createRequire`: сам файл не читается, важна только его директория — `createRequire`
+ * строит от пути отправную точку поиска `node_modules`, и для этого хватает имени файла, которого
+ * заведомо нет. Реальный файл (скажем, `package.json` проекта) навязывал бы лишние условия: его
+ * поле `type` меняет вид модуля для резолвера.
+ */
+const REQUIRE_ANCHOR = 'noop.js';
+
+function isNotFoundModuleError(error: unknown): boolean {
+    const code = (error as { code?: unknown }).code;
+    return code === 'MODULE_NOT_FOUND' || code === 'ERR_MODULE_NOT_FOUND';
 }
 
-/** Сравнение по имени — обход обязан быть алфавитным, а не в порядке, в котором отдаст ФС. */
-function byName(a: { name: string }, b: { name: string }): number {
-    return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-}
+/**
+ * `eslint` из проекта пользователя. Сначала путь резолвится от `cwd` (обычный `require.resolve` из
+ * директории проекта), и только найденный файл импортируется: так `ERR_MODULE_NOT_FOUND` означает
+ * именно отсутствие пакета, а не промах относительного импорта.
+ */
+async function importEslint(cwd: string) {
+    let entry: string;
 
-/** `stat` без исключения: отсутствующий путь — обычный ответ «его нет», а не падение. */
-function statOf(path: string): Stats | null {
     try {
-        return statSync(path);
-    } catch {
-        return null;
+        entry = createRequire(join(cwd, REQUIRE_ANCHOR)).resolve(ESLINT_PACKAGE);
+    } catch (error) {
+        if (isNotFoundModuleError(error)) {
+            throw new Error(ESLINT_MISSING, { cause: error });
+        }
+
+        throw new Error(`eslint could not be resolved from ${cwd}: ${messageOf(error)}`, {
+            cause: error,
+        });
+    }
+
+    try {
+        return await import(pathToFileURL(entry).href);
+    } catch (error) {
+        throw new Error(`eslint could not be loaded from ${cwd}: ${messageOf(error)}`, {
+            cause: error,
+        });
     }
 }
 
 /** `ESLint` из проекта: `loadESLint()` берет flat-конфиг и на ESLint 9, и на ESLint 10. */
-async function createEslint(cwd: string): Promise<EslintInstance> {
-    const eslint = await import('eslint').catch(() => {
-        throw new Error(ESLINT_MISSING);
-    });
+async function createEslint(cwd: string): Promise<ESLint> {
+    const { loadESLint } = await importEslint(cwd);
+    const ESLintCtor = await loadESLint();
 
-    const ESLintCtor = await eslint.loadESLint();
     return new ESLintCtor({ cwd });
 }
 
+/**
+ * Отсутствие конфига в проекте ESLint помечает `messageTemplate`, а не только текстом: текст правила
+ * еще и переводят, а признак — часть API. Регэксп остается запасным вариантом для версий, где
+ * `messageTemplate` у этой ошибки нет.
+ */
 function isMissingConfigError(error: unknown): boolean {
-    return error instanceof Error && /could not find config file/i.test(error.message);
+    if (!(error instanceof Error)) {
+        return false;
+    }
+
+    const { messageTemplate } = error as { messageTemplate?: unknown };
+    return (
+        messageTemplate === 'config-file-missing' ||
+        /could not find config file/i.test(error.message)
+    );
 }
 
 /**
@@ -72,10 +112,10 @@ function isMissingConfigError(error: unknown): boolean {
  * первое означает, что CLI нечего показать, второе — что файл вне зоны действия ESLint.
  */
 async function configForFile(
-    eslint: EslintInstance,
+    eslint: ESLint,
     filePath: string,
     shownPath: string,
-): Promise<EslintConfig | undefined> {
+): Promise<Linter.Config | undefined> {
     try {
         return await eslint.calculateConfigForFile(filePath);
     } catch (error) {
@@ -87,54 +127,34 @@ async function configForFile(
     }
 }
 
-type Sample = { filePath: string; settings: unknown };
+/**
+ * Опции правила WELD из эффективного конфига: при линте они перекрывают `settings.weld`, поэтому
+ * CLI обязан передать их в резолв, иначе показал бы не ту конфигурацию, которую видит правило.
+ * Несколько правил `weld/*` с разными опциями — редкость; берется первое по порядку конфига.
+ */
+function weldOptions(config: Linter.Config): WeldResolveOptions | undefined {
+    for (const [name, entry] of Object.entries(config.rules ?? {})) {
+        if (!name.startsWith('weld/') || !Array.isArray(entry)) {
+            continue;
+        }
 
-/** Записи директории по алфавиту; нечитаемая директория — не повод падать, она пустая для сэмпла. */
-function readEntries(dir: string): Dirent[] {
-    try {
-        return readdirSync(dir, { withFileTypes: true }).sort(byName);
-    } catch {
-        return [];
+        const [, options] = entry as [unknown, unknown];
+
+        if (options !== null && typeof options === 'object') {
+            return options as WeldResolveOptions;
+        }
     }
+
+    return undefined;
 }
 
-/**
- * Первый в алфавитном порядке файл директории, для которого ESLint отдал конфиг. Игнорируемые
- * файлы дают `undefined` и пропускаются: сэмплом должен быть файл, который линтер действительно
- * обрабатывает.
- */
-async function findSample(
-    eslint: EslintInstance,
-    dir: string,
-    shownPath: string,
-): Promise<Sample | null> {
-    for (const entry of readEntries(dir)) {
-        const full = join(dir, entry.name);
+/** Настройки и опции файла: `settings.weld` вместе с опциями правила, если они в конфиге есть. */
+function settingsOf(config: Linter.Config): Omit<LintSettings, 'filePath'> {
+    const options = weldOptions(config);
 
-        if (entry.isDirectory()) {
-            if (isSkippedDir(entry.name)) {
-                continue;
-            }
-
-            const nested = await findSample(eslint, full, shownPath);
-            if (nested !== null) {
-                return nested;
-            }
-
-            continue;
-        }
-
-        if (!entry.isFile() || !isModuleExtension(extname(entry.name).slice(1))) {
-            continue;
-        }
-
-        const config = await configForFile(eslint, full, shownPath);
-        if (config !== undefined) {
-            return { filePath: full, settings: config.settings };
-        }
-    }
-
-    return null;
+    return options === undefined
+        ? { settings: config.settings }
+        : { settings: config.settings, options };
 }
 
 /**
@@ -159,14 +179,16 @@ export async function loadLintSettings(path: string, cwd: string): Promise<LintS
             throw new Error(`eslint ignores ${path}`);
         }
 
-        return { filePath: target, settings: config.settings };
+        return { filePath: target, ...settingsOf(config) };
     }
 
-    const sample = await findSample(eslint, target, path);
+    const sample = await findSample(target, path, (filePath) =>
+        configForFile(eslint, filePath, path),
+    );
 
     if (sample === null) {
         throw new Error(`no lintable files in ${path}`);
     }
 
-    return { ...sample, sampleOf: path };
+    return { filePath: sample.filePath, ...settingsOf(sample.result), sampleOf: path };
 }

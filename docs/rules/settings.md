@@ -168,7 +168,7 @@ export default [
 Любая проблема самого tsconfig — файл не нашелся, не распарсился, нет `compilerOptions.paths`,
 кривые значения `paths`, база записей оказалась вне root — приводит к одному и тому же: алиасов из
 tsconfig просто нет, линт продолжает работать, причина уходит в debug (namespace
-`eslint-plugin-weld:tsconfig`; отсев уже найденного tsconfig — `eslint-plugin-weld:rules`; подъем
+`eslint-plugin-weld:tsconfig`; отсев уже найденного tsconfig — `eslint-plugin-weld:config`; подъем
 root ради якорей — `eslint-plugin-weld:fs`):
 
 ```sh

@@ -92,7 +92,9 @@ function pickLongest(aliases: Alias[], key: (alias: Alias) => string | null): Al
 
 /** Самый длинный подходящий префикс; при равных префиксах — первая запись по порядку. */
 function matchAlias(specifier: string, aliases: Alias[]): Alias | null {
-    return pickLongest(aliases, (alias) => (covers(alias.prefix, specifier) ? alias.prefix : null));
+    return pickLongest(aliases, (alias) =>
+        coversPrefix(alias.prefix, specifier) ? alias.prefix : null,
+    );
 }
 
 function finalize(
@@ -151,6 +153,21 @@ export function renderSpecifier(
 }
 
 /**
+ * Итог обратного подбора алиаса: `specifier` — путь в алиасной форме, `needsFileName` — специфаер
+ * неполон, к нему надо дописать имя файла.
+ *
+ * Признак считается здесь, потому что для него нужны оба факта сразу: путь совпал с якорем и ключ
+ * записи звездный. У точного ключа (`@/config` → `src/config`) сам префикс — уже готовый специфаер,
+ * а у записи `@/feature/*` → `src/feature/*` голый `@/feature` не резолвится: звездочке нечего
+ * подставить. Дописать имя файла должен тот, кто файл знает, — поэтому решение выходит наружу
+ * готовым ответом, а не парой низкоуровневых признаков, которые вызывающий складывал бы сам.
+ */
+export type AliasPath = {
+    specifier: string;
+    needsFileName: boolean;
+};
+
+/**
  * Обратный подбор алиаса по виртуальному пути: `target` → специфаер в алиасной форме. Нужен тем,
  * кто путь уже имеет и спрашивает, как он записывается в импорте (`weld inspect`), — в отличие от
  * `renderSpecifier`, где форму записи задает исходный импорт.
@@ -158,9 +175,17 @@ export function renderSpecifier(
  * Выигрывает самый длинный покрывающий якорь; `null`, если не покрывает ни один — решение «что
  * печатать вместо алиаса» остается за вызывающим (виртуальный путь или относительный).
  */
-export function renderAliasPath(target: string, aliases: Alias[]): string | null {
+export function renderAliasPath(target: string, aliases: Alias[]): AliasPath | null {
     const alias = longestCoveringAlias(aliases, target);
-    return alias === null ? null : renderAlias(alias, target);
+
+    if (alias === null) {
+        return null;
+    }
+
+    return {
+        specifier: renderAlias(alias, target),
+        needsFileName: alias.star && alias.anchor === target,
+    };
 }
 
 function renderDirectory(form: Form, fromDir: string, barrier: string, aliases: Alias[]): string {
@@ -168,7 +193,7 @@ function renderDirectory(form: Form, fromDir: string, barrier: string, aliases: 
         return renderRelative(fromDir, barrier);
     }
 
-    if (covers(form.alias.anchor, barrier)) {
+    if (coversAnchor(form.alias.anchor, barrier)) {
         return renderAlias(form.alias, barrier);
     }
 
@@ -184,16 +209,28 @@ function withEntry(dir: string, extension: string): string {
 
 /**
  * `value` равен `prefix` или лежит под ним — граница проверяется по сегменту, а не по символам
- * (`@/features` не покрывает `@/features-old`). Один вопрос на обе стороны алиаса: слева от него
- * так сопоставляется префикс со специфаером, справа — якорь с директорией.
+ * (`@/features` не покрывает `@/features-old`).
  */
-function covers(prefix: string, value: string): boolean {
+function coversPrefix(prefix: string, value: string): boolean {
     return value === prefix || value.startsWith(`${prefix}/`);
+}
+
+/**
+ * Тот же вопрос, но про якорь, у которого есть случай, небывалый у префикса: якорь `/` (алиас на
+ * корень репозитория) покрывает весь виртуальный путь. Без этого обратный рендер не находил бы такой
+ * алиас никогда.
+ *
+ * Префиксу `/` это право не достается: специфаер с ведущим слэшем отсекается как `asset` еще до
+ * сопоставления, поэтому единственное, что покрыл бы такой префикс, — чужой пакет (`react`), который
+ * обязан остаться внешней зависимостью. Одно правило на обе стороны сделало бы его универсальным.
+ */
+function coversAnchor(anchor: string, value: string): boolean {
+    return anchor === '/' || coversPrefix(anchor, value);
 }
 
 /** Самый длинный якорь, покрывающий `dir`; `null`, если ни один не покрывает. */
 function longestCoveringAlias(aliases: Alias[], dir: string): Alias | null {
-    return pickLongest(aliases, (alias) => (covers(alias.anchor, dir) ? alias.anchor : null));
+    return pickLongest(aliases, (alias) => (coversAnchor(alias.anchor, dir) ? alias.anchor : null));
 }
 
 function renderAlias(alias: Alias, barrier: string): string {

@@ -8,10 +8,20 @@
  * `cleanupTmpProjects` из своего `afterEach`.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { repoRoot } from './paths.js';
 
 const created: string[] = [];
+
+/**
+ * Вид ссылки: на Windows директорную ссылку (`dir`) создает только процесс с правами
+ * администратора или включенным Developer Mode, аjunction доступен всем и целится абсолютным путём.
+ * На posix `junction` не существует, поэтому там обычная ссылка на директорию.
+ */
+const DIRECTORY_LINK_TYPE: 'dir' | 'junction' = process.platform === 'win32' ? 'junction' : 'dir';
 
 /**
  * Создает временный проект из пар «относительный путь → содержимое» (директории создаются сами) и
@@ -28,6 +38,15 @@ export function makeTmpProject(files: Record<string, string> = {}): string {
     }
 
     return root;
+}
+
+/**
+ * Ставит в проект `node_modules` этого репозитория симлинком. Нужно тестам, которые запускают
+ * настоящий ESLint из проекта-потребителя (`weld` грузит `eslint` оттуда, а не от себя): пакет
+ * оказывается там же, где он лежит у пользователя, а распаковывать его в каждый тест незачем.
+ */
+export function linkRepoNodeModules(root: string): void {
+    symlinkSync(join(repoRoot, 'node_modules'), join(root, 'node_modules'), DIRECTORY_LINK_TYPE);
 }
 
 /** Удаляет всё, что создал `makeTmpProject` с прошлой уборки. */

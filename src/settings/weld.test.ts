@@ -79,8 +79,8 @@ describe('getAliases', () => {
         const fromRoot = getAliases({ weld: { aliases } });
         const fromApp = getAliases({ weld: { aliasesBaseUrl: 'packages/app', aliases } });
 
-        expect(fromRoot).toEqual([{ prefix: '@src', anchor: '/src' }]);
-        expect(fromApp).toEqual([{ prefix: '@src', anchor: '/packages/app/src' }]);
+        expect(fromRoot).toEqual([{ prefix: '@src', anchor: '/src', star: true }]);
+        expect(fromApp).toEqual([{ prefix: '@src', anchor: '/packages/app/src', star: true }]);
     });
 
     it('нет settings.weld → пустой массив', () => {
@@ -117,9 +117,9 @@ describe('getAliases — кэш', () => {
         const settings = { weld: { aliases: { '@src/*': ['src/*'] } } };
 
         expect(getAliases(settings, { '@lib/*': ['lib/*'] })).toEqual([
-            { prefix: '@lib', anchor: '/lib' },
+            { prefix: '@lib', anchor: '/lib', star: true },
         ]);
-        expect(getAliases(settings)).toEqual([{ prefix: '@src', anchor: '/src' }]);
+        expect(getAliases(settings)).toEqual([{ prefix: '@src', anchor: '/src', star: true }]);
     });
 
     it('два конфига не вытесняют друг друга — записей в кэше несколько', () => {
@@ -141,7 +141,7 @@ describe('getAliases — кэш', () => {
         vi.setSystemTime(60_001);
 
         expect(getAliases(settings)).not.toBe(fresh);
-        expect(getAliases(settings)).toEqual([{ prefix: '@src', anchor: '/src' }]);
+        expect(getAliases(settings)).toEqual([{ prefix: '@src', anchor: '/src', star: true }]);
     });
 
     it('сломанный конфиг бросает на каждом вызове, а не только на первом', () => {
@@ -163,14 +163,14 @@ describe('getAliasesFromPaths', () => {
 
         expect(fromPaths).toEqual(fromSettings);
         expect(fromPaths).toEqual([
-            { prefix: '@src', anchor: '/packages/app/src' },
-            { prefix: '@lib', anchor: '/packages/app/lib' },
+            { prefix: '@src', anchor: '/packages/app/src', star: true },
+            { prefix: '@lib', anchor: '/packages/app/lib', star: false },
         ]);
     });
 
     it('база — виртуальный корень', () => {
         expect(getAliasesFromPaths({ '@src/*': ['src/*'] }, '/', 'tsconfig.json')).toEqual([
-            { prefix: '@src', anchor: '/src' },
+            { prefix: '@src', anchor: '/src', star: true },
         ]);
     });
 
@@ -232,7 +232,7 @@ describe('override', () => {
     it('override aliases разбирается с aliasesBaseUrl из settings', () => {
         expect(
             getAliases({ weld: { aliasesBaseUrl: 'packages/app' } }, { '@src/*': ['src/*'] }),
-        ).toEqual([{ prefix: '@src', anchor: '/packages/app/src' }]);
+        ).toEqual([{ prefix: '@src', anchor: '/packages/app/src', star: true }]);
     });
 
     it('override aliasesBaseUrl задает якоря алиасам из settings', () => {
@@ -241,7 +241,7 @@ describe('override', () => {
         };
 
         expect(getAliases(settings, undefined, 'packages/other')).toEqual([
-            { prefix: '@src', anchor: '/packages/other/src' },
+            { prefix: '@src', anchor: '/packages/other/src', star: true },
         ]);
     });
 
@@ -251,7 +251,7 @@ describe('override', () => {
         };
 
         expect(getAliases(settings, { '@lib/*': ['lib/*'] }, 'packages/other')).toEqual([
-            { prefix: '@lib', anchor: '/packages/other/lib' },
+            { prefix: '@lib', anchor: '/packages/other/lib', star: true },
         ]);
     });
 
@@ -261,8 +261,8 @@ describe('override', () => {
         const fromApp = getAliases({}, aliases, 'packages/app');
         const fromOther = getAliases({}, aliases, 'packages/other');
 
-        expect(fromApp).toEqual([{ prefix: '@src', anchor: '/packages/app/src' }]);
-        expect(fromOther).toEqual([{ prefix: '@src', anchor: '/packages/other/src' }]);
+        expect(fromApp).toEqual([{ prefix: '@src', anchor: '/packages/app/src', star: true }]);
+        expect(fromOther).toEqual([{ prefix: '@src', anchor: '/packages/other/src', star: true }]);
     });
 
     it('override aliasesBaseUrl проверяется как options.aliasesBaseUrl и при разборе алиасов', () => {

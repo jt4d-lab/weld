@@ -14,7 +14,7 @@ function checker(files: string[], aliases: Alias[] = []): (specifier: string) =>
 }
 
 const barrelFiles = ['/repo/src/other/index.ts'];
-const otherAlias: Alias[] = [{ prefix: '@other', anchor: '/repo/src/other' }];
+const otherAlias: Alias[] = [{ prefix: '@other', anchor: '/repo/src/other', star: true }];
 
 describe('checkImport — нарушение и замена', () => {
     it('нарушение с относительным импортом', () => {

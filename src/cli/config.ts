@@ -8,35 +8,49 @@
  */
 
 import { resolveForFile } from '@/config/index.js';
+import type { Alias } from '@/settings/index.js';
 import { getAliasesBaseUrl, getTsconfigName } from '@/settings/index.js';
 
 import type { LintSettings } from './eslint-config.js';
-import type { ConfigData } from './render.js';
+import { repoRootOf, virtualPathOf } from './target.js';
 
 /**
- * Данные `weld config`. Путь и настройки уже разобраны; печатает их `program.ts` — текстом или
- * JSON. Форма JSON та же: `sampleOf` у файла отсутствует, `aliases` уже в виде `{ prefix, anchor }`.
+ * Данные `weld config`: форма текстового вывода и одновременно форма JSON. Путь и настройки уже
+ * разобраны; печатает их `program.ts`. `sampleOf` у файла отсутствует, `aliases` — уже в виде
+ * `{ prefix, anchor }`.
  */
+export type ConfigData = {
+    file: string;
+    /** Аргумент директории в том виде, как его ввели; у файла отсутствует. */
+    sampleOf?: string;
+    settings: {
+        repoRoot: string;
+        aliasesBaseUrl: string;
+        tsconfig: string;
+        aliases: Alias[];
+    };
+};
+
 export function effectiveConfig(lint: LintSettings, cwd: string): ConfigData {
-    const target = resolveForFile({ filename: lint.filePath, settings: lint.settings, cwd });
+    const target = resolveForFile({
+        filename: lint.filePath,
+        settings: lint.settings,
+        cwd,
+        options: lint.options,
+    });
 
-    if (target.getFromFile() === null) {
-        throw new Error(`${lint.filePath} is outside the repository root`);
-    }
-
-    const repoRoot = target.getRoot();
-
-    if (repoRoot === null) {
-        throw new Error(`repository root could not be resolved for ${lint.filePath}`);
-    }
+    // Файл вне корня отсекается до разбора алиасов — тем же отказом и в том же порядке, что и
+    // `inspect`.
+    virtualPathOf(target, lint.filePath);
 
     return {
         file: lint.filePath,
         sampleOf: lint.sampleOf,
         settings: {
-            repoRoot,
-            aliasesBaseUrl: getAliasesBaseUrl(lint.settings),
-            tsconfig: getTsconfigName(lint.settings),
+            repoRoot: repoRootOf(target, lint.filePath),
+            // Опции правила перекрывают `settings.weld` — печатается то же, что увидит линтер.
+            aliasesBaseUrl: getAliasesBaseUrl(lint.settings, lint.options?.aliasesBaseUrl),
+            tsconfig: getTsconfigName(lint.settings, lint.options?.tsconfig),
             aliases: target.getAliases(),
         },
     };
