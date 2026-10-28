@@ -93,8 +93,9 @@ weld config --no-color src/feature
 
 ## `--json`
 
-Глобальный флаг программы: печатается только JSON, без подписей и цветов. Состав полей у каждой
-команды свой и описан вместе с ее текстовым выводом.
+Глобальный флаг программы: печатается только JSON, без подписей и цветов. JSON-представление есть у
+всех команд: `weld config` и `weld inspect` отвечают объектом с теми же данными, что и в текстовом
+выводе.
 
 ## Коды возврата и ошибки
 
@@ -117,26 +118,3 @@ $ weld config --json src/missing
   "error": "path does not exist: src/missing"
 }
 ```
-
-Возможные сообщения:
-
-| сообщение                                                                                     | когда                                                    |
-| --------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `eslint is not installed in this project`                                                     | в проекте нет пакета `eslint`                            |
-| `eslint could not be resolved from <cwd>`                                                     | пакет есть, но его точку входа не удалось найти          |
-| `eslint could not be loaded from <cwd>`                                                       | пакет есть, но не загружается                            |
-| `path does not exist: <path>`                                                                 | аргумент не существует                                   |
-| `cannot read <path>`                                                                          | путь есть, но файловая система отвечает ошибкой          |
-| `no eslint config found for <path>`                                                           | ни здесь, ни выше нет конфига с именем из списка         |
-| `config path does not exist: <path>`                                                          | `--config` указал на отсутствующий путь                  |
-| `config path is not a file: <path>`                                                           | `--config` указал на существующий путь, который не файл  |
-| `<path> is outside the config base directory: …`                                              | `--config` и путь вне текущей директории                 |
-| `eslint config <path> is a TypeScript file and this Node.js version cannot import it: …`      | ESLint 9 на Node без нативной поддержки TS               |
-| `eslint config <path> is a TypeScript file and ESLint needs the 'jiti' library to load it: …` | ESLint 10 без установленного `jiti`                      |
-| `eslint ignores <path>`                                                                       | файл игнорируется конфигом                               |
-| `no lintable files in <path>`                                                                 | в директории нет файла, который линтер обрабатывает      |
-| `expected a file, got a directory: <path>`                                                    | `inspect` получил директорию                             |
-| `missing command`                                                                             | команда не указана (справка при этом печатается)         |
-| `<file> is outside the repository root`                                                       | путь вне корня репозитория, виртуального пути у него нет |
-
-`--version` печатает версию пакета из его `package.json`, `--help` — список команд и флагов.
