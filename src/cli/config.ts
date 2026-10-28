@@ -35,7 +35,7 @@ export type ConfigData = {
     };
 };
 
-export function effectiveConfig(lint: LintSettings, cwd: string): ConfigData {
+export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: string): ConfigData {
     const target = resolveForFile({
         filename: lint.filePath,
         settings: lint.settings,
@@ -45,9 +45,9 @@ export function effectiveConfig(lint: LintSettings, cwd: string): ConfigData {
 
     // Файл вне корня отсекается до разбора алиасов — тем же отказом и в том же порядке, что и
     // `inspect`.
-    assertInsideRoot(target, lint.filePath);
+    assertInsideRoot(target, shownPath);
 
-    const repoRoot = repoRootOf(target, lint.filePath);
+    const repoRoot = repoRootOf(target, shownPath);
 
     return {
         file: repoPath(repoRoot, lint.filePath),

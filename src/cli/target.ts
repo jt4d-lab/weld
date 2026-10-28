@@ -14,11 +14,11 @@ import type { WeldTarget } from '@/config/index.js';
  * Виртуальный путь файла — то, от чего `inspect` считает путь модуля. Заодно это проверка «файл
  * внутри корня»: `null` у резолва означает, что виртуального пути нет, и показывать нечего.
  */
-export function virtualPathOf(target: WeldTarget, filePath: string): string {
+export function virtualPathOf(target: WeldTarget, shownPath: string): string {
     const fromFile = target.getFromFile();
 
     if (fromFile === null) {
-        throw new Error(`${filePath} is outside the repository root`);
+        throw outsideRoot(shownPath);
     }
 
     return fromFile;
@@ -28,19 +28,29 @@ export function virtualPathOf(target: WeldTarget, filePath: string): string {
  * Тот же отказ, но без виртуального пути: `weld config` его не печатает, а проверка «файл внутри
  * корня» нужна ему так же, как `inspect`.
  */
-export function assertInsideRoot(target: WeldTarget, filePath: string): void {
-    virtualPathOf(target, filePath);
+export function assertInsideRoot(target: WeldTarget, shownPath: string): void {
+    if (target.getFromFile() === null) {
+        throw outsideRoot(shownPath);
+    }
+}
+
+/**
+ * Отказ «файл вне корня» — один на обе команды. `shownPath` — аргумент в том виде, как его ввели: по
+ * нему пользователь и находит файл, а реальный путь мог прийти из резолва.
+ */
+function outsideRoot(shownPath: string): Error {
+    return new Error(`${shownPath} is outside the repository root`);
 }
 
 /**
  * Реальный корень репозитория. `null` резолв отдает только поддельному `FsHost` — шов, которым CLI не
  * пользуется; проверка нужна, чтобы сузить тип, и на бою недостижима.
  */
-export function repoRootOf(target: WeldTarget, filePath: string): string {
+export function repoRootOf(target: WeldTarget, shownPath: string): string {
     const root = target.getRoot();
 
     if (root === null) {
-        throw new Error(`repository root could not be resolved for ${filePath}`);
+        throw new Error(`repository root could not be resolved for ${shownPath}`);
     }
 
     return root;

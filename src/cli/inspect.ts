@@ -40,8 +40,9 @@ export type InspectData = {
 /**
  * Путь файла и путь импорта по алиасу. Директория — ошибка: `inspect` спрашивает про конкретный
  * файл, а `loadLintSettings` для директории отдает сэмпл, который к вопросу отношения не имеет.
+ * `shownPath` — аргумент команды в том виде, как его ввели: он попадает в сообщение об ошибке.
  */
-export function inspectFile(lint: LintSettings, cwd: string): InspectResult {
+export function inspectFile(lint: LintSettings, cwd: string, shownPath: string): InspectResult {
     if (lint.sampleOf !== undefined) {
         throw new Error(`expected a file, got a directory: ${lint.sampleOf}`);
     }
@@ -52,14 +53,14 @@ export function inspectFile(lint: LintSettings, cwd: string): InspectResult {
         cwd,
         options: lint.options,
     });
-    const fromFile = virtualPathOf(target, lint.filePath);
+    const fromFile = virtualPathOf(target, shownPath);
 
     // `index.<ext>` — это и есть модуль директории: в импорте он записывается ею самой.
     const virtualPath = collapseEntryPoint(fromFile);
     const rendered = renderAliasPath(virtualPath, target.getAliases());
 
     return {
-        file: repoPath(repoRootOf(target, lint.filePath), lint.filePath),
+        file: repoPath(repoRootOf(target, shownPath), lint.filePath),
         virtualPath,
         alias: rendered === null ? null : withEntryName(rendered, fromFile),
     };

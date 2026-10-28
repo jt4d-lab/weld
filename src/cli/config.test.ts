@@ -210,7 +210,7 @@ describe('weld config: ошибки', () => {
 
         await program.parseAsync(['config', 'src/a.ts'], { from: 'user' });
 
-        expect(printed(err)).toBe(`error: ${root}/src/a.ts is outside the repository root\n`);
+        expect(printed(err)).toBe('error: src/a.ts is outside the repository root\n');
         expect(codes).toEqual([1]);
     });
 

@@ -330,7 +330,7 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
 
         expect(printed(err)).toBe(
-            `error: ${root}/src/feature/internal.ts is outside the repository root\n`,
+            'error: src/feature/internal.ts is outside the repository root\n',
         );
         expect(codes).toEqual([1]);
     });
@@ -352,6 +352,7 @@ describe('inspectFile: имя файла в алиасе', () => {
                 settings: {},
             },
             'C:\\repo',
+            'src/index.ts',
         );
 
         // На Windows реальный путь пришел бы с `\`, и posix-`basename` вернул бы его целиком:

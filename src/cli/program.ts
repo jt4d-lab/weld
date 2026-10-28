@@ -146,7 +146,7 @@ function buildProgram(deps: ProgramDeps): Command {
         .action(
             action(async (path, options) => {
                 const lint = await deps.loadLintSettings(path, deps.cwd, options.config);
-                const { file, virtualPath, alias } = inspectFile(lint, deps.cwd);
+                const { file, virtualPath, alias } = inspectFile(lint, deps.cwd, path);
                 const text =
                     options.json === true
                         ? renderJson({ file, alias })
@@ -166,7 +166,7 @@ function buildProgram(deps: ProgramDeps): Command {
         .action(
             action(async (path, options) => {
                 const lint = await deps.loadLintSettings(path, deps.cwd, options.config);
-                const data = effectiveConfig(lint, deps.cwd);
+                const data = effectiveConfig(lint, deps.cwd, path);
                 const text =
                     options.json === true
                         ? renderJson(data)
