@@ -247,7 +247,15 @@ function findRepoRootCached(cwd: string): string | null {
     return found;
 }
 
-function resolveRoot(
+/**
+ * Реальный корень, в котором работает `FsHost`.
+ *
+ * `coverDirs` — реальные директории, которые root обязан покрыть (якоря алиасов из tsconfig).
+ * Действует только при автоопределении root: итог — общая директория `findRepoRoot(cwd) ?? cwd` и
+ * всех `coverDirs`; директория без общего префикса (другой диск) игнорируется с debug. Явный root
+ * побеждает и игнорирует параметр целиком.
+ */
+export function resolveRoot(
     settings: unknown,
     cwd: string,
     repoRootOverride: unknown,
@@ -290,10 +298,8 @@ function resolveRoot(
  * `getRepoRoot`, `src/host/` про формат конфига по-прежнему ничего не знает. Кэш инстансов ключуется
  * уже резолвнутым root, поэтому файлы с разным override (или разными `coverDirs`) не делят инстанс.
  *
- * `coverDirs` — реальные директории, которые root обязан покрыть (якоря алиасов из tsconfig).
- * Действует только при автоопределении root: итог — общая директория `findRepoRoot(cwd) ?? cwd` и
- * всех `coverDirs`; директория без общего префикса (другой диск) игнорируется с debug. Явный root
- * побеждает и игнорирует параметр целиком.
+ * `coverDirs` — реальные директории, которые root обязан покрыть (якоря алиасов из tsconfig);
+ * разбор — в `resolveRoot`.
  */
 export function getFsHost(
     settings: unknown,

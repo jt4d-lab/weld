@@ -2,7 +2,8 @@
 #
 # Проверяет, что опубликованный вид пакета действительно подключается в чужом
 # проекте: собирает тарбол ровно так, как это сделает `npm publish`, ставит его
-# во временный проект и запускает там ESLint.
+# во временный проект, запускает там ESLint и проверяет установленный бинарь
+# `weld`: команды, флаги, коды возврата и выбор конфига в монорепе.
 #
 # Использование: scripts/smoke-test.sh [версия-eslint]
 #
@@ -25,6 +26,31 @@ echo "==> Готовлю временный проект в $TMP/project (eslint
 mkdir -p "$TMP/project/src"
 cd "$TMP/project"
 
+# Конфиг проекта-потребителя: рекомендуемый набор плюс files-слой на src. Сценарии отличаются только
+# настройками WELD — ради этого их и сравнивают, — поэтому конфиг пишется один раз, а различие
+# приходит параметром: префикс алиаса без `/*`, пусто — конфиг без настроек вовсе.
+write_config() {
+    local path="$1" alias_prefix="${2:-}"
+    {
+        cat <<'CONFIG'
+import weld from 'eslint-plugin-weld';
+
+export default [
+  weld.configs.recommended,
+  {
+    files: ['src/**/*.js'],
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+CONFIG
+        if [ -n "$alias_prefix" ]; then
+            printf "    settings: { weld: { aliases: { '%s/*': ['./src/*'] } } },\n" "$alias_prefix"
+        fi
+        cat <<'CONFIG'
+  },
+];
+CONFIG
+    } > "$path"
+}
+
 cat > package.json <<'JSON'
 {
   "name": "weld-smoke-consumer",
@@ -34,17 +60,7 @@ cat > package.json <<'JSON'
 }
 JSON
 
-cat > eslint.config.js <<'JS'
-import weld from 'eslint-plugin-weld';
-
-export default [
-  weld.configs.recommended,
-  {
-    files: ['src/**/*.js'],
-    languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
-  },
-];
-JS
+write_config "$TMP/project/eslint.config.js"
 
 cat > src/example.js <<'JS'
 import { helper } from './helper.js';
@@ -74,5 +90,121 @@ node --input-type=module -e "
 
 echo "==> Запускаю ESLint в проекте-потребителе"
 npx --no-install eslint src/example.js
+
+# CLI проверяется только здесь: bin, shebang и второй entry видны лишь в упакованном виде.
+CLI="./node_modules/.bin/weld"
+
+echo "==> Проверяю, что бинарь weld установлен и исполняемый"
+test -x "$CLI"
+[ "$($CLI --version)" = "$PKG_VERSION" ] || { echo "    --version не совпал с package.json: $($CLI --version)" >&2; exit 1; }
+echo "    version: $($CLI --version)"
+
+echo "==> Проверяю weld inspect и weld config в проекте-потребителе"
+# `--no-color`: под FORCE_COLOR вывод был бы с escape-последовательностями.
+INSPECT="$($CLI inspect --no-color src/example.js)"
+grep -q '^file:  src/example.js$' <<<"$INSPECT" || { echo "    неверный file: $INSPECT" >&2; exit 1; }
+grep -q '^alias: ' <<<"$INSPECT" || { echo "    нет строки alias: $INSPECT" >&2; exit 1; }
+echo "$INSPECT" | sed 's/^/    /'
+
+CONFIG="$($CLI config --no-color src)"
+grep -qxF 'file:   src/example.js (sample of src)' <<<"$CONFIG" || { echo "    неверная строка file: $CONFIG" >&2; exit 1; }
+grep -qxF 'config: eslint.config.js' <<<"$CONFIG" || { echo "    неверная строка config: $CONFIG" >&2; exit 1; }
+grep -q '^  repoRoot: ' <<<"$CONFIG" || { echo "    нет repoRoot: $CONFIG" >&2; exit 1; }
+grep -q '^  aliases: (none)$' <<<"$CONFIG" || { echo "    неверные aliases: $CONFIG" >&2; exit 1; }
+echo "$CONFIG" | sed 's/^/    /'
+
+$CLI config --json src > "$TMP/config.json"
+node -e "
+  const assert = require('node:assert/strict');
+  const data = require('$TMP/config.json');
+  assert.equal(data.sampleOf, 'src');
+  assert.equal(data.file, 'src/example.js');
+  assert.equal(data.configFile, 'eslint.config.js');
+  assert.equal(data.settings.repoRoot, '$TMP/project', 'repoRoot должен остаться абсолютным');
+  assert.ok(Array.isArray(data.settings.aliases), 'aliases — не массив');
+  console.log('    json: ' + JSON.stringify(data.settings));
+"
+
+echo "==> Проверяю, что --config отменяет поиск конфига"
+write_config "$TMP/project/eslint.config.other.mjs" '@smoke'
+
+OTHER="$($CLI config --no-color --config eslint.config.other.mjs src)"
+grep -qxF 'config: eslint.config.other.mjs' <<<"$OTHER" || { echo "    применен не тот конфиг: $OTHER" >&2; exit 1; }
+grep -qxF '    @smoke/* → /src/*' <<<"$OTHER" || { echo "    настройки не из --config: $OTHER" >&2; exit 1; }
+echo "$OTHER" | sed 's/^/    /'
+
+echo "==> Проверяю, что конфиг не становится сэмплом директории"
+DOT="$($CLI config --no-color .)"
+grep -qxF 'file:   src/example.js (sample of .)' <<<"$DOT" || { echo "    сэмплом стал не файл проекта: $DOT" >&2; exit 1; }
+grep -qxF 'config: eslint.config.js' <<<"$DOT" || { echo "    неверная строка config: $DOT" >&2; exit 1; }
+echo "$DOT" | sed 's/^/    /'
+
+echo "==> Проверяю, что конфиг выбирается по пути аргумента, а не по cwd"
+# Регрессия: на ESLint 9 конфиг ищется только от cwd, поэтому пакетный обязан выиграть.
+mkdir -p packages/a/src
+
+write_config "$TMP/project/packages/a/eslint.config.js" '@pkg'
+
+cat > packages/a/src/x.js <<'PACKAGE_FILE'
+export const x = 1;
+PACKAGE_FILE
+
+NESTED="$($CLI config --no-color packages/a/src/x.js)"
+grep -qxF 'file:   packages/a/src/x.js' <<<"$NESTED" || { echo "    неверный file: $NESTED" >&2; exit 1; }
+grep -qxF 'config: packages/a/eslint.config.js' <<<"$NESTED" || { echo "    применен не пакетный конфиг: $NESTED" >&2; exit 1; }
+grep -qxF '    @pkg/* → /src/*' <<<"$NESTED" || { echo "    настройки не из пакетного конфига: $NESTED" >&2; exit 1; }
+echo "$NESTED" | sed 's/^/    /'
+
+NESTED_DIR="$($CLI config --no-color packages/a)"
+grep -qxF 'file:   packages/a/src/x.js (sample of packages/a)' <<<"$NESTED_DIR" || { echo "    сэмплом стал не файл пакета: $NESTED_DIR" >&2; exit 1; }
+grep -qxF 'config: packages/a/eslint.config.js' <<<"$NESTED_DIR" || { echo "    применен не пакетный конфиг: $NESTED_DIR" >&2; exit 1; }
+
+echo "==> Проверяю, что сэмпл принадлежит выбранному конфигу"
+set +e
+PACKAGES="$($CLI config --no-color packages 2>&1 >/dev/null)"
+PACKAGES_CODE=$?
+set -e
+[ "$PACKAGES_CODE" -ne 0 ] || { echo "    файл пакета стал сэмплом packages: $PACKAGES" >&2; exit 1; }
+grep -qxF 'error: no lintable files in packages' <<<"$PACKAGES" || { echo "    неверное сообщение: $PACKAGES" >&2; exit 1; }
+echo "    $PACKAGES"
+
+# Глобальный слой делает конфиг любого файла непустым: tool-конфиг отсеивается по отсутствию настроек.
+mkdir -p "$TMP/tool/src"
+ln -s "$TMP/project/node_modules" "$TMP/tool/node_modules"
+echo '{ "name": "weld-smoke-tool", "private": true, "type": "module" }' > "$TMP/tool/package.json"
+write_config "$TMP/tool/eslint.config.js" '@tool'
+echo 'export default {};' > "$TMP/tool/jest.config.js"
+touch "$TMP/tool/src/a.js"
+TOOL="$(cd "$TMP/tool" && "$TMP/project/node_modules/.bin/weld" config --no-color .)"
+grep -qxF 'file:   src/a.js (sample of .)' <<<"$TOOL" || { echo "    сэмплом стал tool-конфиг: $TOOL" >&2; exit 1; }
+grep -qxF 'config: eslint.config.js' <<<"$TOOL" || { echo "    неверная строка config: $TOOL" >&2; exit 1; }
+grep -qxF '    @tool/* → /src/*' <<<"$TOOL" || { echo "    настройки не из конфига проекта: $TOOL" >&2; exit 1; }
+echo "$TOOL" | sed 's/^/    /'
+
+echo "==> Проверяю отрицательные случаи: код 1 и сообщение об ошибке"
+set +e
+TEXT_ERROR="$($CLI inspect src/missing.js 2>&1 >/dev/null)"
+TEXT_CODE=$?
+JSON_ERROR="$($CLI inspect --json src/missing.js 2>/dev/null)"
+JSON_CODE=$?
+set -e
+
+[ "$TEXT_CODE" -ne 0 ] || { echo "    отсутствующий путь не вернул код ошибки" >&2; exit 1; }
+grep -q '^error: path does not exist: src/missing.js$' <<<"$TEXT_ERROR" || { echo "    неверное сообщение: $TEXT_ERROR" >&2; exit 1; }
+[ "$JSON_CODE" -ne 0 ] || { echo "    отсутствующий путь в --json не вернул код ошибки" >&2; exit 1; }
+grep -q '"error": "path does not exist: src/missing.js"' <<<"$JSON_ERROR" || { echo "    неверный JSON ошибки: $JSON_ERROR" >&2; exit 1; }
+echo "    $TEXT_ERROR"
+
+mkdir -p "$TMP/standalone/src"
+ln -s "$TMP/project/node_modules" "$TMP/standalone/node_modules"
+echo '{ "name": "weld-smoke-standalone", "private": true, "type": "module" }' > "$TMP/standalone/package.json"
+touch "$TMP/standalone/src/a.js"
+set +e
+CONFIGLESS="$(cd "$TMP/standalone" && "$TMP/project/node_modules/.bin/weld" config --no-color src/a.js 2>&1 >/dev/null)"
+CONFIGLESS_CODE=$?
+set -e
+[ "$CONFIGLESS_CODE" -ne 0 ] || { echo "    проект без конфига не вернул код ошибки" >&2; exit 1; }
+grep -q '^error: no eslint config found for src/a.js$' <<<"$CONFIGLESS" || { echo "    неверное сообщение: $CONFIGLESS" >&2; exit 1; }
+echo "    $CONFIGLESS"
 
 echo "==> Smoke-тест пройден"

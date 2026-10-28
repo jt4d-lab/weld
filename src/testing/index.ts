@@ -17,4 +17,4 @@ export {
     tsconfigNoPathsFixture,
 } from './paths.js';
 export { createRuleTester } from './rule-tester.js';
-export { cleanupTmpProjects, makeTmpProject } from './tmp-project.js';
+export { cleanupTmpProjects, linkRepoNodeModules, makeTmpProject } from './tmp-project.js';

@@ -14,7 +14,7 @@ function checker(files: string[], aliases: Alias[] = []): (specifier: string) =>
 }
 
 const barrelFiles = ['/repo/src/other/index.ts'];
-const otherAlias: Alias[] = [{ prefix: '@other', anchor: '/repo/src/other' }];
+const otherAlias: Alias[] = [{ prefix: '@other', anchor: '/repo/src/other', star: true }];
 
 describe('checkImport — нарушение и замена', () => {
     it('нарушение с относительным импортом', () => {
@@ -26,12 +26,12 @@ describe('checkImport — нарушение и замена', () => {
         });
     });
 
-    it('то же нарушение через алиас — тот же D, другой suggestion', () => {
+    it('то же нарушение через алиас без расширения → правка относительная', () => {
         expect(checker(barrelFiles, otherAlias)('@other/internal')).toEqual({
             kind: 'replace',
             target: '/repo/src/other/internal',
             barrier: '/repo/src/other',
-            suggestion: '@other',
+            suggestion: '../other',
         });
     });
 
@@ -50,6 +50,36 @@ describe('checkImport — нарушение и замена', () => {
             target: '/repo/src/other/internal.ts',
             barrier: '/repo/src/other',
             suggestion: '@other/index.ts',
+        });
+    });
+
+    it('беззвездочный корневой алиас не перебивает относительный путь', () => {
+        const aliases: Alias[] = [
+            { prefix: '@root', anchor: '/repo', star: false },
+            { prefix: '@deep', anchor: '/repo/src/other/deep', star: true },
+        ];
+        const files = ['/repo/src/other/index.ts', '/repo/src/other/deep/internal.ts'];
+
+        expect(checker(files, aliases)('@deep/internal')).toEqual({
+            kind: 'replace',
+            target: '/repo/src/other/deep/internal',
+            barrier: '/repo/src/other',
+            suggestion: '../other',
+        });
+    });
+
+    it('импорт через беззвездочный корневой алиас чинится в относительный путь', () => {
+        const aliases: Alias[] = [
+            { prefix: '@root', anchor: '/repo', star: false },
+            { prefix: '@deep', anchor: '/repo/src/other/deep', star: true },
+        ];
+        const files = ['/repo/src/other/index.ts', '/repo/src/other/deep/internal.ts'];
+
+        expect(checker(files, aliases)('@root/src/other/deep/internal')).toEqual({
+            kind: 'replace',
+            target: '/repo/src/other/deep/internal',
+            barrier: '/repo/src/other',
+            suggestion: '../other',
         });
     });
 });

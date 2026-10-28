@@ -11,12 +11,14 @@ function parse(rawAliases: unknown, aliasesBaseUrl: string) {
 
 describe('parseAliases — таблица нормализации', () => {
     it("'@src/*': ['src/*'] → префикс @src, якорь <base>/src", () => {
-        expect(parse({ '@src/*': ['src/*'] }, '.')).toEqual([{ prefix: '@src', anchor: '/src' }]);
+        expect(parse({ '@src/*': ['src/*'] }, '.')).toEqual([
+            { prefix: '@src', anchor: '/src', star: true },
+        ]);
     });
 
     it("'@pkg': ['packages/pkg/src/index.ts'] → якорь берет директорию index-файла", () => {
         expect(parse({ '@pkg': ['packages/pkg/src/index.ts'] }, '.')).toEqual([
-            { prefix: '@pkg', anchor: '/packages/pkg/src' },
+            { prefix: '@pkg', anchor: '/packages/pkg/src', star: false },
         ]);
     });
 
@@ -26,7 +28,7 @@ describe('parseAliases — таблица нормализации', () => {
 
     it("'@dir': ['src/dir'] → якорь как есть", () => {
         expect(parse({ '@dir': ['src/dir'] }, '.')).toEqual([
-            { prefix: '@dir', anchor: '/src/dir' },
+            { prefix: '@dir', anchor: '/src/dir', star: false },
         ]);
     });
 });
@@ -45,7 +47,9 @@ describe('parseAliases — отбрасывание', () => {
     });
 
     it('хвост /* в ключе и якоре принимается', () => {
-        expect(parse({ '@a/*': ['src/*'] }, '.')).toEqual([{ prefix: '@a', anchor: '/src' }]);
+        expect(parse({ '@a/*': ['src/*'] }, '.')).toEqual([
+            { prefix: '@a', anchor: '/src', star: true },
+        ]);
     });
 
     it("запись '/*' отбрасывается: пустой префикс матчил бы любой абсолютный специфайер", () => {
@@ -64,14 +68,21 @@ describe('parseAliases — отбрасывание', () => {
 describe('parseAliases — дубликаты и массивы', () => {
     it('дубликаты prefix+anchor схлопываются', () => {
         expect(parse({ '@a/*': ['src/a/*', 'src/a/*'] }, '.')).toEqual([
-            { prefix: '@a', anchor: '/src/a' },
+            { prefix: '@a', anchor: '/src/a', star: true },
+        ]);
+    });
+
+    it('точный ключ и звездный с тем же якорем — разные записи', () => {
+        expect(parse({ '@a': ['src/a'], '@a/*': ['src/a/*'] }, '.')).toEqual([
+            { prefix: '@a', anchor: '/src/a', star: false },
+            { prefix: '@a', anchor: '/src/a', star: true },
         ]);
     });
 
     it('массив якорей разворачивается с сохранением порядка объявления', () => {
         expect(parse({ '@a/*': ['src/one/*', 'src/two/*'] }, '.')).toEqual([
-            { prefix: '@a', anchor: '/src/one' },
-            { prefix: '@a', anchor: '/src/two' },
+            { prefix: '@a', anchor: '/src/one', star: true },
+            { prefix: '@a', anchor: '/src/two', star: true },
         ]);
     });
 });
@@ -79,18 +90,22 @@ describe('parseAliases — дубликаты и массивы', () => {
 describe('parseAliases — aliasesBaseUrl', () => {
     it('aliasesBaseUrl задан → якоря относительно него', () => {
         expect(parse({ '@src/*': ['src/*'] }, 'packages/app')).toEqual([
-            { prefix: '@src', anchor: '/packages/app/src' },
+            { prefix: '@src', anchor: '/packages/app/src', star: true },
         ]);
     });
 
     it("aliasesBaseUrl '.' → якоря от корня /", () => {
-        expect(parse({ '@src/*': ['src/*'] }, '.')).toEqual([{ prefix: '@src', anchor: '/src' }]);
+        expect(parse({ '@src/*': ['src/*'] }, '.')).toEqual([
+            { prefix: '@src', anchor: '/src', star: true },
+        ]);
     });
 });
 
 describe('parseAliases — опечатки', () => {
     it('значение-строка вместо массива принимается', () => {
-        expect(parse({ '@src/*': 'src/*' }, '.')).toEqual([{ prefix: '@src', anchor: '/src' }]);
+        expect(parse({ '@src/*': 'src/*' }, '.')).toEqual([
+            { prefix: '@src', anchor: '/src', star: true },
+        ]);
     });
 });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Alias } from '@/settings/index.js';
-import { parseSpecifier, renderSpecifier } from '@/imports/specifier.js';
+import { parseSpecifier, renderAliasPath, renderSpecifier } from '@/imports/specifier.js';
 
 const resolve = (path: string): string | null =>
     path === '/src/feature/account.entity' ? '/src/feature/account.entity.ts' : null;
@@ -55,7 +55,7 @@ describe('parseSpecifier', () => {
 
     describe('parseSpecifier — алиасы', () => {
         it('точное совпадение со специфаером дает якорь как путь', () => {
-            const aliases: Alias[] = [{ prefix: '@src', anchor: '/src' }];
+            const aliases: Alias[] = [{ prefix: '@src', anchor: '/src', star: true }];
             expect(parseSpecifier('@src', '/other', aliases, resolve)).toEqual({
                 kind: 'target',
                 target: {
@@ -67,7 +67,7 @@ describe('parseSpecifier', () => {
         });
 
         it('префикс с хвостом подставляет хвост в якорь', () => {
-            const aliases: Alias[] = [{ prefix: '@src', anchor: '/src' }];
+            const aliases: Alias[] = [{ prefix: '@src', anchor: '/src', star: true }];
             expect(parseSpecifier('@src/feature/x', '/other', aliases, resolve)).toEqual({
                 kind: 'target',
                 target: {
@@ -79,7 +79,7 @@ describe('parseSpecifier', () => {
         });
 
         it('беззвездочная запись с хвостом — тот же обход, что и звездочная', () => {
-            const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src' }];
+            const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src', star: false }];
             expect(parseSpecifier('@pkg/internal/thing', '/other', aliases, resolve)).toEqual({
                 kind: 'target',
                 target: {
@@ -91,8 +91,8 @@ describe('parseSpecifier', () => {
         });
 
         it('выигрывает самый длинный подходящий префикс', () => {
-            const short: Alias = { prefix: '@src', anchor: '/src' };
-            const long: Alias = { prefix: '@src/feature', anchor: '/src/feature' };
+            const short: Alias = { prefix: '@src', anchor: '/src', star: true };
+            const long: Alias = { prefix: '@src/feature', anchor: '/src/feature', star: true };
             expect(parseSpecifier('@src/feature/x', '/other', [short, long], resolve)).toEqual({
                 kind: 'target',
                 target: {
@@ -104,8 +104,8 @@ describe('parseSpecifier', () => {
         });
 
         it('при равных префиксах выигрывает первая запись по порядку', () => {
-            const first: Alias = { prefix: '@src', anchor: '/one' };
-            const second: Alias = { prefix: '@src', anchor: '/two' };
+            const first: Alias = { prefix: '@src', anchor: '/one', star: true };
+            const second: Alias = { prefix: '@src', anchor: '/two', star: true };
             expect(parseSpecifier('@src/x', '/other', [first, second], resolve)).toEqual({
                 kind: 'target',
                 target: {
@@ -113,6 +113,15 @@ describe('parseSpecifier', () => {
                     form: { kind: 'alias', alias: first },
                     extension: null,
                 },
+            });
+        });
+
+        it('префикс `/` (алиас на корень) не становится универсальным', () => {
+            const aliases: Alias[] = [{ prefix: '/', anchor: '/src', star: true }];
+
+            expect(parseSpecifier('react', '/other', aliases, resolve)).toEqual({
+                kind: 'skip',
+                reason: 'external-dependency',
             });
         });
     });
@@ -219,7 +228,7 @@ describe('parseSpecifier', () => {
         });
 
         it('то же через алиас — форма записи сохраняется в цели', () => {
-            const aliases: Alias[] = [{ prefix: '@src', anchor: '/src' }];
+            const aliases: Alias[] = [{ prefix: '@src', anchor: '/src', star: true }];
 
             expect(
                 parseSpecifier('@src/feature/account.entity', '/other', aliases, resolve),
@@ -282,23 +291,44 @@ describe('renderSpecifier', () => {
 
     describe('renderSpecifier — форма alias', () => {
         it('якорь исходного алиаса покрывает границу → тот же алиас', () => {
-            const alias: Alias = { prefix: '@src', anchor: '/src' };
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
             expect(
                 renderSpecifier({ kind: 'alias', alias }, '/other', '/src/feature', [alias]),
             ).toBe('@src/feature');
         });
 
-        it('D === anchor → голый префикс без завершающего слэша', () => {
-            const alias: Alias = { prefix: '@src', anchor: '/src' };
+        it('D === anchor у точного ключа → голый префикс без завершающего слэша', () => {
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: false };
             expect(renderSpecifier({ kind: 'alias', alias }, '/other', '/src', [alias])).toBe(
                 '@src',
             );
         });
 
+        it('D === anchor у звездного ключа без расширения → относительный путь: `@src` не резолвится', () => {
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
+            expect(renderSpecifier({ kind: 'alias', alias }, '/other', '/src', [alias])).toBe(
+                '../src',
+            );
+        });
+
+        it('D === anchor у звездного ключа с расширением → префикс с именем точки входа', () => {
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
+            expect(renderSpecifier({ kind: 'alias', alias }, '/other', '/src', [alias], 'ts')).toBe(
+                '@src/index.ts',
+            );
+        });
+
+        it('корневой якорь покрывает границу → префикс с полным хвостом', () => {
+            const alias: Alias = { prefix: '@', anchor: '/', star: true };
+            expect(
+                renderSpecifier({ kind: 'alias', alias }, '/other', '/src/feature', [alias]),
+            ).toBe('@/src/feature');
+        });
+
         it('якорь исходного алиаса не покрывает границу → алиас с самым длинным покрывающим якорем', () => {
-            const original: Alias = { prefix: '@other', anchor: '/other' };
-            const short: Alias = { prefix: '@src', anchor: '/src' };
-            const long: Alias = { prefix: '@feature', anchor: '/src/feature' };
+            const original: Alias = { prefix: '@other', anchor: '/other', star: true };
+            const short: Alias = { prefix: '@src', anchor: '/src', star: true };
+            const long: Alias = { prefix: '@feature', anchor: '/src/feature', star: true };
             expect(
                 renderSpecifier(
                     { kind: 'alias', alias: original },
@@ -310,7 +340,7 @@ describe('renderSpecifier', () => {
         });
 
         it('ни один алиас не покрывает границу → откат на относительный путь', () => {
-            const original: Alias = { prefix: '@other', anchor: '/other' };
+            const original: Alias = { prefix: '@other', anchor: '/other', star: true };
             expect(
                 renderSpecifier(
                     { kind: 'alias', alias: original },
@@ -319,6 +349,36 @@ describe('renderSpecifier', () => {
                     [],
                 ),
             ).toBe('../target');
+        });
+
+        it('беззвездочный корневой алиас не покрывает поддерево: откат на относительный путь', () => {
+            const original: Alias = { prefix: '@deep', anchor: '/src/other/deep', star: true };
+            const root: Alias = { prefix: '@root', anchor: '/', star: false };
+
+            expect(
+                renderSpecifier({ kind: 'alias', alias: original }, '/src/feature', '/src/other', [
+                    root,
+                    original,
+                ]),
+            ).toBe('../other');
+        });
+
+        it('исходный беззвездочный корневой алиас тоже не покрывает поддерево', () => {
+            const root: Alias = { prefix: '@root', anchor: '/', star: false };
+
+            expect(
+                renderSpecifier({ kind: 'alias', alias: root }, '/src/feature', '/src/other', [
+                    root,
+                ]),
+            ).toBe('../other');
+        });
+
+        it('беззвездочный алиас на самом якоре → голый префикс', () => {
+            const root: Alias = { prefix: '@root', anchor: '/', star: false };
+
+            expect(renderSpecifier({ kind: 'alias', alias: root }, '/src', '/', [root])).toBe(
+                '@root',
+            );
         });
     });
 
@@ -330,7 +390,7 @@ describe('renderSpecifier', () => {
         });
 
         it('форма alias: цель без расширения и /index', () => {
-            const alias: Alias = { prefix: '@src', anchor: '/src' };
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
             expect(
                 renderSpecifier({ kind: 'alias', alias }, '/other', '/src/feature', [alias]),
             ).not.toMatch(/\.\w+$|\/index$/);
@@ -345,14 +405,14 @@ describe('renderSpecifier', () => {
         });
 
         it('форма alias: явное расширение → /index.<ext>', () => {
-            const alias: Alias = { prefix: '@src', anchor: '/src' };
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
             expect(
                 renderSpecifier({ kind: 'alias', alias }, '/other', '/src/feature', [alias], 'ts'),
             ).toBe('@src/feature/index.ts');
         });
 
         it('граница совпадает с якорем алиаса → префикс и точка входа без лишнего слэша', () => {
-            const alias: Alias = { prefix: '@src', anchor: '/src' };
+            const alias: Alias = { prefix: '@src', anchor: '/src', star: true };
             expect(renderSpecifier({ kind: 'alias', alias }, '/other', '/src', [alias], 'ts')).toBe(
                 '@src/index.ts',
             );
@@ -369,5 +429,125 @@ describe('renderSpecifier', () => {
                 renderSpecifier({ kind: 'relative' }, '/src/feature', '/src/other', [], 'js'),
             ).not.toContain('.ts');
         });
+    });
+});
+
+describe('renderAliasPath', () => {
+    const rendered = (specifier: string, needsFileName = false) => ({ specifier, needsFileName });
+
+    it('якорь покрывает путь → путь подставляется в префикс', () => {
+        const aliases: Alias[] = [{ prefix: '@', anchor: '/src', star: true }];
+
+        expect(renderAliasPath('/src/feature/internal', aliases)).toEqual(
+            rendered('@/feature/internal'),
+        );
+    });
+
+    it('путь совпадает с якорем звездного алиаса → голый префикс, специфаер неполон', () => {
+        const aliases: Alias[] = [{ prefix: '@', anchor: '/src', star: true }];
+
+        expect(renderAliasPath('/src', aliases)).toEqual(rendered('@', true));
+    });
+
+    it('якорь с хвостом в самом ключе: путь на якоре дает голый префикс и признак неполноты', () => {
+        const aliases: Alias[] = [{ prefix: '@/feature', anchor: '/src/feature', star: true }];
+
+        expect(renderAliasPath('/src/feature', aliases)).toEqual(rendered('@/feature', true));
+        expect(renderAliasPath('/src/feature/internal', aliases)).toEqual(
+            rendered('@/feature/internal'),
+        );
+    });
+
+    it('точный ключ: путь на якоре дает готовый специфаер, а не неполный префикс', () => {
+        const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src', star: false }];
+
+        expect(renderAliasPath('/packages/pkg/src', aliases)).toEqual(rendered('@pkg'));
+    });
+
+    it('беззвездочная запись ниже якоря не годится: путь не выражается точным ключом', () => {
+        const aliases: Alias[] = [{ prefix: '@pkg', anchor: '/packages/pkg/src', star: false }];
+
+        expect(renderAliasPath('/packages/pkg/src/internal/thing', aliases)).toBeNull();
+    });
+
+    it('точный ключ ниже якоря уступает широкому звездному: тот дает резолвимый специфаер', () => {
+        const exact: Alias = { prefix: '@config', anchor: '/src/config', star: false };
+        const star: Alias = { prefix: '@', anchor: '/src', star: true };
+
+        expect(renderAliasPath('/src/config/other.ts', [exact, star])).toEqual(
+            rendered('@/config/other.ts'),
+        );
+    });
+
+    it('точный ключ на самом якоре выигрывает у широкого звездного', () => {
+        const exact: Alias = { prefix: '@config', anchor: '/src/config', star: false };
+        const star: Alias = { prefix: '@', anchor: '/src', star: true };
+
+        expect(renderAliasPath('/src/config', [exact, star])).toEqual(rendered('@config'));
+    });
+
+    it('выигрывает самый длинный покрывающий якорь', () => {
+        const short: Alias = { prefix: '@', anchor: '/src', star: true };
+        const long: Alias = { prefix: '@feature', anchor: '/src/feature', star: true };
+
+        expect(renderAliasPath('/src/feature/internal', [short, long])).toEqual(
+            rendered('@feature/internal'),
+        );
+    });
+
+    it('при равной длине якоря выигрывает первая запись по порядку', () => {
+        const first: Alias = { prefix: '@one', anchor: '/src', star: true };
+        const second: Alias = { prefix: '@two', anchor: '/src', star: true };
+
+        expect(renderAliasPath('/src/feature', [first, second])).toEqual(rendered('@one/feature'));
+    });
+
+    it('граница по сегменту: /src/features не покрывает /src/features-old', () => {
+        const aliases: Alias[] = [{ prefix: '@features', anchor: '/src/features', star: true }];
+
+        expect(renderAliasPath('/src/features-old', aliases)).toBeNull();
+    });
+
+    it('граница по сегменту: при широком алиасе путь остается покрыт им', () => {
+        const narrow: Alias = { prefix: '@features', anchor: '/src/features', star: true };
+        const wide: Alias = { prefix: '@', anchor: '/src', star: true };
+
+        expect(renderAliasPath('/src/features-old', [narrow, wide])).toEqual(
+            rendered('@/features-old'),
+        );
+    });
+
+    it('ни один алиас не покрывает путь → null', () => {
+        const aliases: Alias[] = [{ prefix: '@', anchor: '/src', star: true }];
+
+        expect(renderAliasPath('/test/feature', aliases)).toBeNull();
+    });
+
+    it('пустой список алиасов → null', () => {
+        expect(renderAliasPath('/src/feature/internal', [])).toBeNull();
+    });
+
+    it('алиас на корень репозитория покрывает любой путь', () => {
+        const aliases: Alias[] = [{ prefix: '@', anchor: '/', star: true }];
+
+        expect(renderAliasPath('/src/feature/internal', aliases)).toEqual(
+            rendered('@/src/feature/internal'),
+        );
+    });
+
+    it('беззвездочный корневой алиас не покрывает поддерево → null', () => {
+        const aliases: Alias[] = [{ prefix: '@root', anchor: '/', star: false }];
+
+        expect(renderAliasPath('/src/feature/internal', aliases)).toBeNull();
+        expect(renderAliasPath('/', aliases)).toEqual(rendered('@root'));
+    });
+
+    it('самый длинный из нескольких: корневой алиас не перебивает точный', () => {
+        const root: Alias = { prefix: '@', anchor: '/', star: true };
+        const exact: Alias = { prefix: '@feature', anchor: '/src/feature', star: true };
+
+        expect(renderAliasPath('/src/feature/internal', [root, exact])).toEqual(
+            rendered('@feature/internal'),
+        );
     });
 });

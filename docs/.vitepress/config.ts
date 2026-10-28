@@ -49,6 +49,14 @@ export default withMermaid(
                         { text: 'no-barrel-bypass', link: '/rules/no-barrel-bypass' },
                     ],
                 },
+                {
+                    text: 'CLI',
+                    items: [
+                        { text: 'Обзор', link: '/cli/index' },
+                        { text: 'config', link: '/cli/config' },
+                        { text: 'inspect', link: '/cli/inspect' },
+                    ],
+                },
             ],
 
             socialLinks: [{ icon: 'github', link: 'https://github.com/jt4d-lab/weld' }],

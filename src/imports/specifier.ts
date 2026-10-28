@@ -92,7 +92,9 @@ function pickLongest(aliases: Alias[], key: (alias: Alias) => string | null): Al
 
 /** Самый длинный подходящий префикс; при равных префиксах — первая запись по порядку. */
 function matchAlias(specifier: string, aliases: Alias[]): Alias | null {
-    return pickLongest(aliases, (alias) => (covers(alias.prefix, specifier) ? alias.prefix : null));
+    return pickLongest(aliases, (alias) =>
+        coversPrefix(alias.prefix, specifier) ? alias.prefix : null,
+    );
 }
 
 function finalize(
@@ -146,20 +148,57 @@ export function renderSpecifier(
     aliases: Alias[],
     extension: string | null = null,
 ): string {
-    const dir = renderDirectory(form, fromDir, barrier, aliases);
+    const dir = renderDirectory(form, fromDir, barrier, aliases, extension !== null);
     return extension === null ? dir : withEntry(dir, extension);
 }
 
-function renderDirectory(form: Form, fromDir: string, barrier: string, aliases: Alias[]): string {
+/**
+ * Итог обратного подбора алиаса: `specifier` — путь в алиасной форме, `needsFileName` — специфаер
+ * неполон, к нему надо дописать имя файла.
+ */
+export type AliasPath = {
+    specifier: string;
+    needsFileName: boolean;
+};
+
+/**
+ * Обратный подбор алиаса по виртуальному пути: `target` → специфаер в алиасной форме. `null` — ни
+ * один алиас не подошел; что печатать вместо алиаса, решает вызывающий.
+ */
+export function renderAliasPath(target: string, aliases: Alias[]): AliasPath | null {
+    // `canAddEntry: true` — неполный специфаер здесь годится: имя файла допишет вызывающий.
+    const alias = longestCoveringAlias(aliases, target, true);
+
+    if (alias === null) {
+        return null;
+    }
+
+    return {
+        specifier: renderAlias(alias, target),
+        needsFileName: needsFileName(alias, target),
+    };
+}
+
+/**
+ * `canAddEntry` — допишется ли к специфаеру имя точки входа (`@/index.ts`): от этого зависит,
+ * годится ли звездный алиас, совпавший с якорем.
+ */
+function renderDirectory(
+    form: Form,
+    fromDir: string,
+    barrier: string,
+    aliases: Alias[],
+    canAddEntry: boolean,
+): string {
     if (form.kind === 'relative') {
         return renderRelative(fromDir, barrier);
     }
 
-    if (covers(form.alias.anchor, barrier)) {
+    if (usableAsSpecifier(form.alias, barrier, canAddEntry)) {
         return renderAlias(form.alias, barrier);
     }
 
-    const longest = longestCoveringAlias(aliases, barrier);
+    const longest = longestCoveringAlias(aliases, barrier, canAddEntry);
     return longest === null ? renderRelative(fromDir, barrier) : renderAlias(longest, barrier);
 }
 
@@ -169,18 +208,42 @@ function withEntry(dir: string, extension: string): string {
     return `${dir}${separator}${entryFileName(extension)}`;
 }
 
-/**
- * `value` равен `prefix` или лежит под ним — граница проверяется по сегменту, а не по символам
- * (`@/features` не покрывает `@/features-old`). Один вопрос на обе стороны алиаса: слева от него
- * так сопоставляется префикс со специфаером, справа — якорь с директорией.
- */
-function covers(prefix: string, value: string): boolean {
+/** `value` равен `prefix` или лежит под ним — граница проверяется по сегменту, а не по символам. */
+function coversPrefix(prefix: string, value: string): boolean {
     return value === prefix || value.startsWith(`${prefix}/`);
 }
 
-/** Самый длинный якорь, покрывающий `dir`; `null`, если ни один не покрывает. */
-function longestCoveringAlias(aliases: Alias[], dir: string): Alias | null {
-    return pickLongest(aliases, (alias) => (covers(alias.anchor, dir) ? alias.anchor : null));
+/** Якорь `/` (алиас на корень репозитория) покрывает весь виртуальный путь. */
+function coversAnchor(anchor: string, value: string): boolean {
+    return anchor === '/' || coversPrefix(anchor, value);
+}
+
+/** Точный ключ покрывает только свой якорь, звездный — поддерево. */
+function coversAsSpecifier(alias: Alias, target: string): boolean {
+    return coversAnchor(alias.anchor, target) && (alias.star || alias.anchor === target);
+}
+
+function usableAsSpecifier(alias: Alias, target: string, canAddEntry: boolean): boolean {
+    if (!coversAsSpecifier(alias, target)) {
+        return false;
+    }
+
+    return canAddEntry || !needsFileName(alias, target);
+}
+
+/** Звездный ключ ровно на своем якоре не резолвится без имени файла (голый `@`). */
+function needsFileName(alias: Alias, target: string): boolean {
+    return alias.star && alias.anchor === target;
+}
+
+function longestCoveringAlias(
+    aliases: Alias[],
+    target: string,
+    canAddEntry: boolean,
+): Alias | null {
+    return pickLongest(aliases, (alias) =>
+        usableAsSpecifier(alias, target, canAddEntry) ? alias.anchor : null,
+    );
 }
 
 function renderAlias(alias: Alias, barrier: string): string {

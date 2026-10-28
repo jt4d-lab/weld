@@ -59,7 +59,7 @@ describe('resolveWeldContext', () => {
 
         expect(weld).not.toBeNull();
         expect(weld?.fromFile).toBe('/src/feature/file.ts');
-        expect(weld?.aliases).toEqual([{ prefix: '@other', anchor: '/src/other' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@other', anchor: '/src/other', star: true }]);
         expect(weld?.fsHost).toBe(fsHost);
     });
 
@@ -93,7 +93,7 @@ describe('resolveWeldContext', () => {
             createFakeFsHost([]),
         );
 
-        expect(weld?.aliases).toEqual([{ prefix: '@a', anchor: '/src/a' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@a', anchor: '/src/a', star: true }]);
     });
 
     it('options.tsconfig перекрывает settings.weld.tsconfig в разрешенных опциях', () => {
@@ -200,7 +200,7 @@ describe('resolveWeldContext', () => {
             }),
         );
 
-        expect(weld?.aliases).toEqual([{ prefix: '@x', anchor: '/src' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@x', anchor: '/src', star: true }]);
     });
 
     it('сломанный settings.weld доходит исключением из слоя настроек', () => {
@@ -238,8 +238,8 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
 
         expect(weld?.fromFile).toBe('/src/consumer.ts');
         expect(weld?.aliases).toEqual([
-            { prefix: '@', anchor: '/src' },
-            { prefix: '#lib', anchor: '/src/lib' },
+            { prefix: '@', anchor: '/src', star: true },
+            { prefix: '#lib', anchor: '/src/lib', star: false },
         ]);
     });
 
@@ -258,7 +258,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
             }),
         );
 
-        expect(weld?.aliases).toEqual([{ prefix: '@app', anchor: '/app' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@app', anchor: '/app', star: true }]);
     });
 
     it('options.tsconfig переопределяет имя из settings.weld при автопоиске', () => {
@@ -280,7 +280,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
             }),
         );
 
-        expect(weld?.aliases).toEqual([{ prefix: '@options', anchor: '/options' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@options', anchor: '/options', star: true }]);
     });
 
     it('явные settings.weld.aliases отключают автопоиск с любым именем tsconfig', () => {
@@ -302,7 +302,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
             }),
         );
 
-        expect(weld?.aliases).toEqual([{ prefix: '@explicit', anchor: '/explicit' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@explicit', anchor: '/explicit', star: true }]);
     });
 
     it('явные options.aliases отключают автопоиск с любым именем tsconfig', () => {
@@ -321,7 +321,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
             }),
         );
 
-        expect(weld?.aliases).toEqual([{ prefix: '@explicit', anchor: '/explicit' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@explicit', anchor: '/explicit', star: true }]);
     });
 
     it('монорепа при авто-root: база extends и якоря виртуализируются от найденного root', () => {
@@ -334,7 +334,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
         // Авто-root — `.git` этого репозитория; якоря фикстуры лежат ниже и root не поднимают.
         expect(weld?.fromFile).toBe(virt(file));
         expect(weld?.aliases).toEqual([
-            { prefix: '@shared', anchor: virt(`${tsconfigMonorepoFixture}/shared`) },
+            { prefix: '@shared', anchor: virt(`${tsconfigMonorepoFixture}/shared`), star: true },
         ]);
     });
 
@@ -374,7 +374,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
         );
 
         expect(weld?.fromFile).toBe('/packages/app/src/consumer.ts');
-        expect(weld?.aliases).toEqual([{ prefix: '@shared', anchor: '/shared' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@shared', anchor: '/shared', star: true }]);
     });
 
     it('записи с якорем в node_modules не влияют на root; база вне root → алиасов нет', () => {
@@ -425,7 +425,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
             }),
         );
 
-        expect(weld?.aliases).toEqual([{ prefix: '@in', anchor: '/src' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@in', anchor: '/src', star: true }]);
     });
 
     it('кривые значения paths в tsconfig не валят линт: debug и алиасов нет', () => {
@@ -457,8 +457,8 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
 
         // База пришла из tsconfig (`./src`), а не из `settings.weld.aliasesBaseUrl`.
         expect(weld?.aliases).toEqual([
-            { prefix: '@', anchor: '/src' },
-            { prefix: '#lib', anchor: '/src/lib' },
+            { prefix: '@', anchor: '/src', star: true },
+            { prefix: '#lib', anchor: '/src/lib', star: false },
         ]);
     });
 
@@ -483,7 +483,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
         );
 
         expect(weld?.fromFile).toBe('/packages/app/src/consumer.ts');
-        expect(weld?.aliases).toEqual([{ prefix: '@shared', anchor: '/shared' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@shared', anchor: '/shared', star: true }]);
     });
 
     it('подстановка ${configDir} в baseUrl и значениях paths дает рабочие алиасы', () => {
@@ -505,6 +505,6 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
         );
 
         expect(weld?.fromFile).toBe('/src/consumer.ts');
-        expect(weld?.aliases).toEqual([{ prefix: '@', anchor: '/src' }]);
+        expect(weld?.aliases).toEqual([{ prefix: '@', anchor: '/src', star: true }]);
     });
 });

@@ -1952,6 +1952,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"commander@npm:^14":
+  version: 14.0.3
+  resolution: "commander@npm:14.0.3"
+  checksum: 10c0/755652564bbf56ff2ff083313912b326450d3f8d8c85f4b71416539c9a05c3c67dbd206821ca72635bf6b160e2afdefcb458e86b317827d5cb333b69ce7f1a24
+  languageName: node
+  linkType: hard
+
 "commander@npm:^4.0.0":
   version: 4.1.1
   resolution: "commander@npm:4.1.1"
@@ -2632,12 +2639,14 @@ __metadata:
     "@iconify/types": "npm:^2.0.0"
     "@types/debug": "npm:^4.1.12"
     "@types/node": "npm:^26.0.0"
+    commander: "npm:^14"
     debug: "npm:^4.4.0"
     eslint: "npm:^10.0.0"
     get-tsconfig: "npm:^4.14.3"
     husky: "npm:^9.1.7"
     lint-staged: "npm:^17.4.1"
     mermaid: "npm:^12.0.0"
+    picocolors: "npm:^1.1.1"
     prettier: "npm:^3.9.0"
     tsup: "npm:^8.5.0"
     typescript: "npm:^5.9.0"
@@ -2648,6 +2657,8 @@ __metadata:
     vitest: "npm:^4.1.0"
   peerDependencies:
     eslint: ^9.0.0 || ^10.0.0
+  bin:
+    weld: ./dist/bin.js
   languageName: unknown
   linkType: soft
 

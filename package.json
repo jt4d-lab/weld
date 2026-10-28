@@ -32,6 +32,9 @@
     },
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
+    "bin": {
+        "weld": "./dist/bin.js"
+    },
     "files": [
         "dist",
         "README.md",
@@ -60,8 +63,10 @@
         "*.{js,mjs,cjs,ts,tsx}": "eslint --fix"
     },
     "dependencies": {
+        "commander": "^14",
         "debug": "^4.4.0",
-        "get-tsconfig": "^4.14.3"
+        "get-tsconfig": "^4.14.3",
+        "picocolors": "^1.1.1"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.0",

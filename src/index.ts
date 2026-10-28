@@ -1,12 +1,8 @@
-import { createRequire } from 'node:module';
-
 import type { ESLint, Linter } from 'eslint';
 
 import { PACKAGE_NAME } from '@/debug.js';
+import { packageVersion } from '@/package.js';
 import { rules } from '@/rules/index.js';
-
-/** Версию проставляет release-workflow перед упаковкой, поэтому она читается из `package.json`. */
-const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
 
 const recommended: Linter.Config = {
     name: 'weld/recommended',
@@ -18,7 +14,7 @@ const recommended: Linter.Config = {
 const plugin = {
     meta: {
         name: PACKAGE_NAME,
-        version,
+        version: packageVersion(),
     },
     rules,
     configs: {

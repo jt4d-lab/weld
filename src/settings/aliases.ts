@@ -4,7 +4,12 @@ import { basename, resolvePath, splitExtension } from '@/path/index.js';
 
 const debug = createLogger('aliases');
 
-export type Alias = { prefix: string; anchor: string };
+/**
+ * Одна разобранная запись `paths`: префикс специфаера, якорь-директория и форма ключа. `star`
+ * сохраняет то, что теряет `stripStarSuffix`: ключ покрывает поддерево (`@/feature/*`) или совпадает
+ * целиком (`@/config`).
+ */
+export type Alias = { prefix: string; anchor: string; star: boolean };
 
 /**
  * Разбирает значение формата `paths` из tsconfig — `settings.weld.aliases` или сами `paths` — в
@@ -31,6 +36,7 @@ export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source
         }
         const anchorsRaw = toAnchorList(key, rawValue, source);
         const prefix = stripStarSuffix(key);
+        const star = prefix !== key;
 
         for (const anchorRaw of anchorsRaw) {
             if (!hasValidStarShape(anchorRaw)) {
@@ -53,12 +59,12 @@ export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source
                 continue;
             }
 
-            const dedupeKey = `${prefix}\0${anchor}`;
+            const dedupeKey = `${key}\0${anchor}`;
             if (seen.has(dedupeKey)) {
                 continue;
             }
             seen.add(dedupeKey);
-            result.push({ prefix, anchor });
+            result.push({ prefix, anchor, star });
         }
     }
 
@@ -70,13 +76,15 @@ export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source
     return result;
 }
 
-/** Для debug: по строке на алиас, `<префикс> - <якорь>`. Пустой список — явным словом. */
+/** Для debug: по строке на алиас, `<ключ> - <якорь>`. */
 function formatAliases(aliases: Alias[]): string {
     if (aliases.length === 0) {
         return '(none)';
     }
 
-    return aliases.map(({ prefix, anchor }) => `${prefix} - ${anchor}`).join('\n');
+    return aliases
+        .map(({ prefix, anchor, star }) => `${star ? `${prefix}/*` : prefix} - ${anchor}`)
+        .join('\n');
 }
 
 /** Значение записи `paths`: строка (частая опечатка) или массив строк. */
