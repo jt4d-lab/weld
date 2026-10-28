@@ -51,7 +51,11 @@ export default withMermaid(
                 },
                 {
                     text: 'CLI',
-                    items: [{ text: 'Обзор', link: '/cli' }],
+                    items: [
+                        { text: 'Обзор', link: '/cli/index' },
+                        { text: 'config', link: '/cli/config' },
+                        { text: 'inspect', link: '/cli/inspect' },
+                    ],
                 },
             ],
 
