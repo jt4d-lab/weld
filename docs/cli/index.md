@@ -1,7 +1,7 @@
 # CLI
 
 Пакет ставит рядом с плагином исполняемый файл `weld`. Он показывает эффективную конфигурацию WELD
-для файла или директории — ту же, которую видит правило при линте: `settings.weld` плюс найденый
+для файла или директории — ту же, которую видит правило при линте: `settings.weld` плюс найденный
 корень репозитория.
 
 Отдельного конфига у CLI нет. Он читает эффективный ESLint-конфиг проекта, поэтому настройки
@@ -103,7 +103,7 @@ $ weld config src/feature/internal.ts
 file:   src/feature/internal.ts
 config: eslint.config.js
 settings.weld:
-  repoRoot:       /srv/jt4d-lab/weld
+  repoRoot:       /home/user/project
   aliasesBaseUrl: .
   tsconfig:       tsconfig.json
   aliases:
@@ -117,7 +117,7 @@ $ weld config src/feature
 file:   src/feature/index.ts (sample of src/feature)
 config: eslint.config.js
 settings.weld:
-  repoRoot:       /srv/jt4d-lab/weld
+  repoRoot:       /home/user/project
   aliasesBaseUrl: .
   tsconfig:       tsconfig.json
   aliases:
@@ -128,7 +128,8 @@ settings.weld:
   найденный выше `.git`) — абсолютным путем: относительного пути от корня для него не существует.
 - `config` — примененный ESLint-конфиг. Когда конфигов в проекте несколько, эта строка и есть ответ
   на вопрос, откуда взялись напечатанные настройки.
-- Обход директории идет в алфавитном порядке; `node_modules` и скрытые директории пропускаются.
+- Обход идет вглубь, а записи каждой директории перебираются по алфавиту; `node_modules` и скрытые
+  директории пропускаются.
 - Сэмплом становится первый файл с модульным расширением, которому примененный конфиг задает
   настройки WELD: игнорируемые файлы пропускаются, а файл, к которому конфиг ничего не добавляет
   (вне шаблонов `files` и без глобального слоя), сэмплом не считается. Сверх того, файл без
@@ -205,7 +206,7 @@ $ weld config --json src/feature
   "configFile": "eslint.config.js",
   "sampleOf": "src/feature",
   "settings": {
-    "repoRoot": "/srv/jt4d-lab/weld",
+    "repoRoot": "/home/user/project",
     "aliasesBaseUrl": ".",
     "tsconfig": "tsconfig.json",
     "aliases": [
