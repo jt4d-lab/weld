@@ -1,12 +1,7 @@
 /**
  * Рендер вывода CLI: текст с цветом и машинный JSON. Модуль не знает ни про ESLint, ни про резолв
  * конфигурации — он получает уже собранные данные, а форму этих данных объявляют сами команды
- * (`InspectData` в `inspect.ts`, `ConfigData` в `config.ts`), поэтому рендер можно тестировать без
- * временных проектов на диске.
- *
- * Цвет здесь — только оформление: подписи и пометки приглушенные, значение алиаса акцентное.
- * Выключенный цвет обязан давать ровно тот же текст без escape-последовательностей, поэтому
- * собирается он теми же функциями, а не отдельной веткой.
+ * (`InspectData` в `inspect.ts`, `ConfigData` в `config.ts`).
  */
 
 import pc from 'picocolors';
@@ -30,21 +25,15 @@ const SETTINGS_INDENT = '  ';
 /** Список алиасов — ступень вложенности внутри того же блока. */
 const ALIAS_INDENT = `${SETTINGS_INDENT}${SETTINGS_INDENT}`;
 
-/** Подпись приглушенным цветом, добитая пробелами до общей ширины колонки. */
 function paddedLabel(c: Colors, text: string, width: number): string {
     return c.dim(text) + ' '.repeat(Math.max(0, width - text.length));
 }
 
-/** Строка «подпись + значение»: подписи одного блока выровнены по самой длинной. */
 function row(c: Colors, text: string, value: string, width: number): string {
     return `${paddedLabel(c, text, width)} ${value}`;
 }
 
-/**
- * Ширина колонки подписи по строкам одного блока: у `inspect` это `file:`/`alias:`, у `config` —
- * `file:`/`config:`, в блоке настроек — три подписи подряд. Считается по тем же строкам, которые
- * печатаются, поэтому новая подпись не может разъехаться с шириной, как было бы со списком литералов.
- */
+/** Ширина колонки подписи по строкам одного блока. */
 function widthOf(rows: readonly { label: string }[]): number {
     return Math.max(...rows.map((entry) => entry.label.length));
 }
@@ -66,8 +55,6 @@ export function renderInspect(data: InspectData, options: RenderOptions): string
 
 /**
  * `weld config`: файл (или сэмпл директории), примененный ESLint-конфиг и разобранные настройки.
- * Пометок происхождения (`(default)`, `(from tsconfig.json)`) нет: они потребовали бы предиката
- * присутствия ключа в `src/settings/`.
  */
 export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
@@ -85,10 +72,6 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
     ].join('\n');
 }
 
-/**
- * Строки блока настроек — таблицей, а не литералами по месту: ширина колонки считается по самым
- * длинным подписям, и новая настройка добавляется одной строкой, а не правкой нескольких литералов.
- */
 function settingsRows(c: Colors, settings: ConfigData['settings']): string[] {
     const rows = [
         { label: 'repoRoot:', value: settings.repoRoot },
@@ -100,7 +83,6 @@ function settingsRows(c: Colors, settings: ConfigData['settings']): string[] {
     return rows.map(({ label, value }) => row(c, label, value, width));
 }
 
-/** Первая строка: путь сэмпла и пометка, чей это сэмпл. */
 function withSample(data: ConfigData, c: Colors): string {
     if (data.sampleOf === undefined) {
         return data.file;
@@ -140,11 +122,7 @@ function withStar(value: string): string {
     return value.endsWith('/') ? `${value}*` : `${value}/*`;
 }
 
-/**
- * Машинный вывод: только `JSON.stringify`, без подписей и цветов. Форму объекта собирает вызывающий:
- * `alias: null` у `inspect` без алиаса и отсутствующий `sampleOf` у файла — его решение, а не
- * рендера.
- */
+/** Машинный вывод: только `JSON.stringify`, без подписей и цветов. */
 export function renderJson(value: unknown): string {
     return JSON.stringify(value, null, 2);
 }

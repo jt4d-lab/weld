@@ -91,8 +91,7 @@ node --input-type=module -e "
 echo "==> Запускаю ESLint в проекте-потребителе"
 npx --no-install eslint src/example.js
 
-# CLI проверяется здесь, а не в unit-тестах: `bin` из `package.json`, shebang и второй entry `tsup`
-# живут только в упакованном виде, и увидеть их может только установленный пакет.
+# CLI проверяется только здесь: bin, shebang и второй entry видны лишь в упакованном виде.
 CLI="./node_modules/.bin/weld"
 
 echo "==> Проверяю, что бинарь weld установлен и исполняемый"
@@ -101,8 +100,7 @@ test -x "$CLI"
 echo "    version: $($CLI --version)"
 
 echo "==> Проверяю weld inspect и weld config в проекте-потребителе"
-# `--no-color` в проверках с grep: под FORCE_COLOR вывод был бы с escape-последовательностями.
-# `file:` и `config:` печатаются от корня репозитория: корень зависит от места запуска, а вывод — нет.
+# `--no-color`: под FORCE_COLOR вывод был бы с escape-последовательностями.
 INSPECT="$($CLI inspect --no-color src/example.js)"
 grep -q '^file:  src/example.js$' <<<"$INSPECT" || { echo "    неверный file: $INSPECT" >&2; exit 1; }
 grep -q '^alias: ' <<<"$INSPECT" || { echo "    нет строки alias: $INSPECT" >&2; exit 1; }
@@ -128,8 +126,6 @@ node -e "
 "
 
 echo "==> Проверяю, что --config отменяет поиск конфига"
-# Настройки второго конфига отличаются от найденного (`@smoke/*` против пустых алиасов), иначе
-# проверка не отличила бы примененный конфиг от подобранного поиском.
 write_config "$TMP/project/eslint.config.other.mjs" '@smoke'
 
 OTHER="$($CLI config --no-color --config eslint.config.other.mjs src)"
@@ -138,17 +134,13 @@ grep -qxF '    @smoke/* → /src/*' <<<"$OTHER" || { echo "    настройк�
 echo "$OTHER" | sed 's/^/    /'
 
 echo "==> Проверяю, что конфиг не становится сэмплом директории"
-# `eslint.config.other.mjs` лежит в корне проекта и попадает под конфиг без `files`, но сэмплом он
-# быть не может: иначе `weld config .` печатал бы настройки конфига вместо файла проекта.
 DOT="$($CLI config --no-color .)"
 grep -qxF 'file:   src/example.js (sample of .)' <<<"$DOT" || { echo "    сэмплом стал не файл проекта: $DOT" >&2; exit 1; }
 grep -qxF 'config: eslint.config.js' <<<"$DOT" || { echo "    неверная строка config: $DOT" >&2; exit 1; }
 echo "$DOT" | sed 's/^/    /'
 
 echo "==> Проверяю, что конфиг выбирается по пути аргумента, а не по cwd"
-# Регрессия, ради которой появился собственный поиск: на ESLint 9 конфиг ищется только от `cwd`,
-# поэтому из корня проекта виден лишь корневой конфиг. Пакетный обязан выиграть — и по строке
-# `config:`, и по настройкам, иначе проверка ничего не отличает.
+# Регрессия: на ESLint 9 конфиг ищется только от cwd, поэтому пакетный обязан выиграть.
 mkdir -p packages/a/src
 
 write_config "$TMP/project/packages/a/eslint.config.js" '@pkg'
@@ -163,16 +155,11 @@ grep -qxF 'config: packages/a/eslint.config.js' <<<"$NESTED" || { echo "    пр
 grep -qxF '    @pkg/* → /src/*' <<<"$NESTED" || { echo "    настройки не из пакетного конфига: $NESTED" >&2; exit 1; }
 echo "$NESTED" | sed 's/^/    /'
 
-# Директория: конфиг выбирается по самому пути, а сэмплом становится файл пакета, а не его конфиг
-# (`eslint.config.js` сортируется раньше `src/`).
 NESTED_DIR="$($CLI config --no-color packages/a)"
 grep -qxF 'file:   packages/a/src/x.js (sample of packages/a)' <<<"$NESTED_DIR" || { echo "    сэмплом стал не файл пакета: $NESTED_DIR" >&2; exit 1; }
 grep -qxF 'config: packages/a/eslint.config.js' <<<"$NESTED_DIR" || { echo "    применен не пакетный конфиг: $NESTED_DIR" >&2; exit 1; }
 
 echo "==> Проверяю, что сэмпл принадлежит выбранному конфигу"
-# Файлы пакета описывает его собственный конфиг: `config packages` не должен печатать файл пакета
-# вместе с корневым `config:` — прямой запрос того же файла ответил бы другим конфигом и другими
-# настройками, то есть пара `file:`/`config:` описывала бы разные конфиги одного файла.
 set +e
 PACKAGES="$($CLI config --no-color packages 2>&1 >/dev/null)"
 PACKAGES_CODE=$?
@@ -181,11 +168,7 @@ set -e
 grep -qxF 'error: no lintable files in packages' <<<"$PACKAGES" || { echo "    неверное сообщение: $PACKAGES" >&2; exit 1; }
 echo "    $PACKAGES"
 
-# Tool-конфиг в корне проекта: `jest.config.js` сортируется раньше `src/`, но настроек WELD ему не
-# достается. Глобальный слой подключен так же, как в README (`weld.configs.recommended` на все файлы), —
-# без него проверка ничего не отличает: конфиг из одних files-слоев сам оставляет tool-конфиги без
-# значений по умолчанию. Глобальный слой делает конфиг любого линтуемого файла непустым, и отсеивать
-# tool-конфиг должно именно отсутствие настроек.
+# Глобальный слой делает конфиг любого файла непустым: tool-конфиг отсеивается по отсутствию настроек.
 mkdir -p "$TMP/tool/src"
 ln -s "$TMP/project/node_modules" "$TMP/tool/node_modules"
 echo '{ "name": "weld-smoke-tool", "private": true, "type": "module" }' > "$TMP/tool/package.json"
@@ -212,7 +195,6 @@ grep -q '^error: path does not exist: src/missing.js$' <<<"$TEXT_ERROR" || { ech
 grep -q '"error": "path does not exist: src/missing.js"' <<<"$JSON_ERROR" || { echo "    неверный JSON ошибки: $JSON_ERROR" >&2; exit 1; }
 echo "    $TEXT_ERROR"
 
-# Проект без ESLint-конфига: `eslint` есть (через симлинк на node_modules), конфига нет.
 mkdir -p "$TMP/standalone/src"
 ln -s "$TMP/project/node_modules" "$TMP/standalone/node_modules"
 echo '{ "name": "weld-smoke-standalone", "private": true, "type": "module" }' > "$TMP/standalone/package.json"

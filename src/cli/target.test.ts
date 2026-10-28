@@ -8,8 +8,6 @@ describe('repoPath', () => {
     });
 
     it('путь вне корня остается абсолютным', () => {
-        // Конфиг из `--config` и конфиг, найденный выше `.git`, лежат вне корня: относительного
-        // пути к ним нет.
         expect(repoPath('/repo/packages/app', '/repo/src/a.ts')).toBe('/repo/src/a.ts');
         expect(repoPath('/repo', '/home/user/configs/eslint.config.mjs')).toBe(
             '/home/user/configs/eslint.config.mjs',

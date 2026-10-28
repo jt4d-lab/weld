@@ -1,13 +1,4 @@
-/**
- * Команда `weld inspect`: что за файл и как он записывается в импорте. Резолв эффективной
- * конфигурации — тот же, что у правил (`src/config/`), поэтому алиасы здесь ровно те, которые
- * увидит линтер, а не похожий на них разбор.
- *
- * Модуль не знает ни про ESLint (настройки приходят готовыми), ни про вывод: он отдает данные в
- * одной форме, а `program.ts` печатает их текстом или JSON. Разница форм — только в отсутствующем
- * алиасе: в тексте на его месте печатается виртуальный путь, в JSON — `null`, чтобы машинный
- * потребитель отличал «алиаса нет» от «алиас совпал с виртуальным путем».
- */
+/** Команда `weld inspect`: что за файл и как он записывается в импорте. */
 
 import { resolveForFile } from '@/config/index.js';
 import { isEntryFileName } from '@/extensions.js';
@@ -37,11 +28,7 @@ export type InspectData = {
     alias: string;
 };
 
-/**
- * Путь файла и путь импорта по алиасу. Директория — ошибка: `inspect` спрашивает про конкретный
- * файл, а `loadLintSettings` для директории отдает сэмпл, который к вопросу отношения не имеет.
- * `shownPath` — аргумент команды в том виде, как его ввели: он попадает в сообщение об ошибке.
- */
+/** Директория — ошибка: `inspect` спрашивает про конкретный файл. `shownPath` попадает в сообщение. */
 export function inspectFile(lint: LintSettings, cwd: string, shownPath: string): InspectResult {
     if (lint.sampleOf !== undefined) {
         throw new Error(`expected a file, got a directory: ${lint.sampleOf}`);
@@ -55,7 +42,6 @@ export function inspectFile(lint: LintSettings, cwd: string, shownPath: string):
     });
     const fromFile = virtualPathOf(target, shownPath);
 
-    // `index.<ext>` — это и есть модуль директории: в импорте он записывается ею самой.
     const virtualPath = collapseEntryPoint(fromFile);
     const rendered = renderAliasPath(virtualPath, target.getAliases());
 
@@ -80,18 +66,11 @@ function collapseEntryPoint(path: string): string {
 }
 
 /**
- * Специфаер, который действительно резолвится. Алиас, совпавший с самим якорем, — еще не специфаер,
- * если ключ записи звездный: у `@/feature/*` → `src/feature/*` звездочке нечего подставить, поэтому
- * хвостом становится имя самого файла (`@/feature/index.ts`) — ровно то, чем модуль записывается в
- * импорте. У точного ключа (`@/config` → `src/config`) все наоборот: специфаером становится сам
- * префикс, и дописывать к нему ничего нельзя — `@/config/index.ts` такой записью уже не покрывается
- * (TypeScript резолвит `@/config`, а `@/config/index.ts` — нет). Различие знает `src/settings/`
- * (признак `star` в `Alias`), а готовым ответом его отдает `renderAliasPath` (`needsFileName`),
- * поэтому здесь не надо гадать по строке.
+ * Специфаер, который действительно резолвится: у звездного ключа на самом якоре хвостом становится
+ * имя файла, у точного ключа специфаером становится сам префикс.
  *
  * Имя берется из виртуального пути (`fromFile`), а не из `lint.filePath`: `basename` в `@/path` —
- * posix-функция над виртуальными путями, а реальный путь на Windows пришел бы с `\` и попал в
- * специфаер целиком (`@/C:\repo\src\index.ts`).
+ * posix-функция, а реальный путь на Windows пришел бы с `\`.
  */
 function withEntryName(rendered: AliasPath, virtualPath: string): string {
     if (!rendered.needsFileName) {

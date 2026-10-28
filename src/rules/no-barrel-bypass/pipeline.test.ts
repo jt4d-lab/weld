@@ -27,8 +27,6 @@ describe('checkImport — нарушение и замена', () => {
     });
 
     it('то же нарушение через алиас без расширения → правка относительная', () => {
-        // Звездный ключ `@other/*` на самом якоре не резолвится: голого `@other` TypeScript не
-        // находит, а имя точки входа без расширения неизвестно — поэтому правка относительная.
         expect(checker(barrelFiles, otherAlias)('@other/internal')).toEqual({
             kind: 'replace',
             target: '/repo/src/other/internal',
@@ -56,9 +54,6 @@ describe('checkImport — нарушение и замена', () => {
     });
 
     it('беззвездочный корневой алиас не перебивает относительный путь', () => {
-        // `paths: { '@root': ['.'], '@deep/*': ['src/other/deep/*'] }`: точный ключ `@root`
-        // резолвит только сам себя, поэтому правка `@root/src/other` была бы TS2307 — остается
-        // относительный путь.
         const aliases: Alias[] = [
             { prefix: '@root', anchor: '/repo', star: false },
             { prefix: '@deep', anchor: '/repo/src/other/deep', star: true },
@@ -74,8 +69,6 @@ describe('checkImport — нарушение и замена', () => {
     });
 
     it('импорт через беззвездочный корневой алиас чинится в относительный путь', () => {
-        // Специфаер записан по точному ключу (`@root/src/other/deep/internal` — прямое сопоставление
-        // WELD читает ключ префиксом), но обратно в поддерево такая запись не рендерится.
         const aliases: Alias[] = [
             { prefix: '@root', anchor: '/repo', star: false },
             { prefix: '@deep', anchor: '/repo/src/other/deep', star: true },

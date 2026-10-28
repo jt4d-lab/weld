@@ -21,12 +21,10 @@ import {
 /** Алиас из `OTHER_CONFIG` в той форме, в какой его печатает `--json`. */
 const OTHER_ALIASES = [{ prefix: '@other', anchor: '/src', star: true }];
 
-/** Алиасы из машинного вывода `weld config`: выбор конфига видно по ним, без разбора текста. */
 function aliasesOf(chunks: string[]): unknown {
     return (JSON.parse(printed(chunks)) as { settings: { aliases: unknown } }).settings.aliases;
 }
 
-/** Проект с двумя конфигами: корневой, который нашел бы поиск, и тот, что передают флагом. */
 function projectWithTwoConfigs(): string {
     return makeCliProject({
         'eslint.config.mjs': ALIAS_CONFIG,
@@ -35,11 +33,6 @@ function projectWithTwoConfigs(): string {
     });
 }
 
-/**
- * Шов на чтение версии: сломанный `package.json` виден только ошибкой, а иначе его не показать. По
- * умолчанию мок делегирует настоящей реализации; путь относительный — по той же причине, что и в
- * `src/config/resolve.test.ts`.
- */
 vi.mock('../package.js', async (importOriginal) => {
     const actual = await importOriginal<typeof PackageModule>();
 
@@ -53,8 +46,6 @@ const { version: PACKAGE_VERSION } = createRequire(import.meta.url)('../../packa
 afterEach(async () => {
     cleanupTmpProjects();
 
-    // `mockImplementationOnce` в одном тесте иначе оставлял бы разовую реализацию (или ее очередь)
-    // для следующих: сначала сбрасываем мок, потом возвращаем настоящую версию.
     const actual = await vi.importActual<typeof PackageModule>('../package.js');
     vi.mocked(packageVersion).mockReset();
     vi.mocked(packageVersion).mockImplementation(actual.packageVersion);
@@ -105,7 +96,6 @@ describe('runCli: ошибки использования', () => {
         const root = makeCliProject();
         const { out, err, codes } = await runCliCapture([], root);
 
-        // Справка от commander — не ошибка сама по себе, но запуск без команды — ошибка.
         expect(out).toEqual([]);
         expect(printed(err)).toContain('Usage: weld');
         expect(printed(err)).toContain('error: missing command');
@@ -196,7 +186,6 @@ describe('runCli: глобальная опция --config', () => {
             root,
         );
 
-        // Без флага выигрывает ближайший к файлу конфиг — корневой: иначе тест не отличал бы флаг.
         expect(aliasesOf(searched.out)).toEqual([{ prefix: '@', anchor: '/src', star: true }]);
         expect(aliasesOf(afterCommand.out)).toEqual(OTHER_ALIASES);
         expect(aliasesOf(beforeCommand.out)).toEqual(OTHER_ALIASES);

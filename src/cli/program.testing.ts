@@ -1,11 +1,4 @@
-/**
- * Общий каркас тестов слоя CLI: временный проект с установленными зависимостями, программа (или
- * запуск `runCli`) с перехваченным выводом и общие фикстуры конфигов.
- *
- * `makeCliProject` нужен потому, что `eslint` CLI ищет в проекте-потребителе (там же, где его
- * видит пользователь), а не рядом с файлом плагина. `capture` прячет терминал и `process.exitCode`
- * за `ProgramDeps`, поэтому тесты не перехватывают потоки процесса.
- */
+/** Общий каркас тестов слоя CLI: временный проект, программа с перехваченным выводом и фикстуры конфигов. */
 
 import { linkRepoNodeModules, makeTmpProject } from '@/testing/index.js';
 
@@ -35,8 +28,7 @@ export const OUTSIDE_ROOT_CONFIG = `export default [
 
 /**
  * Конфиг, который передают флагом `--config`: лежит в поддиректории, чтобы поиск от цели его не
- * нашел, и объявляет свои настройки — выбор конфига видно по выводу. Расширения — те же, что в
- * проектах тестов, чтобы одна фикстура годилась и слою CLI, и загрузке настроек.
+ * нашел, и объявляет свои настройки — выбор конфига видно по выводу.
  */
 export const OTHER_CONFIG_PATH = 'configs/other.config.mjs';
 
@@ -50,8 +42,7 @@ export const OTHER_CONFIG = `export default [
 
 /**
  * Проект с `node_modules`: `weld` грузит `eslint` из проекта, как в бою. `package.json` добавлен
- * всегда: он делает корень проекта (`findRepoRoot`) предсказуемым, а не зависящим от того, что
- * лежит в директориях над временной.
+ * всегда: он делает корень проекта (`findRepoRoot`) предсказуемым.
  */
 export function makeCliProject(files: Record<string, string> = {}): string {
     const root = makeTmpProject({
@@ -66,12 +57,10 @@ export function makeCliProject(files: Record<string, string> = {}): string {
 /** `ESC` из литерала не собрать: правило `no-control-regex` запрещает control-символы в регэкспе. */
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
 
-/** Напечатанное без color-escape-последовательностей: так проверяется, что цвет не меняет текст. */
 export function plain(text: string): string {
     return text.replace(ANSI, '');
 }
 
-/** То, что напечатали кусками: склеенное и без escape-последовательностей. */
 export function printed(chunks: string[]): string {
     return plain(chunks.join(''));
 }
@@ -108,7 +97,6 @@ function makeSinks(): Sinks {
     };
 }
 
-/** Программа с перехваченным выводом: терминал и `process.exitCode` тесту не нужны. */
 export function capture(root: string, overrides: Partial<ProgramDeps> = {}): Captured {
     const { out, err, codes, write, writeError, setExitCode } = makeSinks();
     const program = createProgram({ cwd: root, ...overrides, write, writeError, setExitCode });
@@ -118,10 +106,6 @@ export function capture(root: string, overrides: Partial<ProgramDeps> = {}): Cap
 
 type CapturedRun = Omit<Captured, 'program'>;
 
-/**
- * Запуск через `runCli` — тот же путь, которым идет `src/bin.ts`: разбор аргументов, ошибки
- * использования и код возврата. Вывод и код собираются теми же швами `ProgramDeps`.
- */
 export async function runCliCapture(
     argv: readonly string[],
     root: string,

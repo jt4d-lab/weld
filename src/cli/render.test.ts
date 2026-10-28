@@ -68,8 +68,6 @@ describe('renderConfig: файл', () => {
     });
 
     it('ширина колонки подписей считается по строкам своей команды', () => {
-        // У `config` подпись `config:` длиннее, чем `file:`, и `file:` добивается до нее; в `inspect`
-        // подписи по пять символов, поэтому общая константа развела бы колонки двух команд.
         const configLine = renderConfig(CONFIG, { color: false }).split('\n')[0];
         const inspectLine = renderInspect(INSPECT, { color: false }).split('\n')[0];
 
@@ -96,8 +94,6 @@ describe('renderConfig: файл', () => {
     });
 
     it('точный ключ печатается без хвоста /* с обеих сторон', () => {
-        // Запись `{ '@/config': ['src/config'] }` в `paths` объявлена без звездочки, и печатать ее
-        // звездной значило бы показать не тот ключ, который видит TypeScript.
         const output = renderConfig(
             {
                 ...CONFIG,
@@ -206,7 +202,6 @@ describe('renderJson', () => {
             settings: CONFIG.settings,
         };
 
-        // Ключи перечислены буквально: "--json" не должен добавлять полей, которых в данных не было.
         expect(Object.keys(JSON.parse(renderJson(value)) as object)).toEqual([
             'file',
             'configFile',

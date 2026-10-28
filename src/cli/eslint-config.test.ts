@@ -8,11 +8,6 @@ import { cleanupTmpProjects, linkRepoNodeModules, makeTmpProject } from '@/testi
 import { explainConfigLoadError, loadLintSettings } from './eslint-config.js';
 import { OTHER_CONFIG, OTHER_CONFIG_PATH, makeCliProject } from './program.testing.js';
 
-/**
- * Чужой проект на реальном диске: ESLint читает конфиг с диска, поэтому временный проект — самый
- * честный полигон. `settings.weld` лежит в конфиге, чтобы проверять не только факт «конфиг найден»,
- * но и то, что наружу уходят именно настройки.
- */
 const CONFIG = `export default [
     {
         files: ['**/*.js'],
@@ -24,11 +19,6 @@ const CONFIG = `export default [
 
 const WELD_SETTINGS = { weld: { aliases: { '@/*': ['src/*'] } } };
 
-/**
- * Конфиг, действующий только на `src/`: файлы вне шаблона `files` получают от ESLint значения по
- * умолчанию и представителями директории быть не могут — как и любые tool-конфиги в корне проекта
- * (`jest.config.js` сортируется раньше `src/`).
- */
 const SRC_ONLY_CONFIG = `export default [
     {
         files: ['src/**/*.js'],
@@ -37,12 +27,6 @@ const SRC_ONLY_CONFIG = `export default [
 ];
 `;
 
-/**
- * Конфиг без `files` действует на любой линтуемый файл — как `weld.configs.recommended`, который
- * включает каждый потребитель. Под него попадает и сам `eslint.config.*` рядом, поэтому только на
- * нем проверяется, что конфиг не становится сэмплом: с шаблоном `files` ESLint игнорирует файл
- * конфига сам, и исключение по имени осталось бы непроверенным.
- */
 const ALL_FILES_CONFIG = `export default [
     {
         settings: { weld: { aliases: { '@/*': ['src/*'] } } },
@@ -62,13 +46,6 @@ const PACKAGE_CONFIG = `export default [
 ];
 `;
 
-/**
- * Конфиг с глобальным слоем — так выглядит конфиг по README (`weld.configs.recommended` подключен
- * на все файлы) и любой конфиг с общими `rules`. Глобальный слой делает непустым эффективный конфиг
- * любого линтуемого файла: tool-конфиги из корня проекта перестают отличаться от настоящих файлов
- * по признаку «конфиг не равен значениям по умолчанию», и отсеивает их только отсутствие настроек
- * WELD.
- */
 const GLOBAL_LAYER_CONFIG = `export default [
     { rules: { 'no-unused-vars': 'error' } },
     {
@@ -137,8 +114,6 @@ describe('loadLintSettings: файл', () => {
     });
 
     it('вложенный пакетный конфиг выигрывает у корневого', async () => {
-        // Раньше ESLint искал конфиг от `cwd`, и из корня монорепа был виден только корневой: файл
-        // пакета получал чужие настройки.
         const root = makeCliProject({
             'eslint.config.mjs': CONFIG,
             'packages/app/eslint.config.mjs': PACKAGE_CONFIG,
@@ -158,8 +133,6 @@ describe('loadLintSettings: файл', () => {
     });
 
     it('конфиг над корнем проекта тоже применяется', async () => {
-        // Проект без своего конфига: поиск уходит выше временной директории, но `cwd` ESLint —
-        // директория найденного конфига, поэтому файл проекта остается в области его шаблонов.
         const outer = makeTmpProject({
             'eslint.config.mjs': CONFIG,
             'project/src/a.js': '',
@@ -177,8 +150,6 @@ describe('loadLintSettings: файл', () => {
     });
 
     it('--config отменяет поиск: настройки берутся из указанного конфига', async () => {
-        // Файл лежит выше директории конфига, и шаблон `files` все равно его покрывает: при
-        // `--config` `cwd` ESLint — директория пользователя, как у `eslint --config`.
         const root = makeCliProject({
             'eslint.config.mjs': CONFIG,
             [OTHER_CONFIG_PATH]: OTHER_CONFIG,
@@ -211,8 +182,6 @@ describe('loadLintSettings: файл', () => {
     });
 
     it('--config: путь вне cwd → ошибка про базу конфига, а не про игнор', async () => {
-        // При `--config` шаблоны `files`/`ignores` считаются от `cwd`, и файл вне его конфиг не
-        // покрывает вовсе: `eslint ignores` здесь была бы неверной диагностикой.
         const root = makeCliProject({ 'eslint.config.mjs': CONFIG, 'src/a.js': '' });
         const outside = makeTmpProject({ 'a.js': '' });
 
@@ -273,7 +242,6 @@ export default [
     });
 
     it('eslint не установлен в проекте → понятная ошибка', async () => {
-        // Проект без `node_modules`: `eslint` ищется от него, а не рядом с файлом плагина.
         const root = makeTmpProject({ 'eslint.config.mjs': CONFIG, 'src/a.js': '' });
 
         await expect(loadLintSettings('src/a.js', root)).rejects.toThrow(
@@ -282,8 +250,6 @@ export default [
     });
 
     it('конфиг падает при загрузке → ошибка уходит наружу, а не теряется', async () => {
-        // Ветка `try/catch` вокруг `calculateConfigForFile` не должна ни глотать ошибку загрузки, ни
-        // подменять ее: текст принадлежит ESLint, а CLI его только объясняет.
         const root = makeCliProject({
             'eslint.config.mjs': "throw new Error('config is broken');",
             'src/a.js': '',
@@ -293,8 +259,6 @@ export default [
     });
 
     it('eslint есть, но точка входа не резолвится → ошибка с cwd', async () => {
-        // Сломанный `package.json` пакета — не «не установлен», и отличить одно от другого должен
-        // текст ошибки, а не стектрейс резолвера.
         const root = makeTmpProject({
             'eslint.config.mjs': CONFIG,
             'src/a.js': '',
@@ -321,8 +285,6 @@ export default [
     });
 
     it('путь, который файловая система не может прочитать → ошибка cannot read', async () => {
-        // Ссылка на себя: `stat` падает с `ELOOP`, а не с «пути нет». Молчать об этом нельзя — иначе
-        // непонятно, почему путь не найден.
         const root = makeTmpProject({ 'eslint.config.mjs': CONFIG });
         symlinkSync(join(root, 'loop.js'), join(root, 'loop.js'));
 
@@ -399,8 +361,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('файл-ссылка — такой же файл, как и явный аргумент команды', async () => {
-        // `Dirent.isFile()` ссылку файлом не считает, а `weld inspect link.js` тот же файл
-        // принимает: без проверки по `stat` проект с исходниками-ссылоками давал бы «нет файлов».
         const root = makeCliProject({ 'eslint.config.mjs': CONFIG, 'src/real.js': '' });
         symlinkSync(join(root, 'src/real.js'), join(root, 'src/link.js'));
 
@@ -441,8 +401,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('найденный конфиг сэмплом директории не становится', async () => {
-        // `eslint.config.mjs` сортируется раньше `src/` и под конфиг без `files` попадает, но
-        // представителем директории он быть не может: настройки у него не те.
         const root = makeCliProject({
             'eslint.config.mjs': ALL_FILES_CONFIG,
             'packages/app/eslint.config.mjs': ALL_FILES_CONFIG,
@@ -470,9 +428,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('tool-конфиг вне шаблона files сэмплом не становится', async () => {
-        // `jest.config.js` и `next.config.mjs` сортируются раньше `src/`, а конфиг действует только
-        // на `src/`: ESLint отдает для них чистые значения по умолчанию, и `weld config .` печатал бы
-        // `aliases: (none)` вместо настроек проекта.
         const root = makeCliProject({
             'eslint.config.mjs': SRC_ONLY_CONFIG,
             'jest.config.js': 'export default {};',
@@ -491,9 +446,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('файлов под шаблоном files нет → ошибка, а не сэмпл без настроек', async () => {
-        // В директории одни tool-конфиги, а конфиг действует только на `src/`: файлу не достается
-        // ничего сверх значений ESLint по умолчанию, и отвечать за директорию он не может — иначе
-        // `weld config .` печатал бы `aliases: (none)` вместо ошибки.
         const root = makeCliProject({
             'eslint.config.mjs': SRC_ONLY_CONFIG,
             'jest.config.js': 'export default {};',
@@ -503,10 +455,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('tool-конфиг не становится сэмплом и под глобальным слоем конфига', async () => {
-        // `{ rules }` без `files` действует на любой линтуемый файл: `jest.config.js` получает непустой
-        // конфиг, и проверки «конфиг не равен значениям по умолчанию» не хватает. Настройки WELD лежат
-        // в files-слое и до tool-конфига не доходят, поэтому сэмплом ему быть нельзя: `weld config .`
-        // напечатал бы `aliases: (none)` там, где `weld config src` показывает алиасы.
         const root = makeCliProject({
             'eslint.config.mjs': GLOBAL_LAYER_CONFIG,
             'jest.config.js': 'export default {};',
@@ -524,8 +472,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('опции правила в files-слое отсеивают tool-конфиг так же, как settings', async () => {
-        // Настройки WELD — это `settings.weld` и опции правил `weld/*`: конфиг вправе задать только
-        // опции, и тогда представителя директории определяет именно они.
         const root = makeCliProject({
             'eslint.config.mjs': GLOBAL_LAYER_OPTIONS_CONFIG,
             'jest.config.js': 'export default {};',
@@ -539,8 +485,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('настроек WELD в конфиге нет — сэмплом становится первый годный файл', async () => {
-        // Конфиг вообще не задает настроек WELD: предпочитать нечего, и команда все равно должна
-        // показать линтуемый файл с его конфигом, а не ошибку.
         const root = makeCliProject({
             'eslint.config.mjs': GLOBAL_ONLY_CONFIG,
             'jest.config.js': 'export default {};',
@@ -554,8 +498,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('обход уперся в предел, но годный файл уже найден → отдает его', async () => {
-        // Предел ограничивает работу обхода, а не ответ: файл, годный без настроек WELD, уже найден,
-        // и превращать успешный ответ в ошибку из-за размера дерева незачем.
         const files: Record<string, string> = {
             'eslint.config.mjs': GLOBAL_ONLY_CONFIG,
             'a.js': '',
@@ -573,8 +515,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('файлы пакета с собственным конфигом сэмплом не становятся', async () => {
-        // Прямой запрос `weld config packages/a/src/x.js` нашел бы пакетный конфиг, поэтому пара
-        // `file:`/`config:` для этого файла под корневым конфигом описывала бы разные конфиги.
         const root = makeCliProject({
             'eslint.config.mjs': CONFIG,
             'packages/a/eslint.config.mjs': PACKAGE_CONFIG,
@@ -593,8 +533,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('под выбранным конфигом файлов нет → ошибка', async () => {
-        // Все файлы директории лежат в пакетах со своими конфигами: выбранный корневой конфиг к ним
-        // отношения не имеет.
         const root = makeCliProject({
             'eslint.config.mjs': CONFIG,
             'packages/a/eslint.config.mjs': PACKAGE_CONFIG,
@@ -607,8 +545,6 @@ describe('loadLintSettings: директория', () => {
     });
 
     it('--config не считается с вложенными конфигами', async () => {
-        // Флаг отменяет поиск, поэтому вложенный конфиг пакета не граница: указанный конфиг
-        // применяется к любому пути под текущей директорией.
         const root = makeCliProject({
             'eslint.config.mjs': CONFIG,
             [OTHER_CONFIG_PATH]: OTHER_CONFIG,

@@ -12,8 +12,6 @@ afterEach(() => {
 
 describe('CONFIG_FILE_NAMES', () => {
     it.each(CONFIG_FILE_NAMES)('%s находится поиском', (name) => {
-        // Список проверяется действием, а не сравнением с самим собой: каждое имя в нем обязано
-        // находиться поиском, включая TS-варианты.
         const root = makeTmpProject({ [name]: '' });
 
         expect(findConfigFile(root)).toBe(join(root, name));
@@ -80,7 +78,6 @@ describe('findConfigFile', () => {
     });
 
     it('mts выигрывает у cts', () => {
-        // Последняя пара списка: без нее порядок двух старших TS-имен не проверен ничем.
         const root = makeTmpProject({ 'eslint.config.cts': '', 'eslint.config.mts': '' });
 
         expect(findConfigFile(root)).toBe(join(root, 'eslint.config.mts'));
@@ -89,8 +86,7 @@ describe('findConfigFile', () => {
     it('конфига нет до корня ФС → null', () => {
         const root = makeTmpProject({ 'src/a.js': '' });
 
-        // Допущение теста — над временной директорией конфига нет. Проверяется явно, чтобы при
-        // появлении такого файла тест падал здесь, а не на непонятном «нашелся конфиг» выше.
+        // Допущение теста — над временной директорией конфига нет.
         expect(findConfigFile(dirname(root))).toBeNull();
         expect(findConfigFile(join(root, 'src'))).toBeNull();
     });

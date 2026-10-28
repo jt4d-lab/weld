@@ -12,12 +12,6 @@ import type * as TsconfigLayer from '@/tsconfig/index.js';
 
 import { resolveForFile } from './resolve.js';
 
-/**
- * Счетчик обращений к автопоиску tsconfig: ленивость видна только по нему. Мокается баррель слоя (а
- * не `src/tsconfig/load.ts`) — `src/config/` импортирует слой именно через баррель, и только этот
- * путь тест и может подменить. Путь относительный: `vi.mock` с алиасом `@/` в реестр моков не
- * попадает, а резолвится он от самого теста — при этом модуль тот же, что импортирует слой.
- */
 vi.mock('../tsconfig/index.js', async (importOriginal) => {
     const actual = await importOriginal<typeof TsconfigLayer>();
 
@@ -26,10 +20,6 @@ vi.mock('../tsconfig/index.js', async (importOriginal) => {
 
 const loadTsconfigPathsMock = vi.mocked(loadTsconfigPaths);
 
-/**
- * Каждый сценарий этого файла работает с кэшами обоих слоев и со счетчиком мока, поэтому сброс один
- * на файл, а не в каждом `describe`.
- */
 afterEach(() => {
     resetFsHostCaches();
     resetTsconfigCache();
@@ -109,7 +99,6 @@ describe('resolveForFile', () => {
     });
 
     it('getRoot() поднимается до якорей tsconfig, когда root не задан явно', () => {
-        // `.git` над tmpdir нет: без якорей root остался бы `cwd` — сам пакет.
         const proj = makeTmpProject({
             'tsconfig.base.json': JSON.stringify({
                 compilerOptions: { baseUrl: '.', paths: { '@shared/*': ['shared/*'] } },
@@ -140,12 +129,10 @@ describe('resolveForFile', () => {
         });
 
         expect(target.getAliases()).toEqual([]);
-        // Автопоиск выключен — tsconfig не читался вовсе.
         expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
     });
 
     it('при инъекции fsHost tsconfig не читается: алиасов нет', () => {
-        // Файл лежит внутри реальной фикстуры с tsconfig, но фейковая ФС выключает автопоиск.
         const file = `${tsconfigBasicFixture}/src/consumer.ts`;
         const target = resolveForFile(
             { filename: file, cwd: tsconfigBasicFixture, settings: {} },
@@ -211,7 +198,6 @@ describe('resolveForFile: ленивость', () => {
             settings: { weld: { repoRoot, aliases: 'nope' } },
         });
 
-        // Первые две части кривое значение `aliases` не разбирают: бросает только разбор.
         expect(() => target.getFromFile()).not.toThrow();
         expect(() => target.getRoot()).not.toThrow();
         expect(target.getRoot()).toBe(repoRoot);
@@ -239,7 +225,6 @@ describe('resolveForFile: ленивость', () => {
             settings: { weld: { repoRoot: tsconfigBasicFixture } },
         });
 
-        // Сам резолв tsconfig не читает: он только собирает замыкания.
         expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
 
         target.getRoot();
@@ -253,8 +238,6 @@ describe('resolveForFile: ленивость', () => {
     });
 
     it('при явных алиасах getRoot() не разбирает settings.weld.tsconfig', () => {
-        // Кривой тип `tsconfig` уронил бы `getTsconfigName`, если бы его спросили. Явные алиасы
-        // автопоиск выключают — значит, до него дело не доходит.
         const target = resolveForFile({
             filename: `${repoRoot}/src/config/resolve.ts`,
             cwd: repoRoot,
@@ -276,7 +259,6 @@ describe('resolveForFile: ленивость', () => {
             settings: { weld: { repoRoot, tsconfig: 42 } },
         });
 
-        // tsconfig здесь действительно нужен: без него не найти якоря и пути.
         expect(() => target.getRoot()).toThrow('settings.weld.tsconfig must be a string');
     });
 });

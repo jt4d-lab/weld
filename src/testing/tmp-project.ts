@@ -40,11 +40,7 @@ export function makeTmpProject(files: Record<string, string> = {}): string {
     return root;
 }
 
-/**
- * Ставит в проект `node_modules` этого репозитория симлинком. Нужно тестам, которые запускают
- * настоящий ESLint из проекта-потребителя (`weld` грузит `eslint` оттуда, а не от себя): пакет
- * оказывается там же, где он лежит у пользователя, а распаковывать его в каждый тест незачем.
- */
+/** Ставит в проект `node_modules` этого репозитория симлинком. */
 export function linkRepoNodeModules(root: string): void {
     symlinkSync(join(repoRoot, 'node_modules'), join(root, 'node_modules'), DIRECTORY_LINK_TYPE);
 }

@@ -1,14 +1,8 @@
 /**
  * Сборка CLI на commander: глобальные флаги, две команды и печать результата.
  *
- * Команды не знают, откуда берется ESLint-конфиг и куда идет вывод: и то, и другое приходит через
- * {@link ProgramDeps}. Единственная точка, где команда встречается с терминалом, — этот модуль,
- * поэтому тесты не перехватывают `process.stdout` и не зависят от реального ESLint.
- *
- * Ошибки печатаются здесь же и не выбрасываются: текстовая форма уходит в stderr как
- * `error: <текст>` с кодом возврата 1, а `--json` — в stdout как `{ "error": "..." }` с тем же кодом,
- * чтобы машинный потребитель не разбирал текст. Это касается и ошибок действий, и ошибок
- * использования (пропущенный аргумент, неизвестная команда): `commander` сам завершает процесс,
+ * Ошибка печатается здесь же с кодом возврата 1: текст уходит в stderr как `error: <текст>`, а при
+ * `--json` — в stdout как `{ "error": "..." }`. Ошибки использования `commander` печатает сам,
  * поэтому разбор аргументов обернут в {@link runCli}.
  */
 
@@ -23,15 +17,13 @@ import { inspectFile } from './inspect.js';
 import { renderConfig, renderInspect, renderJson } from './render.js';
 
 /**
- * Швы CLI: откуда берутся настройки файла, куда пишется вывод и как сообщается код возврата. Без них
- * тесты зависели бы от реального ESLint-конфига и от `process.exitCode`.
+ * Швы CLI: откуда берутся настройки файла, куда пишется вывод и как сообщается код возврата.
  */
 export type ProgramDeps = {
     /** База для относительных аргументов; в бою — `process.cwd()`. */
     cwd: string;
     /**
-     * Настройки цели. Третий аргумент — путь из `--config`: он отменяет поиск конфига, а без него
-     * поведение прежнее, поэтому подставленные швы в тестах его не объявляют.
+     * Настройки цели. Третий аргумент — путь из `--config`: он отменяет поиск конфига.
      */
     loadLintSettings: (path: string, cwd: string, config?: string) => Promise<LintSettings>;
     write: (text: string) => void;
@@ -69,10 +61,6 @@ function colorOption(options: GlobalOptions): boolean | undefined {
     return options.color === false ? false : undefined;
 }
 
-/**
- * Текст ошибки одной строкой: перевод строки или escape-последовательность терминала из аргумента
- * не должны переезжать в stderr и в JSON ошибки.
- */
 function errorText(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -90,15 +78,10 @@ function reportError(deps: ProgramDeps, message: string, json: boolean): void {
     deps.setExitCode(1);
 }
 
-/**
- * Программа `weld` с подставленными швами. Зависимости необязательны: так ее собирают тесты.
- * Боевой запуск идет через {@link runCli} — он разрешает швы один раз и собирает программу сам.
- */
 export function createProgram(overrides: Partial<ProgramDeps> = {}): Command {
     return buildProgram(resolveDeps(overrides));
 }
 
-/** Сборка программы из уже разрешенных швов: второй раз их никто не разрешает. */
 function buildProgram(deps: ProgramDeps): Command {
     const program = new Command('weld')
         .description('effective WELD configuration of a file or a directory')
@@ -180,12 +163,7 @@ function buildProgram(deps: ProgramDeps): Command {
 }
 
 /**
- * Разбор аргументов и запуск команды. Отдельная функция нужна из-за ошибок использования:
- * `commander` печатает их сам и вызывает `process.exit`, поэтому без обертки они обходили бы и
- * `--json`, и подмененный код возврата. Ошибки действий сюда не доходят — их печатает действие.
- *
- * Сборка программы тоже внутри `try`: версия пакета читается при ней, и сломанный `package.json`
- * обязан стать сообщением об ошибке, а не отклоненным промисом из `src/bin.ts`.
+ * Разбор аргументов и запуск команды. Ошибки действий сюда не доходят — их печатает действие.
  */
 export async function runCli(
     argv: readonly string[],
@@ -198,7 +176,6 @@ export async function runCli(
         program = buildProgram(deps);
         await program.parseAsync([...argv], { from: 'node' });
     } catch (error) {
-        // `--help` и `--version` — не ошибка: текст уже напечатан, код возврата нулевой.
         if (error instanceof CommanderError && error.exitCode === 0) {
             return;
         }
@@ -216,7 +193,6 @@ export async function runCli(
                 return;
             }
 
-            // Текст commander уже напечатал сам; в `--json` этот вывод отменен `writeErr`.
             if (json) {
                 reportError(deps, errorText(error).replace(/^error: /, ''), true);
             } else {

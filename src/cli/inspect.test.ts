@@ -14,13 +14,6 @@ import {
     printed,
 } from './program.testing.js';
 
-/**
- * Шов на резолв нужен одному тесту: платформенную разницу реального и виртуального пути иначе не
- * показать (на Linux их basename совпадает всегда). По умолчанию мок делегирует настоящей
- * реализации, поэтому остальные тесты идут через реальный резолв и ESLint. Путь относительный:
- * `vi.mock` с алиасом `@/` в реестр моков не попадает, а резолвится он от самого теста — при этом
- * модуль тот же, что импортирует слой.
- */
 vi.mock('../config/index.js', async (importOriginal) => {
     const actual = await importOriginal<typeof ConfigLayer>();
 
@@ -66,8 +59,6 @@ const EXACT_AND_STAR_ALIAS_CONFIG = `export default [
 afterEach(async () => {
     cleanupTmpProjects();
 
-    // `mockReturnValueOnce` в одном тесте иначе оставлял бы разовую реализацию (или ее очередь) для
-    // следующих: сначала сбрасываем мок, потом возвращаем настоящий резолв.
     const actual = await vi.importActual<typeof ConfigLayer>('../config/index.js');
     vi.mocked(resolveForFile).mockReset();
     vi.mocked(resolveForFile).mockImplementation(actual.resolveForFile);
@@ -107,8 +98,6 @@ describe('weld inspect', () => {
     });
 
     it('алиас с хвостом в ключе: index.<ext> не дает неразрешимый голый префикс', async () => {
-        // У записи `@/feature/*` → `src/feature/*` голый `@/feature` не резолвится: звездочке
-        // нечего подставить. Швом алиаса становится имя самого файла.
         const root = makeCliProject({
             'eslint.config.mjs': FEATURE_ALIAS_CONFIG,
             'src/feature/index.ts': '',
@@ -131,8 +120,6 @@ describe('weld inspect', () => {
     });
 
     it('точный ключ: index.<ext> печатается как сам префикс, без имени файла', async () => {
-        // `paths: { '@/config': ['src/config'] }` резолвит `@/config`, а `@/config/index.ts` — нет:
-        // хвост к точной записи не подставляется, поэтому дописывать имя файла к ней нельзя.
         const root = makeCliProject({
             'eslint.config.mjs': EXACT_ALIAS_CONFIG,
             'src/config/index.ts': '',
@@ -149,9 +136,6 @@ describe('weld inspect', () => {
     });
 
     it('точный ключ: файл ниже якоря печатается виртуальным путем', async () => {
-        // `paths: { '@/config': ['src/config'] }` не выражает `src/config/other.ts`: точный ключ
-        // совпадает только сам с собой, и `@/config/other.ts` TypeScript не находит. Специфаера из
-        // этой записи для такого файла нет, поэтому печатается виртуальный путь.
         const root = makeCliProject({
             'eslint.config.mjs': EXACT_ALIAS_CONFIG,
             'src/config/other.ts': '',
@@ -168,7 +152,6 @@ describe('weld inspect', () => {
     });
 
     it('точный ключ ниже якоря уступает широкому звездному', async () => {
-        // Якорь точного ключа длиннее, но резолвится только звездный специфаер.
         const root = makeCliProject({
             'eslint.config.mjs': EXACT_AND_STAR_ALIAS_CONFIG,
             'src/config/other.ts': '',
@@ -355,9 +338,6 @@ describe('inspectFile: имя файла в алиасе', () => {
             'src/index.ts',
         );
 
-        // На Windows реальный путь пришел бы с `\`, и posix-`basename` вернул бы его целиком:
-        // `@/C:\repo\src\index.ts` не резолвится ничем. Путь `file` в ассерте не участвует: он
-        // считается от реального корня, а `node:path` этой машины не знает чужих дисков.
         expect(result.virtualPath).toBe('/src');
         expect(result.alias).toBe('@/index.ts');
     });

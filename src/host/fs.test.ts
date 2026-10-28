@@ -435,7 +435,6 @@ describe('resolveRoot', () => {
         const settings = { weld: { repoRoot: '/explicit-root' } };
 
         expect(resolveRoot(settings, '/some/cwd', undefined, ['/some'])).toBe('/explicit-root');
-        // override из опций правила работает так же и по-прежнему главнее настройки.
         expect(resolveRoot(settings, '/some/cwd', '/override-root', ['/some'])).toBe(
             '/override-root',
         );

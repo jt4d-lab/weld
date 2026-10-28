@@ -6,10 +6,8 @@ const debug = createLogger('aliases');
 
 /**
  * Одна разобранная запись `paths`: префикс специфаера, якорь-директория и форма ключа. `star`
- * сохраняет то, что теряет `stripStarSuffix`: ключ покрывает поддерево (`@/feature/*` →
- * `src/feature/*`) или совпадает целиком (`@/config` → `src/config`). При прямом сопоставлении
- * специфаеров форма не различается — префиксом считается любой ключ, — а вот обратному рендеру она
- * нужна: у точного ключа специфаером становится сам префикс, у звездного — только префикс с хвостом.
+ * сохраняет то, что теряет `stripStarSuffix`: ключ покрывает поддерево (`@/feature/*`) или совпадает
+ * целиком (`@/config`).
  */
 export type Alias = { prefix: string; anchor: string; star: boolean };
 
@@ -61,7 +59,6 @@ export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source
                 continue;
             }
 
-            // Ключ входит целиком: `@a` и `@a/*` при одном якоре — разные записи.
             const dedupeKey = `${key}\0${anchor}`;
             if (seen.has(dedupeKey)) {
                 continue;
@@ -79,11 +76,7 @@ export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source
     return result;
 }
 
-/**
- * Для debug: по строке на алиас, `<ключ> - <якорь>`. Ключ печатается в своей форме: `'@a'` и
- * `'@a/*'` — разные записи, и без хвоста две строки вышли бы одинаковыми. Пустой список — явным
- * словом.
- */
+/** Для debug: по строке на алиас, `<ключ> - <якорь>`. */
 function formatAliases(aliases: Alias[]): string {
     if (aliases.length === 0) {
         return '(none)';

@@ -19,7 +19,6 @@ const TSCONFIG_AUTODETECT_CONFIG = `export default [
 ];
 `;
 
-/** Алиасы заданы опциями правила — как у проекта, который настраивает WELD на правиле. */
 const RULE_OPTIONS_CONFIG = `const weld = {
     rules: {
         'no-barrel-bypass': { meta: { schema: [{ type: 'object' }] }, create: () => ({}) },

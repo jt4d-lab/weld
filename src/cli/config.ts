@@ -1,11 +1,4 @@
-/**
- * Команда `weld config`: эффективная конфигурация WELD для файла или директории — ровно то, что
- * видит правило.
- *
- * Здесь намеренно читаются все части резолва, включая алиасы: правило спрашивает их лениво, потому
- * что кривая неиспользуемая часть не должна валить линт, а CLI существует ровно для того, чтобы
- * показать конфигурацию, — ошибка в ней и должна быть видна.
- */
+/** Команда `weld config`: эффективная конфигурация WELD для файла или директории. */
 
 import { resolveForFile } from '@/config/index.js';
 import type { Alias } from '@/settings/index.js';
@@ -43,8 +36,6 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
         options: lint.options,
     });
 
-    // Файл вне корня отсекается до разбора алиасов — тем же отказом и в том же порядке, что и
-    // `inspect`.
     assertInsideRoot(target, shownPath);
 
     const repoRoot = repoRootOf(target, shownPath);
@@ -55,7 +46,6 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
         sampleOf: lint.sampleOf,
         settings: {
             repoRoot,
-            // Опции правила перекрывают `settings.weld` — печатается то же, что увидит линтер.
             aliasesBaseUrl: getAliasesBaseUrl(lint.settings, lint.options?.aliasesBaseUrl),
             tsconfig: getTsconfigName(lint.settings, lint.options?.tsconfig),
             aliases: target.getAliases(),
