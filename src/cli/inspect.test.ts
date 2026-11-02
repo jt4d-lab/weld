@@ -30,6 +30,22 @@ const NO_ALIASES_CONFIG = `export default [
 ];
 `;
 
+/** Схема без маркера `@unknown`: код без слоя все равно печатается как `@unknown`. */
+const NO_UNKNOWN_MARKER_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: {
+            weld: {
+                aliasesBaseUrl: '.',
+                aliases: { '@/*': ['src/*'] },
+                layers: ['app', '@modules'],
+                moduleLayers: ['features'],
+            },
+        },
+    },
+];
+`;
+
 /** Схема без алиасов: и алиасы, и якоря для подъема корня приходят из tsconfig. */
 const TSCONFIG_CONFIG = `export default [
     {
@@ -170,6 +186,7 @@ const META_ROWS: MetaRow[] = [
         'panel.ts',
     ],
     ['src/modules/billing/api/x.ts', 'billing', '@unknown', 'api/x.ts'],
+    ['src/modules/billing/modules/foo.ts', 'billing', '@unknown', 'modules/foo.ts'],
     ['src/modules/x.ts', '@root', '@unknown', 'modules/x.ts'],
 ];
 
@@ -567,6 +584,28 @@ describe('weld inspect: метаданные файла', () => {
             expect(codes).toEqual([]);
         },
     );
+
+    it('маркера @unknown в схеме нет — слой все равно печатается как @unknown', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': NO_UNKNOWN_MARKER_CONFIG,
+            'src/utils/format.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/utils/format.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            inspectOutput({
+                file: 'src/utils/format.ts',
+                alias: '@/utils/format.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'utils/format.ts',
+            }),
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
 
     it('--json отдает модуль, слой и путь внутри слоя полями', async () => {
         const root = makeMetadataProject();
