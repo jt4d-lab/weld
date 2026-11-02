@@ -1,7 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAliasesFromPaths, getTsconfigName } from '@/settings/index.js';
-import { getAliases, getAliasesBaseUrl, getRepoRoot, hasAliases } from '@/settings/weld.js';
+import { getAliasesFromPaths, getScheme, getTsconfigName } from '@/settings/index.js';
+import {
+    getAliases,
+    getAliasesBaseUrl,
+    getRepoRoot,
+    hasAliases,
+    resetSettingsCaches,
+} from '@/settings/weld.js';
+
+afterEach(() => {
+    resetSettingsCaches();
+});
 
 describe('getRepoRoot', () => {
     it('repoRoot задан → возвращается как есть, без резолва', () => {
@@ -209,6 +219,153 @@ describe('hasAliases', () => {
 
     it('при заданном override settings не читается — сломанный settings.weld не мешает', () => {
         expect(hasAliases({ weld: 'nope' }, {})).toBe(true);
+    });
+});
+
+describe('getScheme', () => {
+    it('srcDir и modulesDir по умолчанию — /src и modules', () => {
+        expect(
+            getScheme({ weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } }),
+        ).toEqual({
+            srcDir: '/src',
+            modulesDir: 'modules',
+            layers: ['app', '@modules'],
+            moduleLayers: ['features'],
+        });
+    });
+
+    it('значения из settings.weld перекрывают значения по умолчанию', () => {
+        expect(
+            getScheme({
+                weld: {
+                    srcDir: 'app',
+                    modulesDir: 'mods',
+                    layers: ['ui', '@modules'],
+                    moduleLayers: ['widgets'],
+                },
+            }),
+        ).toEqual({
+            srcDir: '/app',
+            modulesDir: 'mods',
+            layers: ['ui', '@modules'],
+            moduleLayers: ['widgets'],
+        });
+    });
+
+    it('каждая опция целиком перекрывает одноименную настройку', () => {
+        const settings = {
+            weld: {
+                srcDir: 'app',
+                modulesDir: 'mods',
+                layers: ['ui', '@modules'],
+                moduleLayers: ['widgets'],
+            },
+        };
+
+        expect(
+            getScheme(settings, {
+                srcDir: 'source',
+                modulesDir: 'nested',
+                layers: ['pages', '@modules'],
+                moduleLayers: ['entities'],
+            }),
+        ).toEqual({
+            srcDir: '/source',
+            modulesDir: 'nested',
+            layers: ['pages', '@modules'],
+            moduleLayers: ['entities'],
+        });
+    });
+
+    it('опции задают схему целиком — settings может быть пустым', () => {
+        expect(getScheme({}, { layers: ['app', '@modules'], moduleLayers: ['features'] })).toEqual({
+            srcDir: '/src',
+            modulesDir: 'modules',
+            layers: ['app', '@modules'],
+            moduleLayers: ['features'],
+        });
+    });
+
+    it('нет layers → исключение называет settings.weld.layers', () => {
+        expect(() => getScheme({})).toThrow('settings.weld.layers is required');
+    });
+
+    it('кривая схема в опциях → исключение называет options.<поле>', () => {
+        expect(() => getScheme({}, { layers: [], moduleLayers: ['features'] })).toThrow(
+            'options.layers must not be empty',
+        );
+    });
+
+    it('кривой srcDir в опциях → исключение называет options.srcDir', () => {
+        expect(() => getScheme({}, { srcDir: '../out' })).toThrow(
+            'options.srcDir must not point above the repository root',
+        );
+    });
+
+    it('кривой modulesDir в опциях → исключение называет options.modulesDir', () => {
+        expect(() => getScheme({}, { modulesDir: 'a/b' })).toThrow(
+            'options.modulesDir must be a single directory name',
+        );
+    });
+
+    it('пустой moduleLayers в опциях → исключение называет options.moduleLayers', () => {
+        expect(() => getScheme({}, { layers: ['app', '@modules'], moduleLayers: [] })).toThrow(
+            'options.moduleLayers must not be empty',
+        );
+    });
+
+    it('settings.weld не объект → исключение', () => {
+        expect(() =>
+            getScheme({ weld: 'nope' }, { layers: ['app', '@modules'], moduleLayers: [] }),
+        ).toThrow('settings.weld must be an object');
+    });
+});
+
+describe('getScheme — кэш', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('те же аргументы → та же схема, без повторного разбора', () => {
+        const settings = { weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } };
+
+        expect(getScheme(settings)).toBe(getScheme(settings));
+    });
+
+    it('другой settings → разбор заново', () => {
+        const weld = { layers: ['app', '@modules'], moduleLayers: ['features'] };
+
+        expect(getScheme({ weld })).not.toBe(getScheme({ weld }));
+    });
+
+    it('тот же settings, но другие опции → разбор заново', () => {
+        const settings = { weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } };
+
+        expect(getScheme(settings, { srcDir: 'app' }).srcDir).toBe('/app');
+        expect(getScheme(settings).srcDir).toBe('/src');
+    });
+
+    it('через минуту запись протухает — разбор заново', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(0);
+        const settings = { weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } };
+
+        const fresh = getScheme(settings);
+        vi.setSystemTime(60_001);
+
+        expect(getScheme(settings)).not.toBe(fresh);
+        expect(getScheme(settings)).toEqual(fresh);
+    });
+
+    it('сломанная схема бросает на каждом вызове, а не только на первом', () => {
+        const settings = { weld: { layers: ['app'], moduleLayers: ['features'] } };
+
+        expect(() => getScheme(settings)).toThrow(
+            'settings.weld.layers must contain the "@modules" marker',
+        );
+        expect(() => getScheme(settings)).toThrow(
+            'settings.weld.layers must contain the "@modules" marker',
+        );
     });
 });
 
