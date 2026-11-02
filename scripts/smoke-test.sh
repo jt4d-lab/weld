@@ -28,9 +28,14 @@ cd "$TMP/project"
 
 # Конфиг проекта-потребителя: рекомендуемый набор плюс files-слой на src. Сценарии отличаются только
 # настройками WELD — ради этого их и сравнивают, — поэтому конфиг пишется один раз, а различие
-# приходит параметром: префикс алиаса без `/*`, пусто — конфиг без настроек вовсе.
+# приходит параметром: префикс алиаса без `/*`. Схема слоев есть всегда: `weld inspect` без нее
+# работать не может.
 write_config() {
     local path="$1" alias_prefix="${2:-}"
+    local settings="layers: ['app', '@modules'], moduleLayers: ['features']"
+    if [ -n "$alias_prefix" ]; then
+        settings="aliases: { '$alias_prefix/*': ['./src/*'] }, $settings"
+    fi
     {
         cat <<'CONFIG'
 import weld from 'eslint-plugin-weld';
@@ -41,10 +46,27 @@ export default [
     files: ['src/**/*.js'],
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
 CONFIG
-        if [ -n "$alias_prefix" ]; then
-            printf "    settings: { weld: { aliases: { '%s/*': ['./src/*'] } } },\n" "$alias_prefix"
-        fi
+        printf "    settings: { weld: { %s } },\n" "$settings"
         cat <<'CONFIG'
+  },
+];
+CONFIG
+    } > "$path"
+}
+
+# Конфиг без `settings.weld` вовсе: `weld config` обязан работать и без настроек, а `weld inspect` —
+# падать без схемы слоев.
+write_config_without_settings() {
+    local path="$1"
+    {
+        cat <<'CONFIG'
+import weld from 'eslint-plugin-weld';
+
+export default [
+  weld.configs.recommended,
+  {
+    files: ['src/**/*.js'],
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
   },
 ];
 CONFIG
@@ -102,9 +124,24 @@ echo "    version: $($CLI --version)"
 echo "==> Проверяю weld inspect и weld config в проекте-потребителе"
 # `--no-color`: под FORCE_COLOR вывод был бы с escape-последовательностями.
 INSPECT="$($CLI inspect --no-color src/example.js)"
-grep -q '^file:  src/example.js$' <<<"$INSPECT" || { echo "    неверный file: $INSPECT" >&2; exit 1; }
+grep -qxF 'file:      src/example.js' <<<"$INSPECT" || { echo "    неверный file: $INSPECT" >&2; exit 1; }
 grep -q '^alias: ' <<<"$INSPECT" || { echo "    нет строки alias: $INSPECT" >&2; exit 1; }
+grep -qxF 'module:    @root' <<<"$INSPECT" || { echo "    неверный module: $INSPECT" >&2; exit 1; }
+grep -qxF 'layer:     @unknown' <<<"$INSPECT" || { echo "    неверный layer: $INSPECT" >&2; exit 1; }
+grep -qxF 'innerPath: example.js' <<<"$INSPECT" || { echo "    неверный innerPath: $INSPECT" >&2; exit 1; }
 echo "$INSPECT" | sed 's/^/    /'
+
+$CLI inspect --json src/example.js > "$TMP/inspect.json"
+node -e "
+  const assert = require('node:assert/strict');
+  const data = require('$TMP/inspect.json');
+  assert.equal(data.file, 'src/example.js');
+  assert.equal(data.alias, null, 'без алиасов alias должен остаться null');
+  assert.equal(data.module, '@root');
+  assert.equal(data.layer, '@unknown');
+  assert.equal(data.innerPath, 'example.js');
+  console.log('    json: ' + JSON.stringify(data));
+"
 
 CONFIG="$($CLI config --no-color src)"
 grep -qxF 'file:   src/example.js (sample of src)' <<<"$CONFIG" || { echo "    неверная строка file: $CONFIG" >&2; exit 1; }
@@ -180,6 +217,24 @@ grep -qxF 'file:   src/a.js (sample of .)' <<<"$TOOL" || { echo "    сэмпл�
 grep -qxF 'config: eslint.config.js' <<<"$TOOL" || { echo "    неверная строка config: $TOOL" >&2; exit 1; }
 grep -qxF '    @tool/* → /src/*' <<<"$TOOL" || { echo "    настройки не из конфига проекта: $TOOL" >&2; exit 1; }
 echo "$TOOL" | sed 's/^/    /'
+
+echo "==> Проверяю проект без settings.weld: config работает, inspect требует схему"
+mkdir -p "$TMP/bare/src"
+ln -s "$TMP/project/node_modules" "$TMP/bare/node_modules"
+echo '{ "name": "weld-smoke-bare", "private": true, "type": "module" }' > "$TMP/bare/package.json"
+write_config_without_settings "$TMP/bare/eslint.config.js"
+touch "$TMP/bare/src/a.js"
+BARE_CONFIG="$(cd "$TMP/bare" && "$TMP/project/node_modules/.bin/weld" config --no-color src/a.js)"
+grep -qxF 'file:   src/a.js' <<<"$BARE_CONFIG" || { echo "    неверный file: $BARE_CONFIG" >&2; exit 1; }
+grep -q '^  aliases: (none)$' <<<"$BARE_CONFIG" || { echo "    неверные aliases: $BARE_CONFIG" >&2; exit 1; }
+echo "$BARE_CONFIG" | sed 's/^/    /'
+set +e
+BARE_INSPECT="$(cd "$TMP/bare" && "$TMP/project/node_modules/.bin/weld" inspect --no-color src/a.js 2>&1 >/dev/null)"
+BARE_INSPECT_CODE=$?
+set -e
+[ "$BARE_INSPECT_CODE" -ne 0 ] || { echo "    inspect без схемы не вернул код ошибки" >&2; exit 1; }
+grep -qxF 'error: settings.weld.layers is required' <<<"$BARE_INSPECT" || { echo "    неверное сообщение: $BARE_INSPECT" >&2; exit 1; }
+echo "    $BARE_INSPECT"
 
 echo "==> Проверяю отрицательные случаи: код 1 и сообщение об ошибке"
 set +e

@@ -6,13 +6,21 @@ import type { ProgramDeps } from './program.js';
 import { createProgram, runCli } from './program.js';
 
 /**
+ * Схема слоев в конфигах успешных сценариев: `weld inspect` без нее не работает, а `weld config` ее
+ * полей не печатает. Слои те же, что в таблице примеров плана: проект `app`, модули `features`.
+ */
+export const SCHEME_FIELDS = `layers: ['app', '@modules', '@unknown'], moduleLayers: ['features']`;
+
+/**
  * ESLint-конфиг тестов CLI на реальном диске. `files` объявлен, потому что без совпадающей записи
  * flat config считает файл игнорируемым, а `settings.weld.aliases` — то, что показывают команды.
  */
 export const ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@/*': ['src/*'] } } },
+        settings: {
+            weld: { aliasesBaseUrl: '.', aliases: { '@/*': ['src/*'] }, ${SCHEME_FIELDS} },
+        },
     },
 ];
 `;
@@ -35,7 +43,9 @@ export const OTHER_CONFIG_PATH = 'configs/other.config.mjs';
 export const OTHER_CONFIG = `export default [
     {
         files: ['**/*.ts', '**/*.js'],
-        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] } } },
+        settings: {
+            weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] }, ${SCHEME_FIELDS} },
+        },
     },
 ];
 `;

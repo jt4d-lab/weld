@@ -1,15 +1,37 @@
-/** Команда `weld inspect`: что за файл и как он записывается в импорте. */
+/** Команда `weld inspect`: что за файл, как он записывается в импорте и где он в схеме слоев. */
 
 import { resolveForFile } from '@/config/index.js';
 import { isEntryFileName } from '@/extensions.js';
 import type { AliasPath } from '@/imports/index.js';
 import { renderAliasPath } from '@/imports/index.js';
+import { locateFile, renderModuleName } from '@/layers/index.js';
 import { basename, dirname, splitExtension } from '@/path/index.js';
 
 import type { LintSettings } from './eslint-config.js';
 import { repoPath, repoRootOf, virtualPathOf } from './target.js';
 
-type InspectResult = {
+/** Метаданные файла в схеме слоев: общая часть текстового вывода и JSON. */
+type MetaFields = {
+    /** Имя модуля: `@root` либо цепочка через `::`. */
+    module: string;
+    /** Имя слоя либо `@unknown`. */
+    layer: string;
+    /** Путь от корня слоя, а при `@unknown` — от корня модуля. */
+    innerPath: string;
+};
+
+/**
+ * Данные текстового вывода `weld inspect`. `alias` — уже готовый к печати путь импорта: алиас, а
+ * если файл не покрыт ни одним алиасом, то виртуальный путь. Машинная форма собирается отдельно:
+ * `alias: null` там отличает «алиаса нет» от «алиас совпал с виртуальным путем».
+ */
+export type InspectData = MetaFields & {
+    file: string;
+    alias: string;
+};
+
+/** Результат `inspectFile`: к полям вывода добавлен виртуальный путь — запасной `alias`. */
+type InspectResult = MetaFields & {
     /** Путь файла от корня репозитория (вне корня — абсолютный). */
     file: string;
     /** Виртуальный путь модуля: `index.<ext>` схлопнут, алиас не подставлен. */
@@ -19,16 +41,12 @@ type InspectResult = {
 };
 
 /**
- * Данные текстового вывода `weld inspect`. `alias` — уже готовый к печати путь импорта: алиас, а
- * если файл не покрыт ни одним алиасом, то виртуальный путь. Машинная форма собирается отдельно:
- * `alias: null` там отличает «алиаса нет» от «алиас совпал с виртуальным путем».
+ * Директория — ошибка: `inspect` спрашивает про конкретный файл. `shownPath` попадает в сообщение.
+ *
+ * Схема слоев запрашивается здесь, поэтому без нее (или с кривой) `inspect` завершается ошибкой, а
+ * потребители, которым схема не нужна, ее не читают. Метаданные считаются по исходному виртуальному
+ * пути: схлопывание точки входа нужно только для алиаса.
  */
-export type InspectData = {
-    file: string;
-    alias: string;
-};
-
-/** Директория — ошибка: `inspect` спрашивает про конкретный файл. `shownPath` попадает в сообщение. */
 export function inspectFile(lint: LintSettings, cwd: string, shownPath: string): InspectResult {
     if (lint.sampleOf !== undefined) {
         throw new Error(`expected a file, got a directory: ${lint.sampleOf}`);
@@ -41,6 +59,7 @@ export function inspectFile(lint: LintSettings, cwd: string, shownPath: string):
         options: lint.options,
     });
     const fromFile = virtualPathOf(target, shownPath);
+    const meta = locateFile(fromFile, target.getScheme(), shownPath);
 
     const virtualPath = collapseEntryPoint(fromFile);
     const rendered = renderAliasPath(virtualPath, target.getAliases());
@@ -49,6 +68,9 @@ export function inspectFile(lint: LintSettings, cwd: string, shownPath: string):
         file: repoPath(repoRootOf(target, shownPath), lint.filePath),
         virtualPath,
         alias: rendered === null ? null : withEntryName(rendered, fromFile),
+        module: renderModuleName(meta.module),
+        layer: meta.layer,
+        innerPath: meta.innerPath,
     };
 }
 

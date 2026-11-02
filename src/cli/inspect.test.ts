@@ -3,12 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveForFile } from '@/config/index.js';
 import type * as ConfigLayer from '@/config/index.js';
 import { createFakeFsHost } from '@/host/index.js';
-import { cleanupTmpProjects } from '@/testing/index.js';
+import { cleanupTmpProjects, linkRepoNodeModules, makeTmpProject } from '@/testing/index.js';
 
 import { inspectFile } from './inspect.js';
 import {
     ALIAS_CONFIG,
     OUTSIDE_ROOT_CONFIG,
+    SCHEME_FIELDS,
     capture,
     makeCliProject,
     printed,
@@ -24,7 +25,36 @@ vi.mock('../config/index.js', async (importOriginal) => {
 const NO_ALIASES_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliasesBaseUrl: '.' } },
+        settings: { weld: { aliasesBaseUrl: '.', ${SCHEME_FIELDS} } },
+    },
+];
+`;
+
+/** Схема без алиасов: и алиасы, и якоря для подъема корня приходят из tsconfig. */
+const TSCONFIG_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { ${SCHEME_FIELDS} } },
+    },
+];
+`;
+
+/**
+ * Схема без `layers`: `weld inspect` без нее работать не может, а `weld config` ее не запрашивает.
+ */
+const NO_SCHEME_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@/*': ['src/*'] } } },
+    },
+];
+`;
+
+/** `srcDir: '.'`: файл в корне репозитория тоже попадает в схему. */
+const ROOT_SRC_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliasesBaseUrl: '.', srcDir: '.', ${SCHEME_FIELDS} } },
     },
 ];
 `;
@@ -33,7 +63,7 @@ const NO_ALIASES_CONFIG = `export default [
 const FEATURE_ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliases: { '@/feature/*': ['src/feature/*'] } } },
+        settings: { weld: { aliases: { '@/feature/*': ['src/feature/*'] }, ${SCHEME_FIELDS} } },
     },
 ];
 `;
@@ -42,7 +72,7 @@ const FEATURE_ALIAS_CONFIG = `export default [
 const EXACT_ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliases: { '@/config': ['src/config'] } } },
+        settings: { weld: { aliases: { '@/config': ['src/config'] }, ${SCHEME_FIELDS} } },
     },
 ];
 `;
@@ -51,10 +81,124 @@ const EXACT_ALIAS_CONFIG = `export default [
 const EXACT_AND_STAR_ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliases: { '@/config': ['src/config'], '@/*': ['src/*'] } } },
+        settings: {
+            weld: {
+                aliases: { '@/config': ['src/config'], '@/*': ['src/*'] },
+                ${SCHEME_FIELDS},
+            },
+        },
     },
 ];
 `;
+
+/**
+ * Два правила `weld/*` с разными схемами: CLI берет опции первого. Заглушки вместо настоящих правил —
+ * сценарию важен только выбор опций из эффективного конфига.
+ */
+const TWO_RULES_CONFIG = `const weld = {
+    rules: {
+        first: { meta: { schema: [{ type: 'object' }] }, create: () => ({}) },
+        second: { meta: { schema: [{ type: 'object' }] }, create: () => ({}) },
+    },
+};
+
+export default [
+    {
+        files: ['**/*.ts'],
+        plugins: { weld },
+        rules: {
+            'weld/first': [
+                'error',
+                {
+                    aliases: { '@/*': ['src/*'] },
+                    srcDir: '.',
+                    layers: ['src', '@modules'],
+                    moduleLayers: ['inner'],
+                },
+            ],
+            'weld/second': [
+                'error',
+                {
+                    aliases: { '@/*': ['src/*'] },
+                    layers: ['feature', '@modules'],
+                    moduleLayers: ['inner'],
+                },
+            ],
+        },
+    },
+];
+`;
+
+/** `layers` задает только второе правило: первое перекрывает настройки, но схемы не несет. */
+const SECOND_RULE_SCHEME_CONFIG = `const weld = {
+    rules: {
+        first: { meta: { schema: [{ type: 'object' }] }, create: () => ({}) },
+        second: { meta: { schema: [{ type: 'object' }] }, create: () => ({}) },
+    },
+};
+
+export default [
+    {
+        files: ['**/*.ts'],
+        plugins: { weld },
+        rules: {
+            'weld/first': ['error', { aliases: { '@/*': ['src/*'] } }],
+            'weld/second': [
+                'error',
+                { layers: ['app', '@modules'], moduleLayers: ['features'] },
+            ],
+        },
+    },
+];
+`;
+
+/** Поля одной строки таблицы: путь файла, модуль, слой и путь внутри слоя. */
+type MetaRow = [path: string, module: string, layer: string, innerPath: string];
+
+/**
+ * Примеры плана при `srcDir: 'src'`, `modulesDir: 'modules'`, слое проекта `app` и слое модулей
+ * `features` — та же схема в `ALIAS_CONFIG`.
+ */
+const META_ROWS: MetaRow[] = [
+    ['src/app/nested/pages/x.ts', '@root', 'app', 'nested/pages/x.ts'],
+    ['src/utils/format.ts', '@root', '@unknown', 'utils/format.ts'],
+    ['src/modules/billing/features/panel.ts', 'billing', 'features', 'panel.ts'],
+    [
+        'src/modules/billing/modules/subscription/features/panel.ts',
+        'billing::subscription',
+        'features',
+        'panel.ts',
+    ],
+    ['src/modules/billing/api/x.ts', 'billing', '@unknown', 'api/x.ts'],
+    ['src/modules/x.ts', '@root', '@unknown', 'modules/x.ts'],
+];
+
+/** Проект с файлами таблицы: конфиг `ALIAS_CONFIG` и по пустому файлу на каждую строку. */
+function makeMetadataProject(): string {
+    return makeCliProject({
+        'eslint.config.mjs': ALIAS_CONFIG,
+        ...Object.fromEntries(META_ROWS.map(([path]) => [path, ''])),
+    });
+}
+
+/** Текстовый вывод `inspect`: подписи выровнены по самой длинной строке — `innerPath:`. */
+function inspectOutput(fields: {
+    file: string;
+    alias: string;
+    module: string;
+    layer: string;
+    innerPath: string;
+}): string {
+    return (
+        [
+            `file:      ${fields.file}`,
+            `alias:     ${fields.alias}`,
+            `module:    ${fields.module}`,
+            `layer:     ${fields.layer}`,
+            `innerPath: ${fields.innerPath}`,
+        ].join('\n') + '\n'
+    );
+}
 
 afterEach(async () => {
     cleanupTmpProjects();
@@ -75,7 +219,13 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            ['file:  src/feature/internal.ts', 'alias: @/feature/internal.ts'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/feature/internal.ts',
+                alias: '@/feature/internal.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'feature/internal.ts',
+            }),
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -91,7 +241,13 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/feature/index.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            ['file:  src/feature/index.ts', 'alias: @/feature'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/feature/index.ts',
+                alias: '@/feature',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'feature/index.ts',
+            }),
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -107,7 +263,13 @@ describe('weld inspect', () => {
         const index = capture(root);
         await index.program.parseAsync(['inspect', 'src/feature/index.ts'], { from: 'user' });
         expect(printed(index.out)).toBe(
-            ['file:  src/feature/index.ts', 'alias: @/feature/index.ts'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/feature/index.ts',
+                alias: '@/feature/index.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'feature/index.ts',
+            }),
         );
 
         const internal = capture(root);
@@ -115,7 +277,13 @@ describe('weld inspect', () => {
             from: 'user',
         });
         expect(printed(internal.out)).toBe(
-            ['file:  src/feature/internal.ts', 'alias: @/feature/internal.ts'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/feature/internal.ts',
+                alias: '@/feature/internal.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'feature/internal.ts',
+            }),
         );
     });
 
@@ -129,7 +297,13 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/config/index.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            ['file:  src/config/index.ts', 'alias: @/config'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/config/index.ts',
+                alias: '@/config',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'config/index.ts',
+            }),
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -145,7 +319,13 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/config/other.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            ['file:  src/config/other.ts', 'alias: /src/config/other.ts'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/config/other.ts',
+                alias: '/src/config/other.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'config/other.ts',
+            }),
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -161,28 +341,56 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/config/other.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            ['file:  src/config/other.ts', 'alias: @/config/other.ts'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/config/other.ts',
+                alias: '@/config/other.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'config/other.ts',
+            }),
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
     });
 
     it('index.<ext> прямо в якоре алиаса печатается с именем файла', async () => {
-        const root = makeCliProject({ 'eslint.config.mjs': ALIAS_CONFIG, 'src/index.ts': '' });
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'src/index.ts': '',
+        });
         const { program, out } = capture(root);
 
         await program.parseAsync(['inspect', 'src/index.ts'], { from: 'user' });
 
-        expect(printed(out)).toBe(['file:  src/index.ts', 'alias: @/index.ts'].join('\n') + '\n');
+        expect(printed(out)).toBe(
+            inspectOutput({
+                file: 'src/index.ts',
+                alias: '@/index.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'index.ts',
+            }),
+        );
     });
 
     it('index.<ext> в корне репозитория не схлопывается в `/`', async () => {
-        const root = makeCliProject({ 'eslint.config.mjs': NO_ALIASES_CONFIG, 'index.ts': '' });
+        const root = makeCliProject({
+            'eslint.config.mjs': ROOT_SRC_CONFIG,
+            'index.ts': '',
+        });
         const { program, out } = capture(root);
 
         await program.parseAsync(['inspect', 'index.ts'], { from: 'user' });
 
-        expect(printed(out)).toBe(['file:  index.ts', 'alias: /index.ts'].join('\n') + '\n');
+        expect(printed(out)).toBe(
+            inspectOutput({
+                file: 'index.ts',
+                alias: '/index.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'index.ts',
+            }),
+        );
     });
 
     it('без алиасов печатает виртуальный путь', async () => {
@@ -195,7 +403,13 @@ describe('weld inspect', () => {
         await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
 
         expect(printed(out)).toBe(
-            ['file:  src/feature/internal.ts', 'alias: /src/feature/internal.ts'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/feature/internal.ts',
+                alias: '/src/feature/internal.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'feature/internal.ts',
+            }),
         );
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
@@ -215,6 +429,9 @@ describe('weld inspect', () => {
         expect(JSON.parse(printed(out))).toEqual({
             file: 'src/feature/internal.ts',
             alias: '@/feature/internal.ts',
+            module: '@root',
+            layer: '@unknown',
+            innerPath: 'feature/internal.ts',
         });
     });
 
@@ -232,6 +449,9 @@ describe('weld inspect', () => {
         expect(JSON.parse(printed(out))).toEqual({
             file: 'src/feature/internal.ts',
             alias: null,
+            module: '@root',
+            layer: '@unknown',
+            innerPath: 'feature/internal.ts',
         });
     });
 
@@ -248,7 +468,13 @@ describe('weld inspect', () => {
 
         expect(out.join('')).not.toContain(String.fromCharCode(27));
         expect(printed(out)).toBe(
-            ['file:  src/feature/index.ts', 'alias: @/feature'].join('\n') + '\n',
+            inspectOutput({
+                file: 'src/feature/index.ts',
+                alias: '@/feature',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'feature/index.ts',
+            }),
         );
     });
 
@@ -319,6 +545,193 @@ describe('weld inspect', () => {
     });
 });
 
+describe('weld inspect: метаданные файла', () => {
+    it.each(META_ROWS)(
+        '%s: модуль, слой и путь внутри слоя',
+        async (path, module, layer, innerPath) => {
+            const root = makeMetadataProject();
+            const { program, out, err, codes } = capture(root);
+
+            await program.parseAsync(['inspect', path], { from: 'user' });
+
+            expect(printed(out)).toBe(
+                inspectOutput({
+                    file: path,
+                    alias: `@/${path.slice('src/'.length)}`,
+                    module,
+                    layer,
+                    innerPath,
+                }),
+            );
+            expect(err).toEqual([]);
+            expect(codes).toEqual([]);
+        },
+    );
+
+    it('--json отдает модуль, слой и путь внутри слоя полями', async () => {
+        const root = makeMetadataProject();
+        const { program, out } = capture(root);
+        const path = 'src/modules/billing/modules/subscription/features/panel.ts';
+
+        await program.parseAsync(['--json', 'inspect', path], { from: 'user' });
+
+        expect(JSON.parse(printed(out))).toEqual({
+            file: path,
+            alias: '@/modules/billing/modules/subscription/features/panel.ts',
+            module: 'billing::subscription',
+            layer: 'features',
+            innerPath: 'panel.ts',
+        });
+    });
+});
+
+describe('weld inspect: схема слоев', () => {
+    it('конфиг без схемы → ошибка и код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': NO_SCHEME_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe('error: settings.weld.layers is required\n');
+        expect(codes).toEqual([1]);
+    });
+
+    it('конфиг без схемы при --json → ошибка в stdout и код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': NO_SCHEME_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['--json', 'inspect', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        expect(JSON.parse(printed(out))).toEqual({ error: 'settings.weld.layers is required' });
+        expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+    });
+
+    it('файл вне srcDir → ошибка и код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'lib/x.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'lib/x.ts'], { from: 'user' });
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe('error: lib/x.ts is outside srcDir /src\n');
+        expect(codes).toEqual([1]);
+    });
+
+    it('файл вне srcDir при --json → ошибка в stdout и код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'lib/x.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['--json', 'inspect', 'lib/x.ts'], { from: 'user' });
+
+        expect(JSON.parse(printed(out))).toEqual({ error: 'lib/x.ts is outside srcDir /src' });
+        expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+    });
+
+    it('запрещенный символ в пути → ошибка и код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'src/scope@2/x.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/scope@2/x.ts'], { from: 'user' });
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe(
+            'error: src/scope@2/x.ts: "scope@2" must not contain "@" or ":"\n',
+        );
+        expect(codes).toEqual([1]);
+    });
+});
+
+describe('weld inspect: выбор опций правила', () => {
+    it('схема берется из опций первого правила weld/*', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': TWO_RULES_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            inspectOutput({
+                file: 'src/feature/internal.ts',
+                alias: '@/feature/internal.ts',
+                module: '@root',
+                layer: 'src',
+                innerPath: 'feature/internal.ts',
+            }),
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
+
+    it('layers только во втором правиле → ошибка отсутствующей схемы', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': SECOND_RULE_SCHEME_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe('error: settings.weld.layers is required\n');
+        expect(codes).toEqual([1]);
+    });
+});
+
+describe('weld inspect: автоподъем repoRoot до якорей tsconfig', () => {
+    /**
+     * Пакет со своим `package.json` и tsconfig: якорь алиаса лежит выше пакета, поэтому корень
+     * поднимается до `packages/`, и `srcDir` отсчитывается уже от него.
+     */
+    function makeNestedPackage(): string {
+        const root = makeTmpProject({
+            'packages/app/package.json':
+                '{ "name": "weld-cli-nested", "private": true, "type": "module" }\n',
+            'packages/app/eslint.config.mjs': TSCONFIG_CONFIG,
+            'packages/app/tsconfig.json': JSON.stringify({
+                compilerOptions: { baseUrl: '.', paths: { '@/*': ['../shared/*'] } },
+            }),
+            'packages/app/src/a.ts': '',
+            'packages/shared/x.ts': '',
+        });
+        linkRepoNodeModules(root);
+
+        return `${root}/packages/app`;
+    }
+
+    it('srcDir отсчитывается от поднятого корня, а не от корня пакета', async () => {
+        const pkg = makeNestedPackage();
+        const { program, out, err, codes } = capture(pkg);
+
+        await program.parseAsync(['inspect', 'src/a.ts'], { from: 'user' });
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe('error: src/a.ts is outside srcDir /src\n');
+        expect(codes).toEqual([1]);
+    });
+});
+
 describe('inspectFile: имя файла в алиасе', () => {
     it('берется из виртуального пути, а не из реального (Windows)', () => {
         vi.mocked(resolveForFile).mockReturnValueOnce({
@@ -326,9 +739,12 @@ describe('inspectFile: имя файла в алиасе', () => {
             getRoot: () => 'C:\\repo',
             getFsHost: () => createFakeFsHost([]),
             getAliases: () => [{ prefix: '@', anchor: '/src', star: true }],
-            getScheme: () => {
-                throw new Error('getScheme is not requested by this test');
-            },
+            getScheme: () => ({
+                srcDir: '/src',
+                modulesDir: 'modules',
+                layers: ['app', '@modules'],
+                moduleLayers: ['features'],
+            }),
         });
 
         const result = inspectFile(
@@ -343,5 +759,8 @@ describe('inspectFile: имя файла в алиасе', () => {
 
         expect(result.virtualPath).toBe('/src');
         expect(result.alias).toBe('@/index.ts');
+        expect(result.module).toBe('@root');
+        expect(result.layer).toBe('@unknown');
+        expect(result.innerPath).toBe('index.ts');
     });
 });

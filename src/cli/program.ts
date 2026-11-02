@@ -124,17 +124,23 @@ function buildProgram(deps: ProgramDeps): Command {
 
     program
         .command('inspect')
-        .description('print the file path and the import path written with an alias')
+        .description(
+            'print the file path, the import path written with an alias and the module info',
+        )
         .argument('<file>', 'file to inspect')
         .action(
             action(async (path, options) => {
                 const lint = await deps.loadLintSettings(path, deps.cwd, options.config);
-                const { file, virtualPath, alias } = inspectFile(lint, deps.cwd, path);
+                const { file, virtualPath, alias, module, layer, innerPath } = inspectFile(
+                    lint,
+                    deps.cwd,
+                    path,
+                );
                 const text =
                     options.json === true
-                        ? renderJson({ file, alias })
+                        ? renderJson({ file, alias, module, layer, innerPath })
                         : renderInspect(
-                              { file, alias: alias ?? virtualPath },
+                              { file, alias: alias ?? virtualPath, module, layer, innerPath },
                               { color: colorOption(options) },
                           );
 

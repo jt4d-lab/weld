@@ -39,14 +39,17 @@ function widthOf(rows: readonly { label: string }[]): number {
 }
 
 /**
- * `weld inspect`: путь файла и путь импорта. Значение `alias` печатается как есть — команда уже
- * подставила виртуальный путь, если алиаса нет.
+ * `weld inspect`: путь файла, путь импорта и метаданные в схеме слоев. Значение `alias`
+ * печатается как есть — команда уже подставила виртуальный путь, если алиаса нет.
  */
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
     const rows = [
         { label: 'file:', value: data.file },
         { label: 'alias:', value: c.cyan(data.alias) },
+        { label: 'module:', value: data.module },
+        { label: 'layer:', value: data.layer },
+        { label: 'innerPath:', value: data.innerPath },
     ];
     const width = widthOf(rows);
 

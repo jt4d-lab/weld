@@ -81,7 +81,12 @@ const GLOBAL_ONLY_CONFIG = `export default [
 const PACKAGE_SETTINGS = { weld: { aliases: { '@pkg/*': ['src/*'] } } };
 
 const OTHER_SETTINGS = {
-    weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] } },
+    weld: {
+        aliasesBaseUrl: '.',
+        aliases: { '@other/*': ['src/*'] },
+        layers: ['app', '@modules', '@unknown'],
+        moduleLayers: ['features'],
+    },
 };
 
 afterEach(() => {

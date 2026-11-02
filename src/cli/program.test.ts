@@ -162,13 +162,27 @@ describe('createProgram: шов loadLintSettings', () => {
             loadLintSettings: async (path) => ({
                 filePath: `${root}/${path}`,
                 configFile: `${root}/eslint.config.mjs`,
-                settings: { weld: { aliases: { '@/*': ['src/*'] } } },
+                settings: {
+                    weld: {
+                        aliases: { '@/*': ['src/*'] },
+                        layers: ['app', '@modules'],
+                        moduleLayers: ['features'],
+                    },
+                },
             }),
         });
 
         await program.parseAsync(['inspect', 'src/a.ts'], { from: 'user' });
 
-        expect(printed(out)).toBe(['file:  src/a.ts', 'alias: @/a.ts'].join('\n') + '\n');
+        expect(printed(out)).toBe(
+            [
+                'file:      src/a.ts',
+                'alias:     @/a.ts',
+                'module:    @root',
+                'layer:     @unknown',
+                'innerPath: a.ts',
+            ].join('\n') + '\n',
+        );
     });
 });
 
@@ -201,6 +215,9 @@ describe('runCli: глобальная опция --config', () => {
         expect(JSON.parse(printed(out))).toEqual({
             file: 'src/a.ts',
             alias: '@other/a.ts',
+            module: '@root',
+            layer: '@unknown',
+            innerPath: 'a.ts',
         });
         expect(codes).toEqual([]);
     });

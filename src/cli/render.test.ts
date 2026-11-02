@@ -8,6 +8,9 @@ import { renderConfig, renderInspect, renderJson } from './render.js';
 const INSPECT: InspectData = {
     file: '/repo/src/feature/internal.ts',
     alias: '@/feature/internal.ts',
+    module: '@root',
+    layer: '@unknown',
+    innerPath: 'feature/internal.ts',
 };
 
 const CONFIG: ConfigData = {
@@ -22,19 +25,25 @@ const CONFIG: ConfigData = {
 };
 
 describe('renderInspect', () => {
-    it('печатает путь файла и путь импорта, выровненные по подписям', () => {
+    it('печатает путь файла, путь импорта и метаданные, выровненные по подписям', () => {
         expect(renderInspect(INSPECT, { color: false })).toBe(
-            ['file:  /repo/src/feature/internal.ts', 'alias: @/feature/internal.ts'].join('\n'),
+            [
+                'file:      /repo/src/feature/internal.ts',
+                'alias:     @/feature/internal.ts',
+                'module:    @root',
+                'layer:     @unknown',
+                'innerPath: feature/internal.ts',
+            ].join('\n'),
         );
     });
 
     it('без алиаса печатает то, что подставила команда — виртуальный путь', () => {
         const output = renderInspect(
-            { file: '/repo/src/feature/internal.ts', alias: '/src/feature/internal.ts' },
+            { ...INSPECT, alias: '/src/feature/internal.ts' },
             { color: false },
         );
 
-        expect(output).toContain('alias: /src/feature/internal.ts');
+        expect(output).toContain('alias:     /src/feature/internal.ts');
     });
 
     it('color: false дает текст без escape-последовательностей', () => {
@@ -72,7 +81,7 @@ describe('renderConfig: файл', () => {
         const inspectLine = renderInspect(INSPECT, { color: false }).split('\n')[0];
 
         expect(configLine).toBe('file:   /repo/src/feature/index.ts');
-        expect(inspectLine).toBe('file:  /repo/src/feature/internal.ts');
+        expect(inspectLine).toBe('file:      /repo/src/feature/internal.ts');
     });
 
     it('конфиг вне корня печатается абсолютным путем', () => {
@@ -184,14 +193,19 @@ describe('renderConfig: директория', () => {
 
 describe('renderJson', () => {
     it('inspect с алиасом', () => {
-        expect(renderJson({ file: INSPECT.file, alias: INSPECT.alias })).toBe(
-            `{\n  "file": "/repo/src/feature/internal.ts",\n  "alias": "@/feature/internal.ts"\n}`,
+        expect(renderJson(INSPECT)).toBe(
+            `{\n  "file": "/repo/src/feature/internal.ts",\n  "alias": "@/feature/internal.ts",\n` +
+                `  "module": "@root",\n  "layer": "@unknown",\n` +
+                `  "innerPath": "feature/internal.ts"\n}`,
         );
     });
 
     it('inspect без алиаса — alias: null', () => {
-        expect(renderJson({ file: '/repo/src/a.ts', alias: null })).toBe(
-            `{\n  "file": "/repo/src/a.ts",\n  "alias": null\n}`,
+        const data = { ...INSPECT, file: '/repo/src/a.ts', alias: null, innerPath: 'a.ts' };
+
+        expect(renderJson(data)).toBe(
+            `{\n  "file": "/repo/src/a.ts",\n  "alias": null,\n  "module": "@root",\n` +
+                `  "layer": "@unknown",\n  "innerPath": "a.ts"\n}`,
         );
     });
 
