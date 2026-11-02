@@ -26,7 +26,7 @@ const RESERVED_IN_NAME = /[@:]/;
 /** Метаданные файла. */
 export type FileMeta = {
     /** Цепочка имен модулей от внешнего к внутреннему; пустая — корень `srcDir`. */
-    module: string[];
+    module: readonly string[];
     /** Имя слоя либо `@unknown`, если слой не определен. */
     layer: string;
     /** Путь от корня слоя, а при `@unknown` — от корня модуля (`@root` — от `srcDir`). */
@@ -106,7 +106,7 @@ function descendModules(
 }
 
 /** Слой по первому сегменту директории; файл слоем не бывает, незнакомое имя — `@unknown`. */
-function layerOf(rest: string[], layers: string[]): string {
+function layerOf(rest: readonly string[], layers: readonly string[]): string {
     const [first] = rest;
 
     if (first === undefined || rest.length < 2) {

@@ -294,6 +294,24 @@ describe('resolveForFile: схема слоев', () => {
         expect(target.getScheme()).toBe(target.getScheme());
     });
 
+    it('мемо не зависит от TTL кэша настроек: после протухания объект тот же', () => {
+        const target = resolveForFile(
+            { filename: file, cwd: '/cwd', settings: schemeSettings },
+            createFakeFsHost([]),
+        );
+
+        vi.useFakeTimers();
+
+        try {
+            const first = target.getScheme();
+            vi.advanceTimersByTime(61_000);
+
+            expect(target.getScheme()).toBe(first);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('исключение не запоминается: кривая схема бросает на каждом обращении', () => {
         const target = resolveForFile(
             { filename: file, cwd: '/cwd', settings: { weld: { layers: 'nope' } } },

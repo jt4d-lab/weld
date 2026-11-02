@@ -6,7 +6,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanupTmpProjects, linkRepoNodeModules, makeTmpProject } from '@/testing/index.js';
 
 import { explainConfigLoadError, loadLintSettings } from './eslint-config.js';
-import { OTHER_CONFIG, OTHER_CONFIG_PATH, makeCliProject } from './program.testing.js';
+import {
+    OTHER_CONFIG,
+    OTHER_CONFIG_PATH,
+    SCHEME_SETTINGS,
+    makeCliProject,
+} from './program.testing.js';
 
 const CONFIG = `export default [
     {
@@ -84,8 +89,7 @@ const OTHER_SETTINGS = {
     weld: {
         aliasesBaseUrl: '.',
         aliases: { '@other/*': ['src/*'] },
-        layers: ['app', '@modules', '@unknown'],
-        moduleLayers: ['features'],
+        ...SCHEME_SETTINGS,
     },
 };
 

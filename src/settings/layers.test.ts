@@ -96,7 +96,13 @@ describe('parseScheme — modulesDir', () => {
         );
     });
 
-    it.each(['', '.', '..', 'a/b', 'a\\b', '@mods', 'mod:s'])(
+    it('пустая строка → исключение про пустоту', () => {
+        expect(() => parse({ modulesDir: '' })).toThrow(
+            'settings.weld.modulesDir must not be empty',
+        );
+    });
+
+    it.each(['.', '..', 'a/b', 'a\\b', '@mods', 'mod:s'])(
         'недопустимое имя "%s" → исключение',
         (modulesDir) => {
             expect(() => parse({ modulesDir })).toThrow(

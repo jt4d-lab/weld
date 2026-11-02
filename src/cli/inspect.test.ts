@@ -168,33 +168,63 @@ export default [
 ];
 `;
 
-/** Поля одной строки таблицы: путь файла, модуль, слой и путь внутри слоя. */
-type MetaRow = [path: string, module: string, layer: string, innerPath: string];
+/** Одна строка таблицы примеров `weld inspect`: путь файла и его место в схеме. */
+type MetaRow = { path: string; module: string; layer: string; innerPath: string };
 
 /**
- * Примеры плана при `srcDir: 'src'`, `modulesDir: 'modules'`, слое проекта `app` и слое модулей
- * `features` — та же схема в `ALIAS_CONFIG`.
+ * Примеры из `docs/cli/inspect.md` при `srcDir: 'src'`, `modulesDir: 'modules'`, слое проекта `app`
+ * и слое модулей `features` — та же схема в `ALIAS_CONFIG`.
  */
 const META_ROWS: MetaRow[] = [
-    ['src/app/nested/pages/x.ts', '@root', 'app', 'nested/pages/x.ts'],
-    ['src/utils/format.ts', '@root', '@unknown', 'utils/format.ts'],
-    ['src/modules/billing/features/panel.ts', 'billing', 'features', 'panel.ts'],
-    [
-        'src/modules/billing/modules/subscription/features/panel.ts',
-        'billing::subscription',
-        'features',
-        'panel.ts',
-    ],
-    ['src/modules/billing/api/x.ts', 'billing', '@unknown', 'api/x.ts'],
-    ['src/modules/billing/modules/foo.ts', 'billing', '@unknown', 'modules/foo.ts'],
-    ['src/modules/x.ts', '@root', '@unknown', 'modules/x.ts'],
+    {
+        path: 'src/app/nested/pages/x.ts',
+        module: '@root',
+        layer: 'app',
+        innerPath: 'nested/pages/x.ts',
+    },
+    {
+        path: 'src/utils/format.ts',
+        module: '@root',
+        layer: '@unknown',
+        innerPath: 'utils/format.ts',
+    },
+    {
+        path: 'src/modules/billing/features/panel.ts',
+        module: 'billing',
+        layer: 'features',
+        innerPath: 'panel.ts',
+    },
+    {
+        path: 'src/modules/billing/modules/subscription/features/panel.ts',
+        module: 'billing::subscription',
+        layer: 'features',
+        innerPath: 'panel.ts',
+    },
+    {
+        path: 'src/modules/billing/api/x.ts',
+        module: 'billing',
+        layer: '@unknown',
+        innerPath: 'api/x.ts',
+    },
+    {
+        path: 'src/modules/billing/modules/foo.ts',
+        module: 'billing',
+        layer: '@unknown',
+        innerPath: 'modules/foo.ts',
+    },
+    {
+        path: 'src/modules/x.ts',
+        module: '@root',
+        layer: '@unknown',
+        innerPath: 'modules/x.ts',
+    },
 ];
 
 /** Проект с файлами таблицы: конфиг `ALIAS_CONFIG` и по пустому файлу на каждую строку. */
 function makeMetadataProject(): string {
     return makeCliProject({
         'eslint.config.mjs': ALIAS_CONFIG,
-        ...Object.fromEntries(META_ROWS.map(([path]) => [path, ''])),
+        ...Object.fromEntries(META_ROWS.map(({ path }) => [path, ''])),
     });
 }
 
@@ -564,8 +594,8 @@ describe('weld inspect', () => {
 
 describe('weld inspect: метаданные файла', () => {
     it.each(META_ROWS)(
-        '%s: модуль, слой и путь внутри слоя',
-        async (path, module, layer, innerPath) => {
+        '$path: модуль, слой и путь внутри слоя',
+        async ({ path, module, layer, innerPath }) => {
             const root = makeMetadataProject();
             const { program, out, err, codes } = capture(root);
 
@@ -796,10 +826,10 @@ describe('inspectFile: имя файла в алиасе', () => {
             'src/index.ts',
         );
 
-        expect(result.virtualPath).toBe('/src');
-        expect(result.alias).toBe('@/index.ts');
-        expect(result.module).toBe('@root');
-        expect(result.layer).toBe('@unknown');
-        expect(result.innerPath).toBe('index.ts');
+        expect(result.text.alias).toBe('@/index.ts');
+        expect(result.text.module).toBe('@root');
+        expect(result.text.layer).toBe('@unknown');
+        expect(result.text.innerPath).toBe('index.ts');
+        expect(result.json).toEqual(result.text);
     });
 });

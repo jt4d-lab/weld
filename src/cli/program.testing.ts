@@ -6,10 +6,23 @@ import type { ProgramDeps } from './program.js';
 import { createProgram, runCli } from './program.js';
 
 /**
- * Схема слоев в конфигах успешных сценариев: `weld inspect` без нее не работает, а `weld config` ее
- * полей не печатает. Слои те же, что в таблице примеров плана: проект `app`, модули `features`.
+ * Схема слоев тестов CLI: проект `app`, модули `features` — как в таблице примеров
+ * `docs/cli/inspect.md`. `weld inspect` без нее не работает, а `weld config` ее полей не печатает.
  */
-export const SCHEME_FIELDS = `layers: ['app', '@modules', '@unknown'], moduleLayers: ['features']`;
+export const SCHEME_SETTINGS = {
+    layers: ['app', '@modules', '@unknown'],
+    moduleLayers: ['features'],
+};
+
+/** Та же схема строкой — для конфигов, которые тесты пишут на диск. */
+export const SCHEME_FIELDS = Object.entries(SCHEME_SETTINGS)
+    .map(([field, names]) => `${field}: ${renderNames(names)}`)
+    .join(', ');
+
+/** Список в форме исходника конфига: JSON дал бы двойные кавычки. */
+function renderNames(names: readonly string[]): string {
+    return `[${names.map((name) => `'${name}'`).join(', ')}]`;
+}
 
 /**
  * ESLint-конфиг тестов CLI на реальном диске. `files` объявлен, потому что без совпадающей записи

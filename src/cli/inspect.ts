@@ -22,23 +22,24 @@ type MetaFields = {
 
 /**
  * Данные текстового вывода `weld inspect`. `alias` — уже готовый к печати путь импорта: алиас, а
- * если файл не покрыт ни одним алиасом, то виртуальный путь. Машинная форма собирается отдельно:
- * `alias: null` там отличает «алиаса нет» от «алиас совпал с виртуальным путем».
+ * если файл не покрыт ни одним алиасом, то виртуальный путь.
  */
 export type InspectData = MetaFields & {
     file: string;
     alias: string;
 };
 
-/** Результат `inspectFile`: к полям вывода добавлен виртуальный путь — запасной `alias`. */
-type InspectResult = MetaFields & {
-    /** Путь файла от корня репозитория (вне корня — абсолютный). */
+/**
+ * Машинная форма `weld inspect`: `alias: null` отличает «алиаса нет» от «алиас совпал с
+ * виртуальным путем».
+ */
+type InspectJsonData = MetaFields & {
     file: string;
-    /** Виртуальный путь модуля: `index.<ext>` схлопнут, алиас не подставлен. */
-    virtualPath: string;
-    /** Путь импорта по алиасу; `null` — ни один алиас файл не покрывает. */
     alias: string | null;
 };
+
+/** Обе формы ответа `inspectFile`: `program.ts` выбирает форму, а не перечисляет поля. */
+type InspectResult = { text: InspectData; json: InspectJsonData };
 
 /**
  * Директория — ошибка: `inspect` спрашивает про конкретный файл. `shownPath` попадает в сообщение.
@@ -59,18 +60,21 @@ export function inspectFile(lint: LintSettings, cwd: string, shownPath: string):
         options: lint.options,
     });
     const fromFile = virtualPathOf(target, shownPath);
-    const meta = locateFile(fromFile, target.getScheme(), shownPath);
+    const located = locateFile(fromFile, target.getScheme(), shownPath);
 
     const virtualPath = collapseEntryPoint(fromFile);
     const rendered = renderAliasPath(virtualPath, target.getAliases());
+    const alias = rendered === null ? null : withEntryName(rendered, fromFile);
+    const meta: MetaFields = {
+        module: renderModuleName(located.module),
+        layer: located.layer,
+        innerPath: located.innerPath,
+    };
+    const file = repoPath(repoRootOf(target, shownPath), lint.filePath);
 
     return {
-        file: repoPath(repoRootOf(target, shownPath), lint.filePath),
-        virtualPath,
-        alias: rendered === null ? null : withEntryName(rendered, fromFile),
-        module: renderModuleName(meta.module),
-        layer: meta.layer,
-        innerPath: meta.innerPath,
+        text: { file, alias: alias ?? virtualPath, ...meta },
+        json: { file, alias, ...meta },
     };
 }
 

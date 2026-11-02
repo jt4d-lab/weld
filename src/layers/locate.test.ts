@@ -5,7 +5,7 @@ import type { Scheme } from '@/settings/index.js';
 import type { FileMeta } from './locate.js';
 import { locateFile, renderModuleName } from './locate.js';
 
-/** Схема примеров плана: слой проекта `app`, слой модулей `features`. */
+/** Схема таблицы примеров из `docs/cli/inspect.md`: слой проекта `app`, слой модулей `features`. */
 const scheme: Scheme = {
     srcDir: '/src',
     modulesDir: 'modules',

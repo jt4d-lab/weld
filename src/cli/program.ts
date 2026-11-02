@@ -131,18 +131,11 @@ function buildProgram(deps: ProgramDeps): Command {
         .action(
             action(async (path, options) => {
                 const lint = await deps.loadLintSettings(path, deps.cwd, options.config);
-                const { file, virtualPath, alias, module, layer, innerPath } = inspectFile(
-                    lint,
-                    deps.cwd,
-                    path,
-                );
+                const data = inspectFile(lint, deps.cwd, path);
                 const text =
                     options.json === true
-                        ? renderJson({ file, alias, module, layer, innerPath })
-                        : renderInspect(
-                              { file, alias: alias ?? virtualPath, module, layer, innerPath },
-                              { color: colorOption(options) },
-                          );
+                        ? renderJson(data.json)
+                        : renderInspect(data.text, { color: colorOption(options) });
 
                 deps.write(`${text}\n`);
             }),

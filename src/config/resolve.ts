@@ -29,21 +29,19 @@ import { loadTsconfigPaths } from '@/tsconfig/index.js';
 
 const debug = createLogger('config');
 
+/**
+ * Поля схемы слоев в опциях. Тип не сужен намеренно: схема ESLint разрешает для них любые значения,
+ * а проверяются они только при запросе `getScheme()`.
+ */
+type SchemeOptionFields = { [Field in keyof Scheme]?: unknown };
+
 /** Общие настройки WELD, подставленные вместо `settings.weld` — опции правила или флаги CLI. */
 export type WeldResolveOptions = {
     repoRoot?: string;
     aliasesBaseUrl?: string;
     aliases?: Record<string, unknown>;
     tsconfig?: string;
-    /**
-     * Поля схемы слоев. Тип не сужен намеренно: схема ESLint разрешает для них любые значения, а
-     * проверяются они только при запросе `getScheme()`.
-     */
-    srcDir?: unknown;
-    modulesDir?: unknown;
-    layers?: unknown;
-    moduleLayers?: unknown;
-};
+} & SchemeOptionFields;
 
 /** Вход резолва — всё, что нужно знать о файле, без единого типа ESLint. */
 export type WeldResolveInput = {
@@ -134,12 +132,14 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
         );
     });
 
+    const scheme = lazy(() => getScheme(settings, options));
+
     return {
         getFromFile: fromFile,
         getRoot: root,
         getFsHost: fsHost,
         getAliases: aliases,
-        getScheme: () => getScheme(settings, options),
+        getScheme: scheme,
     };
 }
 

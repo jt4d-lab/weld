@@ -20,7 +20,7 @@
 import type { Alias } from '@/settings/aliases.js';
 import { parseAliases } from '@/settings/aliases.js';
 import type { Scheme, SchemeField } from '@/settings/layers.js';
-import { parseScheme } from '@/settings/layers.js';
+import { SCHEME_FIELDS, parseScheme } from '@/settings/layers.js';
 
 /** `aliasesBaseUrl` по умолчанию — сам корень репозитория. */
 const DEFAULT_ALIASES_BASE_URL = '.';
@@ -124,7 +124,7 @@ function readAliases(settings: unknown, override: unknown, baseUrlOverride: unkn
  */
 const TTL_MS = 60_000;
 
-/** Ключ записи — аргументы разбора, сравниваемые по ссылке. */
+/** Запись кэша: ключ — аргументы разбора, сравниваемые по ссылке. */
 type CacheEntry<T> = { key: readonly unknown[]; result: T; expiresAt: number };
 
 function sameKey(left: readonly unknown[], right: readonly unknown[]): boolean {
@@ -221,7 +221,7 @@ export function hasAliases(settings: unknown, override?: unknown): boolean {
 }
 
 /** Поля схемы, заданные опциями правила: каждое целиком перекрывает одноименную настройку. */
-type SchemeOverrides = Partial<Record<SchemeField, unknown>>;
+type SchemeOverrides = { [Field in SchemeField]?: unknown };
 
 /**
  * Схема слоев: `settings.weld` с подстановкой опций правила.
@@ -234,15 +234,8 @@ type SchemeOverrides = Partial<Record<SchemeField, unknown>>;
  * же объект, что и в прошлый раз — считается он неизменяемым, потребители его только читают.
  */
 export function getScheme(settings: unknown, overrides: SchemeOverrides = {}): Scheme {
-    return cachedScheme(
-        [
-            settings,
-            overrides.srcDir,
-            overrides.modulesDir,
-            overrides.layers,
-            overrides.moduleLayers,
-        ],
-        () => readScheme(settings, overrides),
+    return cachedScheme([settings, ...SCHEME_FIELDS.map((field) => overrides[field])], () =>
+        readScheme(settings, overrides),
     );
 }
 

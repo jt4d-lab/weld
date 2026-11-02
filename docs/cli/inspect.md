@@ -100,14 +100,16 @@ CLI читает опции первого правила `weld/*` с объек
 ## JSON
 
 При `--json` печатаются те же поля машинной формы: `file`, `alias`, `module`, `layer`, `innerPath`.
-Отличие одно: отсутствие алиаса выражается `"alias": null`, а не виртуальным путем.
+Отличие одно: отсутствие алиаса выражается `"alias": null`, а не виртуальным путем. Отступ в примере
+— те два пробела, которые печатает `JSON.stringify(value, null, 2)`, а не `tabWidth` проекта.
 
+<!-- prettier-ignore -->
 ```json
 {
-    "file": "src/modules/billing/api/x.ts",
-    "alias": null,
-    "module": "billing",
-    "layer": "@unknown",
-    "innerPath": "api/x.ts"
+  "file": "src/modules/billing/api/x.ts",
+  "alias": null,
+  "module": "billing",
+  "layer": "@unknown",
+  "innerPath": "api/x.ts"
 }
 ```

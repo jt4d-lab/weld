@@ -26,13 +26,21 @@ export type Scheme = {
     /** Имя директории-контейнера модулей — и в `srcDir`, и внутри каждого модуля. */
     modulesDir: string;
     /** Слои проекта сверху вниз; метки стоят в том же списке на своих позициях. */
-    layers: string[];
+    layers: readonly string[];
     /** Слои модулей сверху вниз — одинаковые для всех модулей и на любой глубине вложенности. */
-    moduleLayers: string[];
+    moduleLayers: readonly string[];
 };
 
 /** Поля схемы: по ним же называются источники значений в сообщениях об ошибках. */
 export type SchemeField = keyof Scheme;
+
+/** Те же поля списком — для обходов в рантайме: из него собирается ключ кэша схемы. */
+export const SCHEME_FIELDS: readonly SchemeField[] = [
+    'srcDir',
+    'modulesDir',
+    'layers',
+    'moduleLayers',
+];
 
 /** Сырые значения полей схемы: типы проверяются при разборе. */
 export type RawScheme = Record<SchemeField, unknown>;
@@ -42,7 +50,7 @@ const LAYER_NAME = /^[\p{L}][\p{L}\p{N}._-]*$/u;
 
 /**
  * В имени директории модулей недопустимы разделители пути, `@` (занят метками) и `:` (разделитель
- * цепочки модулей в выводе — `MODULE_SEPARATOR` в `src/layers/locate.ts`).
+ * имен модулей в выводе).
  */
 const INVALID_DIR_CHARS = /[/\\@:]/;
 
@@ -60,8 +68,8 @@ export function parseScheme(raw: RawScheme, sourceOf: (field: SchemeField) => st
 
     const srcDir = parseSrcDir(raw.srcDir, srcDirSource);
     const modulesDir = parseModulesDir(raw.modulesDir, modulesDirSource);
-    const layers = parseLayerList(raw.layers, layersSource, modulesDir, true);
-    const moduleLayers = parseLayerList(raw.moduleLayers, moduleLayersSource, modulesDir, false);
+    const layers = parseProjectLayers(raw.layers, layersSource, modulesDir);
+    const moduleLayers = parseModuleLayers(raw.moduleLayers, moduleLayersSource, modulesDir);
 
     checkModuleLayersPlacement(layers, layersSource);
     checkSharedNames(layers, layersSource, moduleLayers, moduleLayersSource);
@@ -93,7 +101,11 @@ function parseModulesDir(value: unknown, source: string): string {
         throw new Error(`${source} must be a string, got ${typeof value}`);
     }
 
-    if (value === '' || value === '.' || value === '..' || INVALID_DIR_CHARS.test(value)) {
+    if (value === '') {
+        throw new Error(`${source} must not be empty`);
+    }
+
+    if (value === '.' || value === '..' || INVALID_DIR_CHARS.test(value)) {
         throw new Error(
             `${source} must be a single directory name without "/", "\\", "@" or ":", not "." or "..", got "${value}"`,
         );
@@ -103,16 +115,42 @@ function parseModulesDir(value: unknown, source: string): string {
 }
 
 /**
- * Список слоев: повторы обычных имен разрешены и сохраняются в исходном порядке — будущее правило
- * прочитает повтор как диапазон, а не как ошибку. Метки допустимы только в `layers` и не более
- * одного раза каждая.
+ * Слои проекта: повторы обычных имен разрешены и сохраняются в исходном порядке — будущее правило
+ * прочитает повтор как диапазон, а не как ошибку. Метки допустимы, каждая не более одного раза.
  */
-function parseLayerList(
-    value: unknown,
-    source: string,
-    modulesDir: string,
-    allowMarkers: boolean,
-): string[] {
+function parseProjectLayers(value: unknown, source: string, modulesDir: string): string[] {
+    const seenMarkers = new Set<LayerMarker>();
+
+    return readLayerList(value, source).map((item, index) => {
+        const name = parseLayerName(item, index, source, modulesDir);
+
+        if (isMarker(name)) {
+            if (seenMarkers.has(name)) {
+                throw new Error(`${source}[${index}]: "${name}" marker is allowed only once`);
+            }
+
+            seenMarkers.add(name);
+        }
+
+        return name;
+    });
+}
+
+/** Слои модулей: метки сюда не пишутся — их место в `layers`. */
+function parseModuleLayers(value: unknown, source: string, modulesDir: string): string[] {
+    return readLayerList(value, source).map((item, index) => {
+        const name = parseLayerName(item, index, source, modulesDir);
+
+        if (isMarker(name)) {
+            throw new Error(`${source}[${index}]: "${name}" marker is not allowed here`);
+        }
+
+        return name;
+    });
+}
+
+/** Сырой список слоев: обязателен, массив и не пуст. Тип элементов проверяет {@link parseLayerName}. */
+function readLayerList(value: unknown, source: string): readonly unknown[] {
     if (value === undefined) {
         throw new Error(`${source} is required`);
     }
@@ -125,42 +163,28 @@ function parseLayerList(
         throw new Error(`${source} must not be empty`);
     }
 
-    const names: string[] = [];
-    for (const [index, item] of value.entries()) {
-        if (typeof item !== 'string') {
-            throw new Error(`${source}[${index}] must be a string, got ${typeof item}`);
-        }
-        names.push(item);
+    return value as readonly unknown[];
+}
+
+/** Имя из `value[index]`: строка допустимой формы, не совпадающая с `modulesDir`. */
+function parseLayerName(item: unknown, index: number, source: string, modulesDir: string): string {
+    if (typeof item !== 'string') {
+        throw new Error(`${source}[${index}] must be a string, got ${typeof item}`);
     }
 
-    const seenMarkers = new Set<LayerMarker>();
-
-    for (const [index, name] of names.entries()) {
-        if (isMarker(name)) {
-            if (!allowMarkers) {
-                throw new Error(`${source}[${index}]: "${name}" marker is not allowed here`);
-            }
-            if (seenMarkers.has(name)) {
-                throw new Error(`${source}[${index}]: "${name}" marker is allowed only once`);
-            }
-            seenMarkers.add(name);
-            continue;
-        }
-
-        if (!LAYER_NAME.test(name)) {
-            throw new Error(`${source}[${index}] is not a valid layer name: "${name}"`);
-        }
-
-        if (name === modulesDir) {
-            throw new Error(`${source}[${index}]: "${name}" must not be the modulesDir name`);
-        }
+    if (!isMarker(item) && !LAYER_NAME.test(item)) {
+        throw new Error(`${source}[${index}] is not a valid layer name: "${item}"`);
     }
 
-    return names;
+    if (item === modulesDir) {
+        throw new Error(`${source}[${index}]: "${item}" must not be the modulesDir name`);
+    }
+
+    return item;
 }
 
 /** Слоям модулей нужна позиция в схеме проекта: без `@modules` их некуда поставить. */
-function checkModuleLayersPlacement(layers: string[], layersSource: string): void {
+function checkModuleLayersPlacement(layers: readonly string[], layersSource: string): void {
     if (!layers.includes(MODULES_MARKER)) {
         throw new Error(`${layersSource} must contain the "${MODULES_MARKER}" marker`);
     }
@@ -168,9 +192,9 @@ function checkModuleLayersPlacement(layers: string[], layersSource: string): voi
 
 /** Одно имя в обоих списках неразличимо в дереве: директория читалась бы то так, то иначе. */
 function checkSharedNames(
-    layers: string[],
+    layers: readonly string[],
     layersSource: string,
-    moduleLayers: string[],
+    moduleLayers: readonly string[],
     moduleLayersSource: string,
 ): void {
     const projectNames = new Set(layers.filter((name) => !isMarker(name)));
