@@ -39,6 +39,30 @@ export default [
 ];
 `;
 
+/**
+ * Те же опции правила, но со сломанной схемой слоев: `weld config` схему не запрашивает и не должен
+ * падать на ней — значения новых полей приходят из эффективного конфига как есть.
+ */
+const BROKEN_SCHEME_OPTIONS_CONFIG = `const weld = {
+    rules: {
+        'no-barrel-bypass': { meta: { schema: [{ type: 'object' }] }, create: () => ({}) },
+    },
+};
+
+export default [
+    {
+        files: ['**/*.ts'],
+        plugins: { weld },
+        rules: {
+            'weld/no-barrel-bypass': [
+                'error',
+                { aliases: { '@/*': ['src/*'] }, layers: 'nope', srcDir: 42 },
+            ],
+        },
+    },
+];
+`;
+
 afterEach(() => {
     cleanupTmpProjects();
 });
@@ -116,6 +140,33 @@ describe('weld config: файл', () => {
                 '    @/* → /src/*',
             ].join('\n') + '\n',
         );
+    });
+});
+
+describe('weld config: схема слоев не запрашивается', () => {
+    it('сломанные новые опции не мешают: схема нужна только тем, кто ее просит', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BROKEN_SCHEME_OPTIONS_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                'file:   src/feature/internal.ts',
+                'config: eslint.config.mjs',
+                'settings.weld:',
+                `  repoRoot:       ${root}`,
+                '  aliasesBaseUrl: .',
+                '  tsconfig:       tsconfig.json',
+                '  aliases:',
+                '    @/* → /src/*',
+            ].join('\n') + '\n',
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
     });
 });
 

@@ -8,17 +8,19 @@
  * Резолв ленивый: каждая часть считается по первому обращению и запоминается, поэтому кривая
  * неиспользуемая часть не валит потребителя, который ее не спрашивал. Порядок зависимостей:
  * tsconfig (нужны `realAnchors` для корня и `paths` для алиасов) → `getRoot`/`getFsHost` →
- * `getAliases`.
+ * `getAliases`. Схема слоев (`getScheme`) ни от чего из этого не зависит и тоже читается только
+ * по первому обращению.
  */
 
 import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import { getFsHost, resolveRoot } from '@/host/index.js';
-import type { Alias } from '@/settings/index.js';
+import type { Alias, Scheme } from '@/settings/index.js';
 import {
     getAliases,
     getAliasesFromPaths,
     getRepoRoot,
+    getScheme,
     getTsconfigName,
     hasAliases,
 } from '@/settings/index.js';
@@ -33,6 +35,14 @@ export type WeldResolveOptions = {
     aliasesBaseUrl?: string;
     aliases?: Record<string, unknown>;
     tsconfig?: string;
+    /**
+     * Поля схемы слоев. Тип не сужен намеренно: схема ESLint разрешает для них любые значения, а
+     * проверяются они только при запросе `getScheme()`.
+     */
+    srcDir?: unknown;
+    modulesDir?: unknown;
+    layers?: unknown;
+    moduleLayers?: unknown;
 };
 
 /** Вход резолва — всё, что нужно знать о файле, без единого типа ESLint. */
@@ -52,6 +62,11 @@ export type WeldTarget = {
     getRoot(): string | null;
     getFsHost(): FsHost;
     getAliases(): Alias[];
+    /**
+     * Схема слоев; отсутствующая или кривая — исключение. Спрашивающий схему без нее работать не
+     * может, а потребители, которым она не нужна, ее не читают.
+     */
+    getScheme(): Scheme;
 };
 
 function lazy<T>(compute: () => T): () => T {
@@ -124,6 +139,7 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
         getRoot: root,
         getFsHost: fsHost,
         getAliases: aliases,
+        getScheme: () => getScheme(settings, options),
     };
 }
 

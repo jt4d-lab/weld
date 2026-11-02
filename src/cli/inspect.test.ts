@@ -326,6 +326,9 @@ describe('inspectFile: имя файла в алиасе', () => {
             getRoot: () => 'C:\\repo',
             getFsHost: () => createFakeFsHost([]),
             getAliases: () => [{ prefix: '@', anchor: '/src', star: true }],
+            getScheme: () => {
+                throw new Error('getScheme is not requested by this test');
+            },
         });
 
         const result = inspectFile(

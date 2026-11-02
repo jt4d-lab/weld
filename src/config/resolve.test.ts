@@ -190,6 +190,139 @@ describe('resolveForFile', () => {
     });
 });
 
+describe('resolveForFile: схема слоев', () => {
+    const file = '/src/feature/file.ts';
+    const schemeSettings = {
+        weld: { layers: ['app', '@modules'], moduleLayers: ['features'] },
+    };
+
+    it('getScheme() разбирает схему из settings.weld', () => {
+        const target = resolveForFile(
+            { filename: file, cwd: '/cwd', settings: schemeSettings },
+            createFakeFsHost([]),
+        );
+
+        expect(target.getScheme()).toEqual({
+            srcDir: '/src',
+            modulesDir: 'modules',
+            layers: ['app', '@modules'],
+            moduleLayers: ['features'],
+        });
+    });
+
+    it('каждая опция целиком перекрывает одноименную настройку', () => {
+        const target = resolveForFile(
+            {
+                filename: file,
+                cwd: '/cwd',
+                settings: {
+                    weld: {
+                        srcDir: 'app',
+                        modulesDir: 'mods',
+                        layers: ['ui', '@modules'],
+                        moduleLayers: ['widgets'],
+                    },
+                },
+                options: {
+                    srcDir: 'source',
+                    modulesDir: 'nested',
+                    layers: ['pages', '@modules'],
+                    moduleLayers: ['entities'],
+                },
+            },
+            createFakeFsHost([]),
+        );
+
+        expect(target.getScheme()).toEqual({
+            srcDir: '/source',
+            modulesDir: 'nested',
+            layers: ['pages', '@modules'],
+            moduleLayers: ['entities'],
+        });
+    });
+
+    it('опции задают схему целиком: settings может быть пустым', () => {
+        const target = resolveForFile(
+            {
+                filename: file,
+                cwd: '/cwd',
+                settings: {},
+                options: { layers: ['app', '@modules'], moduleLayers: ['features'] },
+            },
+            createFakeFsHost([]),
+        );
+
+        expect(target.getScheme().layers).toEqual(['app', '@modules']);
+    });
+
+    it('кривая схема в опциях называет в ошибке options.<поле>', () => {
+        const target = resolveForFile(
+            { filename: file, cwd: '/cwd', settings: {}, options: { layers: [] } },
+            createFakeFsHost([]),
+        );
+
+        expect(() => target.getScheme()).toThrow('options.layers must not be empty');
+    });
+
+    it('схема не нужна остальным частям: кривая схема не мешает fromFile, root и алиасам', () => {
+        const target = resolveForFile(
+            {
+                filename: file,
+                cwd: '/cwd',
+                settings: {
+                    weld: { aliasesBaseUrl: '/', aliases: { '@other/*': ['src/other/*'] } },
+                },
+                options: { srcDir: 42 },
+            },
+            createFakeFsHost([]),
+        );
+
+        expect(target.getFromFile()).toBe(file);
+        expect(target.getRoot()).toBeNull();
+        expect(target.getAliases()).toEqual([
+            { prefix: '@other', anchor: '/src/other', star: true },
+        ]);
+        expect(() => target.getScheme()).toThrow('options.srcDir must be a string, got number');
+    });
+
+    it('успешный разбор мемоизируется: возвращается тот же объект', () => {
+        const target = resolveForFile(
+            { filename: file, cwd: '/cwd', settings: schemeSettings },
+            createFakeFsHost([]),
+        );
+
+        expect(target.getScheme()).toBe(target.getScheme());
+    });
+
+    it('исключение не запоминается: кривая схема бросает на каждом обращении', () => {
+        const target = resolveForFile(
+            { filename: file, cwd: '/cwd', settings: { weld: { layers: 'nope' } } },
+            createFakeFsHost([]),
+        );
+
+        expect(() => target.getScheme()).toThrow(
+            'settings.weld.layers must be an array of strings, got string',
+        );
+        expect(() => target.getScheme()).toThrow(
+            'settings.weld.layers must be an array of strings, got string',
+        );
+    });
+
+    it('схема не требует ни tsconfig, ни файловой системы', () => {
+        const target = resolveForFile(
+            {
+                filename: `${tsconfigBasicFixture}/src/consumer.ts`,
+                cwd: tsconfigBasicFixture,
+                settings: schemeSettings,
+            },
+            createFakeFsHost([]),
+        );
+
+        expect(target.getScheme().srcDir).toBe('/src');
+        expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
+    });
+});
+
 describe('resolveForFile: ленивость', () => {
     it('resolveForFile и части, которым алиасы не нужны, не бросают на кривых aliases', () => {
         const target = resolveForFile({

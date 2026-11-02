@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
+import { resetSettingsCaches } from '@/settings/index.js';
 import {
     cleanupTmpProjects,
     makeTmpProject,
@@ -34,6 +35,10 @@ describe('WELD_OPTION_PROPERTIES', () => {
             aliasesBaseUrl: { type: 'string' },
             aliases: { type: 'object' },
             tsconfig: { type: 'string' },
+            srcDir: {},
+            modulesDir: {},
+            layers: {},
+            moduleLayers: {},
         });
     });
 });
@@ -41,6 +46,7 @@ describe('WELD_OPTION_PROPERTIES', () => {
 describe('resolveWeldContext', () => {
     afterEach(() => {
         resetFsHostCaches();
+        resetSettingsCaches();
         resetTsconfigCache();
     });
 
@@ -220,6 +226,81 @@ describe('resolveWeldContext', () => {
 function virt(realPath: string): string {
     return realPath.slice(repoRoot.length);
 }
+
+describe('resolveWeldContext: схема слоев', () => {
+    const schemeSettings = { weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } };
+
+    afterEach(() => {
+        resetFsHostCaches();
+        resetTsconfigCache();
+    });
+
+    it('схема доступна правилу и разбирается из settings.weld', () => {
+        const weld = resolveWeldContext(
+            fakeContext({ filename: '/src/feature/file.ts', settings: schemeSettings }),
+            createFakeFsHost([]),
+        );
+
+        expect(weld?.getScheme()).toEqual({
+            srcDir: '/src',
+            modulesDir: 'modules',
+            layers: ['app', '@modules'],
+            moduleLayers: ['features'],
+        });
+    });
+
+    it('опции правила перекрывают схему из settings.weld', () => {
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: '/src/feature/file.ts',
+                settings: schemeSettings,
+                options: [{ srcDir: 'app' }],
+            }),
+            createFakeFsHost([]),
+        );
+
+        expect(weld?.getScheme().srcDir).toBe('/app');
+    });
+
+    it('создание контекста схему не разбирает: кривая схема не мешает обычной работе', () => {
+        const fsHost = createFakeFsHost(['/src/other/index.ts']);
+
+        const weld = resolveWeldContext(
+            fakeContext({
+                filename: '/src/feature/file.ts',
+                settings: { weld: { layers: 'nope', aliases: { '@other/*': ['src/other/*'] } } },
+                options: [{ layers: 'also-nope' }],
+            }),
+            fsHost,
+        );
+
+        expect(weld?.fromFile).toBe('/src/feature/file.ts');
+        expect(weld?.aliases).toEqual([{ prefix: '@other', anchor: '/src/other', star: true }]);
+        expect(weld?.fsHost).toBe(fsHost);
+        expect(() => weld?.getScheme()).toThrow(
+            'options.layers must be an array of strings, got string',
+        );
+    });
+
+    it('успешный разбор мемоизируется: возвращается тот же объект', () => {
+        const weld = resolveWeldContext(
+            fakeContext({ filename: '/src/feature/file.ts', settings: schemeSettings }),
+            createFakeFsHost([]),
+        );
+
+        expect(weld?.getScheme()).toBe(weld?.getScheme());
+    });
+
+    it('исключение не запоминается: кривая схема бросает на каждом обращении', () => {
+        const weld = resolveWeldContext(
+            fakeContext({ filename: '/src/feature/file.ts', settings: { weld: { layers: [] } } }),
+            createFakeFsHost([]),
+        );
+
+        expect(() => weld?.getScheme()).toThrow('settings.weld.layers must not be empty');
+        expect(() => weld?.getScheme()).toThrow('settings.weld.layers must not be empty');
+    });
+});
 
 describe('resolveWeldContext: автопоиск tsconfig', () => {
     afterEach(() => {

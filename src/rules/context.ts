@@ -11,17 +11,25 @@ import type { Rule } from 'eslint';
 import { resolveForFile } from '@/config/index.js';
 import type { WeldResolveOptions } from '@/config/index.js';
 import type { FsHost } from '@/host/index.js';
-import type { Alias } from '@/settings/index.js';
+import type { Alias, Scheme } from '@/settings/index.js';
 
 /**
  * Свойства `meta.schema`, общие для всех правил: те же настройки, что и в `settings.weld`, но
  * заданные на самом правиле. Правило подмешивает их к своим спредом.
+ *
+ * Поля схемы слоев объявлены разрешительными (`{}`) намеренно: проверяются они вместе, при запросе
+ * схемы (см. `WeldContext.getScheme`), и сломанная схема не должна валить ESLint на файле правилу,
+ * которому она не нужна.
  */
 export const WELD_OPTION_PROPERTIES = {
     repoRoot: { type: 'string' },
     aliasesBaseUrl: { type: 'string' },
     aliases: { type: 'object' },
     tsconfig: { type: 'string' },
+    srcDir: {},
+    modulesDir: {},
+    layers: {},
+    moduleLayers: {},
 } as const;
 
 /** Всё, что правило берет из контекста до обхода AST. */
@@ -35,6 +43,11 @@ export type WeldContext<TOwnOptions = unknown> = {
      * свойства те же, что у `WELD_OPTION_PROPERTIES`).
      */
     options: TOwnOptions & WeldResolveOptions;
+    /**
+     * Схема слоев: считается по первому обращению, поэтому создание контекста ее не разбирает и
+     * кривая схема не валит правило, которому она не нужна.
+     */
+    getScheme: () => Scheme;
 };
 
 /**
@@ -66,5 +79,11 @@ export function resolveWeldContext<TOwnOptions = unknown>(
         return null;
     }
 
-    return { fromFile, aliases: target.getAliases(), fsHost: target.getFsHost(), options };
+    return {
+        fromFile,
+        aliases: target.getAliases(),
+        fsHost: target.getFsHost(),
+        options,
+        getScheme: target.getScheme,
+    };
 }
