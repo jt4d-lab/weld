@@ -190,31 +190,33 @@ while (!flat || module.length > 0)
 - Изменить: `docs/rules/settings.md`, `docs/mechanics/layers.md`
 - Изменить при необходимости: `docs/cli/inspect.md`, `docs/cli/config.md`, `README.md`
 
-- [ ] `docs/rules/settings.md`: раздел `flatModules` после `moduleLayers` (формат, дефолт, что
+- [x] `docs/rules/settings.md`: раздел `flatModules` после `moduleLayers` (формат, дефолт, что
       меняется) и строка в примере конфига в шапке; дописать поле в список опций правил; «четыре
       поля схемы» в разделе опций правил — «пять».
-- [ ] `docs/mechanics/layers.md`: раздел о плоской схеме — корневые модули в `srcDir`, судьба
+- [x] `docs/mechanics/layers.md`: раздел о плоской схеме — корневые модули в `srcDir`, судьба
       контейнера в корне, пример дерева для обоих режимов.
-- [ ] `docs/cli/config.md`: секция `### flatModules` рядом с полями схемы (дефолт `false`,
+- [x] `docs/cli/config.md`: секция `### flatModules` рядом с полями схемы (дефолт `false`,
       состояния; `(not set)` не бывает) и `"flatModules": false` в JSON-примерах; в
       `docs/cli/inspect.md` — описание `module` как «файл не попал ни в один модуль» верно только
       для дефолтного режима, добавить flat-вариант; в README и JSDoc `src/settings/index.ts`
       («четыре ее поля») проверить упоминания полей схемы.
-- [ ] Не добавлять новые кросс-ссылки между статьями.
-- [ ] Запустить `yarn verify`.
-- [ ] Сверить реализацию с решениями этого плана и отметить выполненные пункты.
+- [x] Не добавлять новые кросс-ссылки между статьями.
+- [x] Запустить `yarn verify`.
+- [x] Сверить реализацию с решениями этого плана и отметить выполненные пункты.
 
 ## Критерии приемки
 
-- При `flatModules` не задан или `false` поведение `locateFile` не меняется; существующие тесты
-  проходят после добавления `flatModules: false` в литералы `Scheme` и полные `toEqual`-ожидания.
-- При flat=true `src/modules/x/file.ts` → `@root/@unknown` с `innerPath` `modules/x/file.ts`: цикл
-  спуска не поглощает корневой контейнер.
-- Примеры из заявки при `layers: ['app', '@modules', 'common']`, flat=true: `src/app/file.ts` →
-  `@root/app`, `src/common/file.ts` → `@root/common`, `src/modules/x/file.ts` → `@root/@unknown`,
-  `src/auth/entities/file.ts` → `auth/entities`.
-- Вложенные модули в flat-режиме находятся через контейнер: `src/auth/modules/bar` → `auth::bar`.
-- Имя из `layers` в корне побеждает модуль; модуль может называться как слой модулей.
-- `flatModules` присутствует в схеме, в опциях правил и в отчете `weld config` (текст и JSON); текст
-  ошибки — на английском.
-- `yarn verify` проходит.
+- [x] При `flatModules` не задан или `false` поведение `locateFile` не меняется; существующие тесты
+      проходят после добавления `flatModules: false` в литералы `Scheme` и полные
+      `toEqual`-ожидания.
+- [x] При flat=true `src/modules/x/file.ts` → `@root/@unknown` с `innerPath` `modules/x/file.ts`:
+      цикл спуска не поглощает корневой контейнер.
+- [x] Примеры из заявки при `layers: ['app', '@modules', 'common']`, flat=true: `src/app/file.ts` →
+      `@root/app`, `src/common/file.ts` → `@root/common`, `src/modules/x/file.ts` →
+      `@root/@unknown`, `src/auth/entities/file.ts` → `auth/entities`.
+- [x] Вложенные модули в flat-режиме находятся через контейнер: `src/auth/modules/bar` →
+      `auth::bar`.
+- [x] Имя из `layers` в корне побеждает модуль; модуль может называться как слой модулей.
+- [x] `flatModules` присутствует в схеме, в опциях правил и в отчете `weld config` (текст и JSON);
+      текст ошибки — на английском.
+- [x] `yarn verify` проходит.
