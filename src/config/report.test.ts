@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
+import { resetSettingsCaches } from '@/settings/index.js';
 import { cleanupTmpProjects, makeTmpProject, tsconfigBasicFixture } from '@/testing/index.js';
 import type * as TsconfigLayer from '@/tsconfig/index.js';
 import { loadTsconfigPaths, resetTsconfigCache } from '@/tsconfig/index.js';
@@ -18,6 +19,7 @@ const loadTsconfigPathsMock = vi.mocked(loadTsconfigPaths);
 
 afterEach(() => {
     resetFsHostCaches();
+    resetSettingsCaches();
     resetTsconfigCache();
     cleanupTmpProjects();
     loadTsconfigPathsMock.mockClear();
@@ -38,7 +40,7 @@ function input(settings: unknown, options?: WeldResolveOptions): WeldResolveInpu
 
 describe('reportForFile — ошибка секции', () => {
     it('кривая секция: одна собственная проблема, настройки секции — unresolved: settings.weld', () => {
-        const report = reportForFile(input({ weld: 'nope' }));
+        const { report } = reportForFile(input({ weld: 'nope' }));
 
         expect(report.sectionError).toBe('settings.weld must be an object');
         expect(report.settings.repoRoot).toEqual({
@@ -77,7 +79,7 @@ describe('reportForFile — ошибка секции', () => {
     });
 
     it('опции проверяются независимо от кривой секции', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input(
                 { weld: 'nope' },
                 {
@@ -112,8 +114,18 @@ describe('reportForFile — ошибка секции', () => {
         });
     });
 
+    it('кривая секция + валидный options.repoRoot, но без options.aliases: корень — unresolved: settings.weld', () => {
+        const { report } = reportForFile(input({ weld: 'nope' }, { repoRoot: '/some/root' }));
+
+        // Собственное значение корня прошло проверку, но явность алиасов требует чтения секции.
+        expect(report.settings.repoRoot).toEqual({
+            status: 'unresolved',
+            dependency: 'settings.weld',
+        });
+    });
+
     it('кривые опции над кривой секцией: собственные ошибки называют options.*', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({ weld: 42 }, { repoRoot: 42 as unknown as string, layers: 'x' }),
         );
 
@@ -143,7 +155,7 @@ describe('reportForFile — ошибка секции', () => {
 
 describe('reportForFile — собственные значения repoRoot и tsconfig', () => {
     it('кривой repoRoot в секции: собственная ошибка, авто-алиасы указывают на корень', () => {
-        const report = reportForFile(input({ weld: { repoRoot: 42 } }));
+        const { report } = reportForFile(input({ weld: { repoRoot: 42 } }));
 
         expect(report.sectionError).toBeNull();
         expect(report.settings.repoRoot).toEqual({
@@ -156,7 +168,7 @@ describe('reportForFile — собственные значения repoRoot и 
     });
 
     it('кривой repoRoot в опциях: сообщение называет options.repoRoot', () => {
-        const report = reportForFile(input({}, { repoRoot: 42 as unknown as string }));
+        const { report } = reportForFile(input({}, { repoRoot: 42 as unknown as string }));
 
         expect(report.settings.repoRoot).toEqual({
             status: 'invalid',
@@ -165,7 +177,7 @@ describe('reportForFile — собственные значения repoRoot и 
     });
 
     it('кривое имя tsconfig: эффективный корень и авто-алиасы — unresolved: tsconfig', () => {
-        const report = reportForFile(input({ weld: { tsconfig: 42 } }));
+        const { report } = reportForFile(input({ weld: { tsconfig: 42 } }));
 
         expect(report.settings.tsconfig).toEqual({
             status: 'invalid',
@@ -176,7 +188,7 @@ describe('reportForFile — собственные значения repoRoot и 
     });
 
     it('невалидны и repoRoot, и tsconfig одновременно: две собственные ошибки, корень не подставляется', () => {
-        const report = reportForFile(input({ weld: { repoRoot: 42, tsconfig: 42 } }));
+        const { report } = reportForFile(input({ weld: { repoRoot: 42, tsconfig: 42 } }));
 
         expect(report.settings.repoRoot).toEqual({
             status: 'invalid',
@@ -193,7 +205,7 @@ describe('reportForFile — собственные значения repoRoot и 
 
 describe('reportForFile — независимость от ошибки корня', () => {
     it('схема, база, tsconfig и явные алиасы не зависят от кривого корня', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({
                 weld: {
                     repoRoot: 42,
@@ -220,7 +232,7 @@ describe('reportForFile — независимость от ошибки кор�
     });
 
     it('одновременные ошибки базы и формата алиасов: каждая получает собственную', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({ weld: { aliasesBaseUrl: 42, aliases: { '@a': 42 } } }),
         );
 
@@ -235,7 +247,7 @@ describe('reportForFile — независимость от ошибки кор�
     });
 
     it('база кривая, формат верный: unresolved: aliasesBaseUrl, фиктивная база не подставляется', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({ weld: { aliasesBaseUrl: 42, aliases: { '@a/*': ['a/*'] } } }),
         );
 
@@ -252,14 +264,14 @@ describe('reportForFile — независимость от ошибки кор�
 
 describe('reportForFile — явные алиасы', () => {
     it('пустой {} — явные алиасы: автопоиск не читается, результат пуст', () => {
-        const report = reportForFile(input({ weld: { repoRoot: '/r', aliases: {} } }));
+        const { report } = reportForFile(input({ weld: { repoRoot: '/r', aliases: {} } }));
 
         expect(report.settings.aliases).toEqual({ status: 'value', value: [] });
         expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
     });
 
     it('опции перекрывают секцию: сообщение об ошибке называет options.aliases', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({ weld: { aliases: { '@ok/*': ['ok/*'] } } }, { aliases: { '@bad': [42] } }),
         );
 
@@ -270,7 +282,7 @@ describe('reportForFile — явные алиасы', () => {
     });
 
     it('опции разбираются с базой из секции', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({ weld: { aliasesBaseUrl: 'src' } }, { aliases: { '@a/*': ['a/*'] } }),
         );
 
@@ -283,7 +295,7 @@ describe('reportForFile — явные алиасы', () => {
 
 describe('reportForFile — автоматические алиасы', () => {
     it('tsconfig не найден: пустой результат, а не ошибка', () => {
-        const report = reportForFile(input({ weld: { repoRoot: '/nonexistent-weld-test' } }));
+        const { report } = reportForFile(input({ weld: { repoRoot: '/nonexistent-weld-test' } }));
 
         expect(report.settings.repoRoot).toEqual({
             status: 'value',
@@ -294,7 +306,7 @@ describe('reportForFile — автоматические алиасы', () => {
     });
 
     it('реальный автопоиск: алиасы из tsconfig фикстуры', () => {
-        const report = reportForFile({
+        const { report } = reportForFile({
             filename: `${tsconfigBasicFixture}/src/consumer.ts`,
             cwd: tsconfigBasicFixture,
             settings: { weld: { repoRoot: tsconfigBasicFixture } },
@@ -322,7 +334,7 @@ describe('reportForFile — автоматические алиасы', () => {
             'shared/index.ts': 'export {};\n',
         });
 
-        const report = reportForFile({
+        const { report } = reportForFile({
             filename: `${proj}/packages/app/src/consumer.ts`,
             cwd: `${proj}/packages/app`,
             settings: {},
@@ -338,7 +350,7 @@ describe('reportForFile — автоматические алиасы', () => {
 
 describe('reportForFile — схема', () => {
     it('схемы нет: дефолты и not-set для списков', () => {
-        const report = reportForFile(input({ weld: { repoRoot: '/r' } }));
+        const { report } = reportForFile(input({ weld: { repoRoot: '/r' } }));
 
         expect(report.settings.srcDir).toEqual({ status: 'value', value: '/src' });
         expect(report.settings.modulesDir).toEqual({ status: 'value', value: 'modules' });
@@ -347,7 +359,7 @@ describe('reportForFile — схема', () => {
     });
 
     it('ошибка поля независима от кривого корня и от соседнего списка', () => {
-        const report = reportForFile(input({ weld: { repoRoot: 42, layers: 'x' } }));
+        const { report } = reportForFile(input({ weld: { repoRoot: 42, layers: 'x' } }));
 
         expect(report.settings.repoRoot).toEqual({
             status: 'invalid',
@@ -362,7 +374,7 @@ describe('reportForFile — схема', () => {
     });
 
     it('кривой modulesDir: корректные списки — unresolved: modulesDir', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({
                 weld: {
                     repoRoot: 42,
@@ -385,7 +397,7 @@ describe('reportForFile — схема', () => {
     });
 
     it('собственная ошибка списка показывается, даже если зависимость кривая', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({
                 weld: {
                     repoRoot: '/r',
@@ -411,7 +423,7 @@ describe('reportForFile — схема', () => {
     });
 
     it('общее имя: ошибка прикрепляется к moduleLayers, layers остается валидным', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({
                 weld: {
                     repoRoot: '/r',
@@ -429,7 +441,7 @@ describe('reportForFile — схема', () => {
     });
 
     it('layers без @modules: ошибка в layers, moduleLayers валиден', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({
                 weld: {
                     repoRoot: '/r',
@@ -447,7 +459,7 @@ describe('reportForFile — схема', () => {
     });
 
     it('опция перекрывает секцию: сообщение называет options.*', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input(
                 { weld: { repoRoot: '/r', layers: ['app', '@modules'], moduleLayers: ['ui'] } },
                 { layers: 'x' },
@@ -464,7 +476,7 @@ describe('reportForFile — схема', () => {
 
 describe('reportForFile — поддельный хост', () => {
     it('реального корня нет: unresolved: fsHost, авто-алиасы — пустой результат', () => {
-        const report = reportForFile(input({}), createFakeFsHost([]));
+        const { report } = reportForFile(input({}), createFakeFsHost([]));
 
         expect(report.settings.repoRoot).toEqual({ status: 'unresolved', dependency: 'fsHost' });
         expect(report.settings.aliases).toEqual({ status: 'value', value: [] });
@@ -472,7 +484,7 @@ describe('reportForFile — поддельный хост', () => {
     });
 
     it('явные алиасы разбираются без рабочего корня', () => {
-        const report = reportForFile(
+        const { report } = reportForFile(
             input({ weld: { aliases: { '@a/*': ['a/*'] } } }),
             createFakeFsHost([]),
         );
@@ -485,7 +497,7 @@ describe('reportForFile — поддельный хост', () => {
     });
 
     it('кривое имя tsconfig под поддельным хостом: алиасы остаются пустыми, tsconfig не читается', () => {
-        const report = reportForFile(input({ weld: { tsconfig: 42 } }), createFakeFsHost([]));
+        const { report } = reportForFile(input({ weld: { tsconfig: 42 } }), createFakeFsHost([]));
 
         expect(report.settings.tsconfig).toEqual({
             status: 'invalid',

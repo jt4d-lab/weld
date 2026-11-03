@@ -3,7 +3,7 @@
  * директории. Отчет строит `reportForFile`; команда только определяет пути и отдает отчет наружу.
  */
 
-import { reportForFile, resolveForFile } from '@/config/index.js';
+import { reportForFile } from '@/config/index.js';
 import type { ConfigReport } from '@/config/index.js';
 import type { SettingState } from '@/settings/index.js';
 
@@ -29,7 +29,7 @@ export type ConfigData = {
     sectionError: string | null;
 };
 
-/** Имена настроек отчета в порядке печати и сериализации. */
+/** Имена настроек отчета в порядке печати и сериализации — единственный список этих полей. */
 export const CONFIG_SETTING_NAMES = [
     'repoRoot',
     'aliasesBaseUrl',
@@ -40,6 +40,8 @@ export const CONFIG_SETTING_NAMES = [
     'layers',
     'moduleLayers',
 ] as const;
+
+export type ConfigSettingName = (typeof CONFIG_SETTING_NAMES)[number];
 
 /**
  * Отчет для команды `weld config`. Файл внутри корня проверяется только тогда, когда эффективный
@@ -54,7 +56,9 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
         options: lint.options,
     };
 
-    const report = reportForFile(input);
+    // Один резолв на команду: отчет и проверка «файл внутри корня» делят один и тот же target,
+    // граф зависимостей не пересобирается.
+    const { report, target } = reportForFile(input);
 
     const data: ConfigData = {
         file: lint.filePath,
@@ -69,7 +73,6 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
     }
 
     // Корень получен: файл обязан лежать внутри него, иначе — ошибка команды, как и прежде.
-    const target = resolveForFile(input);
     assertInsideRoot(target, shownPath);
 
     data.file = repoPath(data.settings.repoRoot.value, lint.filePath);
@@ -80,7 +83,7 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
 
 /** Машинный вид отчета: простые значения, `null` для недоступных и объект `problems`. */
 export function configJson(data: ConfigData): Record<string, unknown> {
-    const valueOf = <T>(state: SettingState<T>): T | null =>
+    const valueOf = (state: SettingState<unknown>): unknown =>
         state.status === 'value' ? state.value : null;
 
     const problems: Record<string, Record<string, string>> = {};
@@ -103,16 +106,12 @@ export function configJson(data: ConfigData): Record<string, unknown> {
     if (data.sampleOf !== undefined) {
         json.sampleOf = data.sampleOf;
     }
-    json.settings = {
-        repoRoot: valueOf(data.settings.repoRoot),
-        aliasesBaseUrl: valueOf(data.settings.aliasesBaseUrl),
-        tsconfig: valueOf(data.settings.tsconfig),
-        aliases: valueOf(data.settings.aliases),
-        srcDir: valueOf(data.settings.srcDir),
-        modulesDir: valueOf(data.settings.modulesDir),
-        layers: valueOf(data.settings.layers),
-        moduleLayers: valueOf(data.settings.moduleLayers),
-    };
+
+    const settings: Record<string, unknown> = {};
+    for (const name of CONFIG_SETTING_NAMES) {
+        settings[name] = valueOf(data.settings[name]);
+    }
+    json.settings = settings;
     json.problems = problems;
 
     return json;
@@ -128,19 +127,15 @@ export function hasOwnError(data: ConfigData): boolean {
 
 /** Управляющие символы в сообщениях отчета заменяются на `?`, как у обычных ошибок CLI. */
 function cleanSettings(settings: ConfigReport['settings']): ConfigData['settings'] {
-    const clean = <T>(state: SettingState<T>): SettingState<T> =>
-        state.status === 'invalid'
-            ? { status: 'invalid', message: sanitizeText(state.message) }
-            : state;
+    // Ключи `settings` — ровно `CONFIG_SETTING_NAMES`, поэтому цикл проходит все поля.
+    const result: Record<ConfigSettingName, SettingState<unknown>> = { ...settings };
 
-    return {
-        repoRoot: clean(settings.repoRoot),
-        aliasesBaseUrl: clean(settings.aliasesBaseUrl),
-        tsconfig: clean(settings.tsconfig),
-        aliases: clean(settings.aliases),
-        srcDir: clean(settings.srcDir),
-        modulesDir: clean(settings.modulesDir),
-        layers: clean(settings.layers),
-        moduleLayers: clean(settings.moduleLayers),
-    };
+    for (const name of CONFIG_SETTING_NAMES) {
+        const state = result[name];
+        if (state.status === 'invalid') {
+            result[name] = { status: 'invalid', message: sanitizeText(state.message) };
+        }
+    }
+
+    return result as ConfigData['settings'];
 }

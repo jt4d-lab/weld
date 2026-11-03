@@ -7,36 +7,17 @@ const debug = createLogger('aliases');
 
 /**
  * Небросающая проверка собственного формата алиасов: объект, значения — строка или массив строк.
- * Записи с некорректным форматом ключа (звездочка в середине, пустой префикс) отбрасываются
- * так же, как в `parseAliases`, и не дают ошибки формата.
- * Якоря не резолвятся: для этого нужен валидный `aliasesBaseUrl`.
+ * Делегирует бросающему `parseAliases`: форматные ошибки — те же броски с теми же текстами, а
+ * записи с некорректной формой ключа/якоря отбрасываются там же и не дают ошибки формата.
+ * Якоря не используются: результат разбора отбрасывается, важен только факт формата.
  */
 export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<null> {
-    if (typeof rawAliases !== 'object' || rawAliases === null || Array.isArray(rawAliases)) {
-        return { status: 'invalid', message: `${source} must be an object` };
+    try {
+        parseAliases(rawAliases, '.', source);
+        return { status: 'value', value: null };
+    } catch (error) {
+        return { status: 'invalid', message: (error as Error).message };
     }
-
-    for (const [key, rawValue] of Object.entries(rawAliases as Record<string, unknown>)) {
-        if (!hasValidStarShape(key)) continue;
-        if (typeof rawValue === 'string') continue;
-        if (Array.isArray(rawValue)) {
-            for (const item of rawValue) {
-                if (typeof item !== 'string') {
-                    return {
-                        status: 'invalid',
-                        message: `${source}['${key}'] must contain only strings`,
-                    };
-                }
-            }
-            continue;
-        }
-        return {
-            status: 'invalid',
-            message: `${source}['${key}'] must be a string or an array of strings`,
-        };
-    }
-
-    return { status: 'value', value: null };
 }
 
 /**

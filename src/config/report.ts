@@ -54,7 +54,19 @@ export type ConfigReport = {
     sectionError: string | null;
 };
 
-export function reportForFile(input: WeldResolveInput, fsHostOverride?: FsHost): ConfigReport {
+/**
+ * Отчет и тот самый резолв, по которому он собран: потребителю, которому нужна другая ленивая
+ * часть `WeldTarget`, `target` позволяет не пересчитывать тот же вход.
+ */
+export type ConfigReportResult = {
+    report: ConfigReport;
+    target: WeldTarget;
+};
+
+export function reportForFile(
+    input: WeldResolveInput,
+    fsHostOverride?: FsHost,
+): ConfigReportResult {
     const settings = input.settings;
     const options = input.options ?? {};
     const sectionError = getSectionError(settings);
@@ -79,38 +91,41 @@ export function reportForFile(input: WeldResolveInput, fsHostOverride?: FsHost):
     );
 
     // `hasAliases` читает секцию, поэтому зовется только когда секция читаема.
-    const optionsAliasesSet = options.aliases !== undefined;
-    const aliasesExplicit = optionsAliasesSet || (sectionError === null && hasAliases(settings));
+    // При нечитабельной секции `aliasesExplicit` равен просто «заданы ли options.aliases».
+    const aliasesExplicit =
+        options.aliases !== undefined || (sectionError === null && hasAliases(settings));
 
     const repoRoot = effectiveRoot({
         fsHostOverride,
         own: repoRootOwn,
         sectionError,
-        optionsAliasesSet,
         aliasesExplicit,
         tsconfig,
         target,
     });
 
     return {
-        settings: {
-            repoRoot,
-            aliasesBaseUrl,
-            tsconfig,
-            aliases: effectiveAliases({
-                settings,
-                sectionError,
-                aliasesExplicit,
+        report: {
+            settings: {
+                repoRoot,
                 aliasesBaseUrl,
                 tsconfig,
-                repoRoot,
-                fsHostOverride,
-                options,
-                target,
-            }),
-            ...schemeStates(settings, options),
+                aliases: effectiveAliases({
+                    settings,
+                    sectionError,
+                    aliasesExplicit,
+                    aliasesBaseUrl,
+                    tsconfig,
+                    repoRoot,
+                    fsHostOverride,
+                    options,
+                    target,
+                }),
+                ...schemeStates(settings, options),
+            },
+            sectionError,
         },
-        sectionError,
+        target,
     };
 }
 
@@ -144,20 +159,11 @@ function effectiveRoot(args: {
     fsHostOverride: FsHost | undefined;
     own: SettingState<string | undefined>;
     sectionError: string | null;
-    optionsAliasesSet: boolean;
     aliasesExplicit: boolean;
     tsconfig: SettingState<string>;
     target: WeldTarget;
 }): SettingState<string> {
-    const {
-        fsHostOverride,
-        own,
-        sectionError,
-        optionsAliasesSet,
-        aliasesExplicit,
-        tsconfig,
-        target,
-    } = args;
+    const { fsHostOverride, own, sectionError, aliasesExplicit, tsconfig, target } = args;
 
     if (fsHostOverride !== undefined) {
         return { status: 'unresolved', dependency: 'fsHost' };
@@ -168,8 +174,11 @@ function effectiveRoot(args: {
         return own;
     }
 
+    // Явность алиасов — вопрос, который решается чтением секции, поэтому нечитабельная секция
+    // блокирует корень, пока не заданы `options.aliases`. При валидной секции `aliasesExplicit`
+    // учитывает и явные алиасы секции, и зависимость не возникает.
     let dependency: string | null = null;
-    if (sectionError !== null && !optionsAliasesSet) {
+    if (sectionError !== null && !aliasesExplicit) {
         dependency = 'settings.weld';
     } else if (!aliasesExplicit && tsconfig.status === 'invalid') {
         dependency = 'tsconfig';
@@ -180,12 +189,14 @@ function effectiveRoot(args: {
     }
 
     // Дальше `getRoot()` не бросает: собственный `repoRoot` валиден, а секция и имя tsconfig
-    // разрешены выше. `null` без инъекции хоста недостижим — ответ остается для сужения типа.
+    // разрешены выше. `null` он отдает только при инъекции хоста, а та отсекена в начале,
+    // — ответ ниже остается только для сужения типа.
     const root = target.getRoot();
+    if (root === null) {
+        return { status: 'unresolved', dependency: 'fsHost' };
+    }
 
-    return root === null
-        ? { status: 'unresolved', dependency: 'fsHost' }
-        : { status: 'value', value: root };
+    return { status: 'value', value: root };
 }
 
 /**
@@ -243,11 +254,9 @@ function effectiveAliases(args: {
         return { status: 'unresolved', dependency: 'tsconfig' };
     }
 
+    // `unresolved` корня сюда не доходит: инъекция хоста и нечитабельная секция отсечены в
+    // начале функции, а кривой tsconfig — строкой выше; остается только `invalid`.
     if (repoRoot.status !== 'value') {
-        if (repoRoot.status === 'unresolved') {
-            return { status: 'unresolved', dependency: repoRoot.dependency };
-        }
-
         return { status: 'unresolved', dependency: 'repoRoot' };
     }
 

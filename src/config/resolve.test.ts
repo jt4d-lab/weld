@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
+import { resetSettingsCaches } from '@/settings/index.js';
 import {
     cleanupTmpProjects,
     makeTmpProject,
@@ -22,6 +23,7 @@ const loadTsconfigPathsMock = vi.mocked(loadTsconfigPaths);
 
 afterEach(() => {
     resetFsHostCaches();
+    resetSettingsCaches();
     resetTsconfigCache();
     cleanupTmpProjects();
     loadTsconfigPathsMock.mockClear();

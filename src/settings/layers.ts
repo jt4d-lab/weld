@@ -69,6 +69,14 @@ export type SchemeReport = {
     moduleLayers: SettingState<readonly string[]>;
 };
 
+/** Результат общего обхода списка: отсутствие (отчет решит, что с ним делать), ошибка или разобранные имена. */
+type ParsedLayerList =
+    { kind: 'not-set' } | { kind: 'error'; message: string } | { kind: 'value'; names: string[] };
+
+/** Элемент списка: имя или метка либо собственный текст ошибки. */
+type ParsedLayerItem =
+    { ok: true; name: string; marker: LayerMarker | null } | { ok: false; message: string };
+
 /**
  * Разбирает схему из уже добытых значений. `sourceOf` называет место значения в конфиге
  * (`settings.weld.layers` или `options.layers`) — источники полей могут быть разными, поэтому имя
@@ -83,11 +91,20 @@ export function parseScheme(raw: RawScheme, sourceOf: (field: SchemeField) => st
 
     const srcDir = parseSrcDir(raw.srcDir, srcDirSource);
     const modulesDir = parseModulesDir(raw.modulesDir, modulesDirSource);
-    const layers = parseProjectLayers(raw.layers, layersSource, modulesDir);
-    const moduleLayers = parseModuleLayers(raw.moduleLayers, moduleLayersSource, modulesDir);
+    const layers = readLayerList(raw.layers, layersSource, modulesDir, true);
+    const moduleLayers = readLayerList(raw.moduleLayers, moduleLayersSource, modulesDir, false);
 
-    checkModuleLayersPlacement(layers, layersSource);
-    checkSharedNames(layers, layersSource, moduleLayers, moduleLayersSource);
+    // Сводные проверки — только когда оба списка разобрались: отсутствие одного
+    // не делает другой ошибкой.
+    const markerProblem = checkModulesMarker(layers, layersSource);
+    if (markerProblem !== null) {
+        throw new Error(markerProblem);
+    }
+
+    const sharedProblem = checkSharedNames(layers, layersSource, moduleLayers, moduleLayersSource);
+    if (sharedProblem !== null) {
+        throw new Error(sharedProblem);
+    }
 
     return { srcDir, modulesDir, layers, moduleLayers };
 }
@@ -130,79 +147,139 @@ function parseModulesDir(value: unknown, source: string): string {
 }
 
 /**
- * Слои проекта: повторы обычных имен разрешены и сохраняются в исходном порядке — будущее правило
- * прочитает повтор как диапазон, а не как ошибку. Метки допустимы, каждая не более одного раза.
+ * Общий для обоих разборов обход списка. Слои проекта: повторы обычных имен разрешены и
+ * сохраняются в исходном порядке — будущее правило прочитает повтор как диапазон, а не как
+ * ошибку; метки допустимы, каждая не более одного раза. Слои модулей: метки сюда не пишутся —
+ * их место в `layers`. Порядок проверок на элемент один для обеих форм: собственный формат
+ * (тип, имя, метка), затем зависимость от `modulesDir` — она пропускается, когда та не
+ * разрешилась (`null`): небросающий разбор помечит поле `unresolved`.
  */
-function parseProjectLayers(value: unknown, source: string, modulesDir: string): string[] {
-    const seenMarkers = new Set<LayerMarker>();
-
-    return readLayerList(value, source).map((item, index) => {
-        const name = parseLayerName(item, index, source, modulesDir);
-
-        if (isMarker(name)) {
-            if (seenMarkers.has(name)) {
-                throw new Error(`${source}[${index}]: "${name}" marker is allowed only once`);
-            }
-
-            seenMarkers.add(name);
-        }
-
-        return name;
-    });
-}
-
-/** Слои модулей: метки сюда не пишутся — их место в `layers`. */
-function parseModuleLayers(value: unknown, source: string, modulesDir: string): string[] {
-    return readLayerList(value, source).map((item, index) => {
-        const name = parseLayerName(item, index, source, modulesDir);
-
-        if (isMarker(name)) {
-            throw new Error(`${source}[${index}]: "${name}" marker is not allowed here`);
-        }
-
-        return name;
-    });
-}
-
-/** Сырой список слоев: обязателен, массив и не пуст. Тип элементов проверяет {@link parseLayerName}. */
-function readLayerList(value: unknown, source: string): readonly unknown[] {
+function parseLayerList(
+    value: unknown,
+    source: string,
+    modulesDir: string | null,
+    isProjectLayers: boolean,
+): ParsedLayerList {
     if (value === undefined) {
-        throw new Error(`${source} is required`);
+        return { kind: 'not-set' };
     }
 
     if (!Array.isArray(value)) {
-        throw new Error(`${source} must be an array of strings, got ${typeof value}`);
+        return {
+            kind: 'error',
+            message: `${source} must be an array of strings, got ${typeof value}`,
+        };
     }
 
     if (value.length === 0) {
-        throw new Error(`${source} must not be empty`);
+        return { kind: 'error', message: `${source} must not be empty` };
     }
 
-    return value as readonly unknown[];
+    const names: string[] = [];
+    const seenMarkers = new Set<LayerMarker>();
+
+    for (let i = 0; i < value.length; i++) {
+        const item = value[i];
+        const parsed = parseLayerItem(item, i, source, modulesDir);
+        if (!parsed.ok) {
+            return { kind: 'error', message: parsed.message };
+        }
+
+        if (parsed.marker !== null) {
+            const markerProblem = markerError(
+                parsed.marker,
+                i,
+                source,
+                isProjectLayers,
+                seenMarkers,
+            );
+            if (markerProblem !== null) {
+                return { kind: 'error', message: markerProblem };
+            }
+        }
+
+        names.push(parsed.name);
+    }
+
+    return { kind: 'value', names };
 }
 
-/** Имя из `value[index]`: строка допустимой формы, не совпадающая с `modulesDir`. */
-function parseLayerName(item: unknown, index: number, source: string, modulesDir: string): string {
+/** Элемент `value[index]`: строка допустимой формы, не совпадающая с `modulesDir`; метка — как есть. */
+function parseLayerItem(
+    item: unknown,
+    index: number,
+    source: string,
+    modulesDir: string | null,
+): ParsedLayerItem {
     if (typeof item !== 'string') {
-        throw new Error(`${source}[${index}] must be a string, got ${typeof item}`);
+        return { ok: false, message: `${source}[${index}] must be a string, got ${typeof item}` };
     }
 
-    if (!isMarker(item) && !LAYER_NAME.test(item)) {
-        throw new Error(`${source}[${index}] is not a valid layer name: "${item}"`);
+    if (isMarker(item)) {
+        return { ok: true, name: item, marker: item };
     }
 
-    if (item === modulesDir) {
-        throw new Error(`${source}[${index}]: "${item}" must not be the modulesDir name`);
+    if (!LAYER_NAME.test(item)) {
+        return { ok: false, message: `${source}[${index}] is not a valid layer name: "${item}"` };
     }
 
-    return item;
+    if (modulesDir !== null && item === modulesDir) {
+        return {
+            ok: false,
+            message: `${source}[${index}]: "${item}" must not be the modulesDir name`,
+        };
+    }
+
+    return { ok: true, name: item, marker: null };
+}
+
+/** Метка в списке: в `moduleLayers` недопустима вовсе, в `layers` — не более одного раза. */
+function markerError(
+    marker: LayerMarker,
+    index: number,
+    source: string,
+    isProjectLayers: boolean,
+    seenMarkers: Set<LayerMarker>,
+): string | null {
+    if (!isProjectLayers) {
+        return `${source}[${index}]: "${marker}" marker is not allowed here`;
+    }
+
+    if (seenMarkers.has(marker)) {
+        return `${source}[${index}]: "${marker}" marker is allowed only once`;
+    }
+
+    seenMarkers.add(marker);
+    return null;
+}
+
+/** Бросающий читатель списка: отсутствие — «is required», ошибка обхода — исключение с тем же текстом. */
+function readLayerList(
+    value: unknown,
+    source: string,
+    modulesDir: string,
+    isProjectLayers: boolean,
+): string[] {
+    const parsed = parseLayerList(value, source, modulesDir, isProjectLayers);
+
+    if (parsed.kind === 'not-set') {
+        throw new Error(`${source} is required`);
+    }
+
+    if (parsed.kind === 'error') {
+        throw new Error(parsed.message);
+    }
+
+    return parsed.names;
 }
 
 /** Слоям модулей нужна позиция в схеме проекта: без `@modules` их некуда поставить. */
-function checkModuleLayersPlacement(layers: readonly string[], layersSource: string): void {
+function checkModulesMarker(layers: readonly string[], source: string): string | null {
     if (!layers.includes(MODULES_MARKER)) {
-        throw new Error(`${layersSource} must contain the "${MODULES_MARKER}" marker`);
+        return `${source} must contain the "${MODULES_MARKER}" marker`;
     }
+
+    return null;
 }
 
 /** Одно имя в обоих списках неразличимо в дереве: директория читалась бы то так, то иначе. */
@@ -211,16 +288,16 @@ function checkSharedNames(
     layersSource: string,
     moduleLayers: readonly string[],
     moduleLayersSource: string,
-): void {
+): string | null {
     const projectNames = new Set(layers.filter((name) => !isMarker(name)));
 
     for (const [index, name] of moduleLayers.entries()) {
         if (projectNames.has(name)) {
-            throw new Error(
-                `${moduleLayersSource}[${index}]: "${name}" is also listed in ${layersSource}`,
-            );
+            return `${moduleLayersSource}[${index}]: "${name}" is also listed in ${layersSource}`;
         }
     }
+
+    return null;
 }
 
 /**
@@ -268,23 +345,21 @@ export function parseSchemeReport(
         false,
     );
 
-    // Совместные проверки — только когда оба списка в состоянии value
+    // Совместные проверки — только когда оба списка в состоянии value; те же хелперы
+    // и тот же порядок, что и в бросающем `parseScheme`.
     if (layersState.status === 'value' && moduleLayersState.status === 'value') {
-        if (!layersState.value.includes(MODULES_MARKER)) {
-            layersState = {
-                status: 'invalid',
-                message: `${layersSource} must contain the "${MODULES_MARKER}" marker`,
-            };
+        const markerProblem = checkModulesMarker(layersState.value, layersSource);
+        if (markerProblem !== null) {
+            layersState = { status: 'invalid', message: markerProblem };
         } else {
-            const projectNames = new Set(layersState.value.filter((n) => !isMarker(n)));
-            for (const [i, name] of moduleLayersState.value.entries()) {
-                if (projectNames.has(name)) {
-                    moduleLayersState = {
-                        status: 'invalid',
-                        message: `${moduleLayersSource}[${i}]: "${name}" is also listed in ${layersSource}`,
-                    };
-                    break;
-                }
+            const sharedProblem = checkSharedNames(
+                layersState.value,
+                layersSource,
+                moduleLayersState.value,
+                moduleLayersSource,
+            );
+            if (sharedProblem !== null) {
+                moduleLayersState = { status: 'invalid', message: sharedProblem };
             }
         }
     }
@@ -298,8 +373,9 @@ export function parseSchemeReport(
 }
 
 /**
- * Небросающий разбор списка слоев. `isProjectLayers` определяет, допускаются ли метки.
- * Порядок проверок на элемент совпадает с `parseLayerName` + маркерной проверкой.
+ * Небросающий разбор списка слоев: тот же `parseLayerList`, что и бросающий `parseScheme`, в
+ * состояниях. `unresolved` — когда список сам валиден, но `modulesDir` не разрешился: проверка
+ * имен против `modulesDir` не выполнялась.
  */
 function parseListReport(
     value: unknown,
@@ -307,70 +383,19 @@ function parseListReport(
     modulesDir: string | null,
     isProjectLayers: boolean,
 ): SettingState<readonly string[]> {
-    if (value === undefined) {
+    const parsed = parseLayerList(value, source, modulesDir, isProjectLayers);
+
+    if (parsed.kind === 'not-set') {
         return { status: 'not-set' };
     }
 
-    if (!Array.isArray(value)) {
-        return {
-            status: 'invalid',
-            message: `${source} must be an array of strings, got ${typeof value}`,
-        };
-    }
-
-    if (value.length === 0) {
-        return { status: 'invalid', message: `${source} must not be empty` };
-    }
-
-    const parsed: string[] = [];
-    const seenMarkers = new Set<LayerMarker>();
-
-    for (let i = 0; i < value.length; i++) {
-        const item = value[i];
-
-        if (typeof item !== 'string') {
-            return {
-                status: 'invalid',
-                message: `${source}[${i}] must be a string, got ${typeof item}`,
-            };
-        }
-
-        if (isMarker(item)) {
-            if (isProjectLayers) {
-                if (seenMarkers.has(item as LayerMarker)) {
-                    return {
-                        status: 'invalid',
-                        message: `${source}[${i}]: "${item}" marker is allowed only once`,
-                    };
-                }
-                seenMarkers.add(item as LayerMarker);
-            } else {
-                return {
-                    status: 'invalid',
-                    message: `${source}[${i}]: "${item}" marker is not allowed here`,
-                };
-            }
-        } else {
-            if (!LAYER_NAME.test(item)) {
-                return {
-                    status: 'invalid',
-                    message: `${source}[${i}] is not a valid layer name: "${item}"`,
-                };
-            }
-            if (modulesDir !== null && item === modulesDir) {
-                return {
-                    status: 'invalid',
-                    message: `${source}[${i}]: "${item}" must not be the modulesDir name`,
-                };
-            }
-        }
-
-        parsed.push(item);
+    if (parsed.kind === 'error') {
+        return { status: 'invalid', message: parsed.message };
     }
 
     if (modulesDir === null) {
         return { status: 'unresolved', dependency: 'modulesDir' };
     }
 
-    return { status: 'value', value: parsed };
+    return { status: 'value', value: parsed.names };
 }

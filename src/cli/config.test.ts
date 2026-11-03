@@ -75,6 +75,15 @@ const BAD_REPO_ROOT_CONFIG = `export default [
 ];
 `;
 
+/** Невалидная секция `settings.weld` вовсе: одна проблема секции, все ее настройки — unresolved. */
+const BAD_SECTION_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: 'nope' },
+    },
+];
+`;
+
 /** Несколько независимых собственных ошибок в одном отчете. */
 const MULTI_PROBLEM_CONFIG = `export default [
     {
@@ -352,6 +361,59 @@ describe('weld config: диагностический отчет', () => {
                 message: 'settings.weld.repoRoot must be a string, got number',
             },
             aliases: { status: 'unresolved', dependency: 'repoRoot' },
+        });
+    });
+
+    it('кривая секция: файл через ранний выход repoRoot, все настройки unresolved, код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BAD_SECTION_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                `file:   ${root}/src/feature/internal.ts`,
+                `config: ${root}/eslint.config.mjs`,
+                'settings.weld: settings.weld must be an object',
+                '  repoRoot:       (unresolved: settings.weld)',
+                '  aliasesBaseUrl: (unresolved: settings.weld)',
+                '  tsconfig:       (unresolved: settings.weld)',
+                '  aliases:        (unresolved: settings.weld)',
+                '  srcDir:         (unresolved: settings.weld)',
+                '  modulesDir:     (unresolved: settings.weld)',
+                '  layers:         (unresolved: settings.weld)',
+                '  moduleLayers:   (unresolved: settings.weld)',
+            ].join('\n') + '\n',
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+
+        const { program: jprogram, out: jout } = capture(root);
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            file: string;
+            settings: Record<string, unknown>;
+            problems: Record<string, { status: string; message?: string; dependency?: string }>;
+        };
+
+        expect(data.file).toBe(`${root}/src/feature/internal.ts`);
+        expect(Object.values(data.settings)).toEqual(Array(8).fill(null));
+        expect(data.problems).toEqual({
+            repoRoot: { status: 'unresolved', dependency: 'settings.weld' },
+            aliasesBaseUrl: { status: 'unresolved', dependency: 'settings.weld' },
+            tsconfig: { status: 'unresolved', dependency: 'settings.weld' },
+            aliases: { status: 'unresolved', dependency: 'settings.weld' },
+            srcDir: { status: 'unresolved', dependency: 'settings.weld' },
+            modulesDir: { status: 'unresolved', dependency: 'settings.weld' },
+            layers: { status: 'unresolved', dependency: 'settings.weld' },
+            moduleLayers: { status: 'unresolved', dependency: 'settings.weld' },
+            'settings.weld': { status: 'invalid', message: 'settings.weld must be an object' },
         });
     });
 

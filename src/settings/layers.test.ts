@@ -266,6 +266,20 @@ describe('parseSchemeReport — состояния', () => {
         expect(result.layers.status).toBe('value');
     });
 
+    it('отсутствие одного списка не делает другим ошибкой: layers без @modules и нет moduleLayers — value', () => {
+        const result = report({ layers: ['app'], moduleLayers: undefined });
+
+        expect(result.layers).toEqual({ status: 'value', value: ['app'] });
+        expect(result.moduleLayers).toEqual({ status: 'not-set' });
+    });
+
+    it('обратная сторона: moduleLayers без пары layers — value, layers — not set', () => {
+        const result = report({ layers: undefined, moduleLayers: ['features'] });
+
+        expect(result.moduleLayers).toEqual({ status: 'value', value: ['features'] });
+        expect(result.layers).toEqual({ status: 'not-set' });
+    });
+
     it('оба списка отсутствуют → оба not set, без ошибок', () => {
         const result = report({ layers: undefined, moduleLayers: undefined });
 

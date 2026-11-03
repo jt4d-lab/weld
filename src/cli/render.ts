@@ -10,6 +10,8 @@ import type { SettingState } from '@/settings/index.js';
 import type { Alias } from '@/settings/index.js';
 
 import type { ConfigData } from './config.js';
+import { CONFIG_SETTING_NAMES } from './config.js';
+import type { ConfigSettingName } from './config.js';
 import type { InspectData } from './inspect.js';
 
 /** Формат `picocolors`: `createColors(false)` — те же функции, но без escape-последовательностей. */
@@ -78,15 +80,12 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const width = widthOf(rows);
     const s = data.settings;
 
-    const singleLabels = [
-        { label: 'repoRoot:', value: stateText(s.repoRoot, c) },
-        { label: 'aliasesBaseUrl:', value: stateText(s.aliasesBaseUrl, c) },
-        { label: 'tsconfig:', value: stateText(s.tsconfig, c) },
-        { label: 'srcDir:', value: stateText(s.srcDir, c) },
-        { label: 'modulesDir:', value: stateText(s.modulesDir, c) },
-        { label: 'layers:', value: listStateText(s.layers, c) },
-        { label: 'moduleLayers:', value: listStateText(s.moduleLayers, c) },
-    ];
+    // Порядок строк — `CONFIG_SETTING_NAMES`; `aliases` — особая строка (под ней список),
+    // поэтому в ширину колонки подписей не входит.
+    const singleLabels = CONFIG_SETTING_NAMES.filter((name) => name !== 'aliases').map((name) => ({
+        label: `${name}:`,
+        value: settingValueText(name, s, c),
+    }));
     const settingsWidth = widthOf(singleLabels);
 
     const sectionHeader =
@@ -94,20 +93,29 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
             ? `${c.dim('settings.weld:')} ${c.red(data.sectionError)}`
             : c.dim('settings.weld:');
 
+    const settingsLines = CONFIG_SETTING_NAMES.flatMap((name) =>
+        name === 'aliases'
+            ? renderAliases(s.aliases, c, settingsWidth)
+            : [
+                  `${SETTINGS_INDENT}${row(c, `${name}:`, settingValueText(name, s, c), settingsWidth)}`,
+              ],
+    );
+
     return [
         ...rows.map(({ label, value }) => row(c, label, value, width)),
         sectionHeader,
-        ...[
-            `${SETTINGS_INDENT}${row(c, 'repoRoot:', stateText(s.repoRoot, c), settingsWidth)}`,
-            `${SETTINGS_INDENT}${row(c, 'aliasesBaseUrl:', stateText(s.aliasesBaseUrl, c), settingsWidth)}`,
-            `${SETTINGS_INDENT}${row(c, 'tsconfig:', stateText(s.tsconfig, c), settingsWidth)}`,
-            ...renderAliases(s.aliases, c, settingsWidth),
-            `${SETTINGS_INDENT}${row(c, 'srcDir:', stateText(s.srcDir, c), settingsWidth)}`,
-            `${SETTINGS_INDENT}${row(c, 'modulesDir:', stateText(s.modulesDir, c), settingsWidth)}`,
-            `${SETTINGS_INDENT}${row(c, 'layers:', listStateText(s.layers, c), settingsWidth)}`,
-            `${SETTINGS_INDENT}${row(c, 'moduleLayers:', listStateText(s.moduleLayers, c), settingsWidth)}`,
-        ],
+        ...settingsLines,
     ].join('\n');
+}
+
+/** Текст строки отчета: списочные настройки — через `listStateText`, остальные — как строка. */
+function settingValueText(name: ConfigSettingName, s: ConfigData['settings'], c: Colors): string {
+    if (name === 'layers' || name === 'moduleLayers') {
+        return listStateText(s[name], c);
+    }
+
+    // Единственное нестроковое поле — `aliases`, его здесь нет.
+    return stateText(s[name] as SettingState<string>, c);
 }
 
 /** Текст для строковой настройки: значение / красная ошибка / желтый unresolved / серый not set. */

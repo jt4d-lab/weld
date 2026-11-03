@@ -245,8 +245,9 @@ function readScheme(settings: unknown, overrides: SchemeOverrides): Scheme {
             return overrides[field];
         }
 
-        const configured = getWeldSettings(settings)?.[field];
-        return configured === undefined ? fallback : configured;
+        // Секцию читаем по каждому полю без override: кривая секция бросает здесь, а схема,
+        // перекрытая опциями целиком, секции не читает вовсе.
+        return pickSchemeValue(getWeldSettings(settings), field, fallback);
     };
 
     return parseScheme(
@@ -260,26 +261,30 @@ function readScheme(settings: unknown, overrides: SchemeOverrides): Scheme {
     );
 }
 
+/** Значение поля секции с дефолтом: одно правило на оба пути — `readScheme` и `getSchemeRaw`. */
+function pickSchemeValue(
+    section: Record<string, unknown> | undefined,
+    field: SchemeField,
+    fallback?: string,
+): unknown {
+    const configured = section?.[field];
+    return configured === undefined ? fallback : configured;
+}
+
 /**
  * Диагностическая точка доступа: ошибка самой секции `settings.weld`, если секция задана,
  * но не является объектом. `null` — секции нет (необязательно) либо она валидна. Сырую
  * секцию наружу не отдаем: наружу только текст ошибки или `null`.
+ *
+ * Проверка — та же, что в `getWeldSettings`: текст ошибки на кривой секции имеет один источник.
  */
 export function getSectionError(settings: unknown): string | null {
-    if (typeof settings !== 'object' || settings === null) {
+    try {
+        getWeldSettings(settings);
         return null;
+    } catch (error) {
+        return (error as Error).message;
     }
-
-    const weld = (settings as Record<string, unknown>).weld;
-    if (weld === undefined) {
-        return null;
-    }
-
-    if (typeof weld !== 'object' || weld === null) {
-        return 'settings.weld must be an object';
-    }
-
-    return null;
 }
 
 /**
@@ -297,16 +302,11 @@ export function getSchemeRaw(settings: unknown): RawScheme | null {
 
     const section = getWeldSettings(settings);
 
-    const pick = (field: SchemeField, fallback?: string): unknown => {
-        const configured = section?.[field];
-        return configured === undefined ? fallback : configured;
-    };
-
     return {
-        srcDir: pick('srcDir', DEFAULT_SRC_DIR),
-        modulesDir: pick('modulesDir', DEFAULT_MODULES_DIR),
-        layers: pick('layers'),
-        moduleLayers: pick('moduleLayers'),
+        srcDir: pickSchemeValue(section, 'srcDir', DEFAULT_SRC_DIR),
+        modulesDir: pickSchemeValue(section, 'modulesDir', DEFAULT_MODULES_DIR),
+        layers: pickSchemeValue(section, 'layers'),
+        moduleLayers: pickSchemeValue(section, 'moduleLayers'),
     };
 }
 
