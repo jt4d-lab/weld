@@ -29,7 +29,7 @@ cd "$TMP/project"
 # Конфиг проекта-потребителя: рекомендуемый набор плюс files-слой на src. Сценарии отличаются только
 # настройками WELD — ради этого их и сравнивают, — поэтому конфиг пишется один раз, а различие
 # приходит параметром: префикс алиаса без `/*`. Схема слоев есть всегда: `weld inspect` без нее
-# работать не может.
+# работать не может, а `weld config` печатает ее поля в отчете.
 write_config() {
     local path="$1" alias_prefix="${2:-}"
     local settings="layers: ['app', '@modules'], moduleLayers: ['features']"
@@ -147,7 +147,11 @@ CONFIG="$($CLI config --no-color src)"
 grep -qxF 'file:   src/example.js (sample of src)' <<<"$CONFIG" || { echo "    неверная строка file: $CONFIG" >&2; exit 1; }
 grep -qxF 'config: eslint.config.js' <<<"$CONFIG" || { echo "    неверная строка config: $CONFIG" >&2; exit 1; }
 grep -q '^  repoRoot: ' <<<"$CONFIG" || { echo "    нет repoRoot: $CONFIG" >&2; exit 1; }
-grep -q '^  aliases: (none)$' <<<"$CONFIG" || { echo "    неверные aliases: $CONFIG" >&2; exit 1; }
+grep -qxF '  aliases:        (none)' <<<"$CONFIG" || { echo "    неверные aliases: $CONFIG" >&2; exit 1; }
+grep -qxF '  srcDir:         /src' <<<"$CONFIG" || { echo "    нет строки srcDir: $CONFIG" >&2; exit 1; }
+grep -qxF '  modulesDir:     modules' <<<"$CONFIG" || { echo "    нет строки modulesDir: $CONFIG" >&2; exit 1; }
+grep -qxF '  layers:         app, @modules' <<<"$CONFIG" || { echo "    нет строки layers: $CONFIG" >&2; exit 1; }
+grep -qxF '  moduleLayers:   features' <<<"$CONFIG" || { echo "    нет строки moduleLayers: $CONFIG" >&2; exit 1; }
 echo "$CONFIG" | sed 's/^/    /'
 
 $CLI config --json src > "$TMP/config.json"
@@ -159,6 +163,11 @@ node -e "
   assert.equal(data.configFile, 'eslint.config.js');
   assert.equal(data.settings.repoRoot, '$TMP/project', 'repoRoot должен остаться абсолютным');
   assert.ok(Array.isArray(data.settings.aliases), 'aliases — не массив');
+  assert.equal(data.settings.srcDir, '/src', 'srcDir в JSON');
+  assert.equal(data.settings.modulesDir, 'modules', 'modulesDir в JSON');
+  assert.deepEqual(data.settings.layers, ['app', '@modules'], 'layers в JSON');
+  assert.deepEqual(data.settings.moduleLayers, ['features'], 'moduleLayers в JSON');
+  assert.deepEqual(data.problems, {}, 'problems должен быть пуст');
   console.log('    json: ' + JSON.stringify(data.settings));
 "
 
@@ -218,15 +227,21 @@ grep -qxF 'config: eslint.config.js' <<<"$TOOL" || { echo "    неверная 
 grep -qxF '    @tool/* → /src/*' <<<"$TOOL" || { echo "    настройки не из конфига проекта: $TOOL" >&2; exit 1; }
 echo "$TOOL" | sed 's/^/    /'
 
-echo "==> Проверяю проект без settings.weld: config работает, inspect требует схему"
+echo "==> Проверяю проект без settings.weld: config работает без схемы, inspect требует схему"
 mkdir -p "$TMP/bare/src"
 ln -s "$TMP/project/node_modules" "$TMP/bare/node_modules"
 echo '{ "name": "weld-smoke-bare", "private": true, "type": "module" }' > "$TMP/bare/package.json"
 write_config_without_settings "$TMP/bare/eslint.config.js"
 touch "$TMP/bare/src/a.js"
+set +e
 BARE_CONFIG="$(cd "$TMP/bare" && "$TMP/project/node_modules/.bin/weld" config --no-color src/a.js)"
+BARE_CONFIG_CODE=$?
+set -e
+[ "$BARE_CONFIG_CODE" -eq 0 ] || { echo "    config без схемы вернул код $BARE_CONFIG_CODE: $BARE_CONFIG" >&2; exit 1; }
 grep -qxF 'file:   src/a.js' <<<"$BARE_CONFIG" || { echo "    неверный file: $BARE_CONFIG" >&2; exit 1; }
-grep -q '^  aliases: (none)$' <<<"$BARE_CONFIG" || { echo "    неверные aliases: $BARE_CONFIG" >&2; exit 1; }
+grep -qxF '  aliases:        (none)' <<<"$BARE_CONFIG" || { echo "    неверные aliases: $BARE_CONFIG" >&2; exit 1; }
+grep -qxF '  layers:         (not set)' <<<"$BARE_CONFIG" || { echo "    layers без схемы не (not set): $BARE_CONFIG" >&2; exit 1; }
+grep -qxF '  moduleLayers:   (not set)' <<<"$BARE_CONFIG" || { echo "    moduleLayers без схемы не (not set): $BARE_CONFIG" >&2; exit 1; }
 echo "$BARE_CONFIG" | sed 's/^/    /'
 set +e
 BARE_INSPECT="$(cd "$TMP/bare" && "$TMP/project/node_modules/.bin/weld" inspect --no-color src/a.js 2>&1 >/dev/null)"

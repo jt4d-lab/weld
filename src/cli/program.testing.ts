@@ -7,7 +7,8 @@ import { createProgram, runCli } from './program.js';
 
 /**
  * Схема слоев тестов CLI: проект `app`, модули `features` — как в таблице примеров
- * `docs/cli/inspect.md`. `weld inspect` без нее не работает, а `weld config` ее полей не печатает.
+ * `docs/cli/inspect.md`. `weld inspect` без нее не работает, а `weld config` печатает ее поля в
+ * отчете.
  */
 export const SCHEME_SETTINGS = {
     layers: ['app', '@modules', '@unknown'],
