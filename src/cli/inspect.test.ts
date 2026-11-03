@@ -813,6 +813,7 @@ describe('inspectFile: имя файла в алиасе', () => {
                 modulesDir: 'modules',
                 layers: ['app', '@modules'],
                 moduleLayers: ['features'],
+                flatModules: false,
             }),
         });
 

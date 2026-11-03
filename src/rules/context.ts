@@ -30,6 +30,7 @@ export const WELD_OPTION_PROPERTIES = {
     modulesDir: {},
     layers: {},
     moduleLayers: {},
+    flatModules: {},
 } as const;
 
 /** Всё, что правило берет из контекста до обхода AST. */

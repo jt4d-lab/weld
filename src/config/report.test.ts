@@ -75,6 +75,10 @@ describe('reportForFile — ошибка секции', () => {
             status: 'unresolved',
             dependency: 'settings.weld',
         });
+        expect(report.settings.flatModules).toEqual({
+            status: 'unresolved',
+            dependency: 'settings.weld',
+        });
         expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
     });
 
@@ -89,6 +93,7 @@ describe('reportForFile — ошибка секции', () => {
                     modulesDir: 'blocks',
                     layers: ['app', '@modules'],
                     moduleLayers: ['ui'],
+                    flatModules: true,
                 },
             ),
         );
@@ -99,6 +104,7 @@ describe('reportForFile — ошибка секции', () => {
         expect(report.settings.modulesDir).toEqual({ status: 'value', value: 'blocks' });
         expect(report.settings.layers).toEqual({ status: 'value', value: ['app', '@modules'] });
         expect(report.settings.moduleLayers).toEqual({ status: 'value', value: ['ui'] });
+        expect(report.settings.flatModules).toEqual({ status: 'value', value: true });
         // База читается только из секции: алиасы без нее не разбираются, фиктивной базы нет.
         expect(report.settings.aliasesBaseUrl).toEqual({
             status: 'unresolved',
@@ -356,6 +362,27 @@ describe('reportForFile — схема', () => {
         expect(report.settings.modulesDir).toEqual({ status: 'value', value: 'modules' });
         expect(report.settings.layers).toEqual({ status: 'not-set' });
         expect(report.settings.moduleLayers).toEqual({ status: 'not-set' });
+        expect(report.settings.flatModules).toEqual({ status: 'value', value: false });
+    });
+
+    it('кривой flatModules: собственная ошибка, списки при этом не касаются', () => {
+        const { report } = reportForFile(
+            input({
+                weld: {
+                    repoRoot: '/r',
+                    flatModules: 'nope',
+                    layers: ['app', '@modules'],
+                    moduleLayers: ['ui'],
+                },
+            }),
+        );
+
+        expect(report.settings.flatModules).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.flatModules must be a boolean, got string',
+        });
+        expect(report.settings.layers).toEqual({ status: 'value', value: ['app', '@modules'] });
+        expect(report.settings.moduleLayers).toEqual({ status: 'value', value: ['ui'] });
     });
 
     it('ошибка поля независима от кривого корня и от соседнего списка', () => {
@@ -462,7 +489,7 @@ describe('reportForFile — схема', () => {
         const { report } = reportForFile(
             input(
                 { weld: { repoRoot: '/r', layers: ['app', '@modules'], moduleLayers: ['ui'] } },
-                { layers: 'x' },
+                { layers: 'x', flatModules: 'yes' },
             ),
         );
 
@@ -471,6 +498,10 @@ describe('reportForFile — схема', () => {
             message: 'options.layers must be an array of strings, got string',
         });
         expect(report.settings.moduleLayers).toEqual({ status: 'value', value: ['ui'] });
+        expect(report.settings.flatModules).toEqual({
+            status: 'invalid',
+            message: 'options.flatModules must be a boolean, got string',
+        });
     });
 });
 

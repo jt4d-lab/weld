@@ -169,19 +169,19 @@ while (!flat || module.length > 0)
 - Изменить: `src/cli/config.ts`, `src/cli/render.ts`, `src/cli/config.test.ts`,
   `src/cli/render.test.ts`
 
-- [ ] `WELD_OPTION_PROPERTIES`: пятое разрешительное свойство `flatModules: {}`; обновить тест
+- [x] `WELD_OPTION_PROPERTIES`: пятое разрешительное свойство `flatModules: {}`; обновить тест
       `toEqual` и дописать `flatModules: false` в полное `toEqual`-ожидание схемы в
       `src/rules/context.test.ts`.
-- [ ] `schemeStates`: пятое поле в сыром объекте; `ConfigReport.settings` —
+- [x] `schemeStates`: пятое поле в сыром объекте; `ConfigReport.settings` —
       `flatModules:     SettingState<boolean>`; тесты отчета — дефолт, перекрытие опцией, `invalid`,
       `unresolved` при невалидной секции.
-- [ ] `CONFIG_SETTING_NAMES`: добавить `flatModules` в конец.
-- [ ] `settingValueText`: печать булева поля (`true`/`false` + маркеры состояний).
-- [ ] Дописать строку `flatModules: false` во все полнотекстовые ожидания `src/cli/config.test.ts` и
+- [x] `CONFIG_SETTING_NAMES`: добавить `flatModules` в конец.
+- [x] `settingValueText`: печать булева поля (`true`/`false` + маркеры состояний).
+- [x] Дописать строку `flatModules: false` во все полнотекстовые ожидания `src/cli/config.test.ts` и
       `src/cli/render.test.ts` (ширина колонки подписей не меняется: `aliasesBaseUrl:` длиннее);
       добавить новые тесты на строку в текстовом и JSON-выводе, код 1 при `invalid`, код 0 при
       `value`.
-- [ ] Запустить `yarn test`; до следующей задачи все тесты проходят.
+- [x] Запустить `yarn test`; до следующей задачи все тесты проходят.
 
 ### Задача 4: документация и приемка
 

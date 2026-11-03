@@ -39,6 +39,7 @@ export const CONFIG_SETTING_NAMES = [
     'modulesDir',
     'layers',
     'moduleLayers',
+    'flatModules',
 ] as const;
 
 export type ConfigSettingName = (typeof CONFIG_SETTING_NAMES)[number];

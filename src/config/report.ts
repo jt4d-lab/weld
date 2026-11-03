@@ -49,6 +49,7 @@ export type ConfigReport = {
         modulesDir: SettingState<string>;
         layers: SettingState<readonly string[]>;
         moduleLayers: SettingState<readonly string[]>;
+        flatModules: SettingState<boolean>;
     };
     /** Собственная проблема секции: `null`, если секция валидна или отсутствует. */
     sectionError: string | null;
@@ -297,6 +298,7 @@ function schemeStates(settings: unknown, options: WeldResolveOptions): SchemeRep
         modulesDir: undefined,
         layers: undefined,
         moduleLayers: undefined,
+        flatModules: undefined,
     };
     const blocked = new Set<SchemeField>();
 

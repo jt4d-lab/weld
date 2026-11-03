@@ -121,6 +121,24 @@ const CONTROL_ALIAS_CONFIG = `export default [
 ];
 `;
 
+/** Валидная секция с `flatModules`: отчет печатает значение и дает код 0. */
+const FLAT_MODULES_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@/*': ['src/*'] }, flatModules: true } },
+    },
+];
+`;
+
+/** Кривой `flatModules`: собственная ошибка поля, код 1. */
+const BAD_FLAT_MODULES_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@/*': ['src/*'] }, flatModules: 'nope' } },
+    },
+];
+`;
+
 afterEach(() => {
     cleanupTmpProjects();
 });
@@ -149,6 +167,7 @@ describe('weld config: файл', () => {
                 '  modulesDir:     modules',
                 '  layers:         app, @modules, @unknown',
                 '  moduleLayers:   features',
+                '  flatModules:    false',
             ].join('\n') + '\n',
         );
         expect(err).toEqual([]);
@@ -181,6 +200,7 @@ describe('weld config: файл', () => {
                 '  modulesDir:     modules',
                 '  layers:         (not set)',
                 '  moduleLayers:   (not set)',
+                '  flatModules:    false',
             ].join('\n') + '\n',
         );
         expect(codes).toEqual([]);
@@ -209,6 +229,7 @@ describe('weld config: файл', () => {
                 '  modulesDir:     modules',
                 '  layers:         (not set)',
                 '  moduleLayers:   (not set)',
+                '  flatModules:    false',
             ].join('\n') + '\n',
         );
         expect(codes).toEqual([]);
@@ -239,9 +260,85 @@ describe('weld config: схема в отчете', () => {
                 '  modulesDir:     modules',
                 '  layers:         options.layers must be an array of strings, got string',
                 '  moduleLayers:   (not set)',
+                '  flatModules:    false',
             ].join('\n') + '\n',
         );
         expect(codes).toEqual([1]);
+    });
+
+    it('flatModules: значение в тексте и JSON, без problems, код 0', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': FLAT_MODULES_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                'file:   src/feature/internal.ts',
+                'config: eslint.config.mjs',
+                'settings.weld:',
+                `  repoRoot:       ${root}`,
+                '  aliasesBaseUrl: .',
+                '  tsconfig:       tsconfig.json',
+                '  aliases:',
+                '    @/* → /src/*',
+                '  srcDir:         /src',
+                '  modulesDir:     modules',
+                '  layers:         (not set)',
+                '  moduleLayers:   (not set)',
+                '  flatModules:    true',
+            ].join('\n') + '\n',
+        );
+        expect(codes).toEqual([]);
+
+        const { program: jprogram, out: jout } = capture(root);
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            settings: Record<string, unknown>;
+            problems: Record<string, unknown>;
+        };
+
+        expect(data.settings.flatModules).toBe(true);
+        expect(data.problems).toEqual({});
+    });
+
+    it('кривой flatModules: ошибка поля в тексте и JSON, код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BAD_FLAT_MODULES_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toContain(
+            '  flatModules:    settings.weld.flatModules must be a boolean, got string',
+        );
+        expect(codes).toEqual([1]);
+
+        const { program: jprogram, out: jout } = capture(root);
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            settings: Record<string, unknown>;
+            problems: Record<string, unknown>;
+        };
+
+        expect(data.settings.flatModules).toBeNull();
+        expect(data.problems).toEqual({
+            flatModules: {
+                status: 'invalid',
+                message: 'settings.weld.flatModules must be a boolean, got string',
+            },
+        });
     });
 });
 
@@ -283,6 +380,7 @@ describe('weld config: директория', () => {
                 modulesDir: 'modules',
                 layers: ['app', '@modules', '@unknown'],
                 moduleLayers: ['features'],
+                flatModules: false,
             },
             problems: {},
         });
@@ -329,6 +427,7 @@ describe('weld config: диагностический отчет', () => {
                 '  modulesDir:     modules',
                 '  layers:         (not set)',
                 '  moduleLayers:   (not set)',
+                '  flatModules:    false',
             ].join('\n') + '\n',
         );
         expect(err).toEqual([]);
@@ -386,6 +485,7 @@ describe('weld config: диагностический отчет', () => {
                 '  modulesDir:     (unresolved: settings.weld)',
                 '  layers:         (unresolved: settings.weld)',
                 '  moduleLayers:   (unresolved: settings.weld)',
+                '  flatModules:    (unresolved: settings.weld)',
             ].join('\n') + '\n',
         );
         expect(err).toEqual([]);
@@ -403,7 +503,7 @@ describe('weld config: диагностический отчет', () => {
         };
 
         expect(data.file).toBe(`${root}/src/feature/internal.ts`);
-        expect(Object.values(data.settings)).toEqual(Array(8).fill(null));
+        expect(Object.values(data.settings)).toEqual(Array(9).fill(null));
         expect(data.problems).toEqual({
             repoRoot: { status: 'unresolved', dependency: 'settings.weld' },
             aliasesBaseUrl: { status: 'unresolved', dependency: 'settings.weld' },
@@ -413,6 +513,7 @@ describe('weld config: диагностический отчет', () => {
             modulesDir: { status: 'unresolved', dependency: 'settings.weld' },
             layers: { status: 'unresolved', dependency: 'settings.weld' },
             moduleLayers: { status: 'unresolved', dependency: 'settings.weld' },
+            flatModules: { status: 'unresolved', dependency: 'settings.weld' },
             'settings.weld': { status: 'invalid', message: 'settings.weld must be an object' },
         });
     });
@@ -439,6 +540,7 @@ describe('weld config: диагностический отчет', () => {
                 '  modulesDir:     modules',
                 '  layers:         settings.weld.layers must be an array of strings, got string',
                 '  moduleLayers:   (not set)',
+                '  flatModules:    false',
             ].join('\n') + '\n',
         );
         expect(codes).toEqual([1]);
@@ -530,7 +632,7 @@ describe('weld config: диагностический отчет', () => {
 
 describe('hasOwnError: код 1 только при собственной ошибке', () => {
     const value = (
-        v: string | string[] | { prefix: string; anchor: string; star: boolean }[],
+        v: string | string[] | boolean | { prefix: string; anchor: string; star: boolean }[],
     ): SettingState<never> => ({ status: 'value', value: v }) as SettingState<never>;
 
     const base = (over: Partial<ConfigData['settings']> = {}): ConfigData => ({
@@ -545,6 +647,7 @@ describe('hasOwnError: код 1 только при собственной ош�
             modulesDir: value('modules'),
             layers: value([]),
             moduleLayers: value([]),
+            flatModules: value(false),
             ...over,
         } as ConfigData['settings'],
         sectionError: null,

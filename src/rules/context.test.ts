@@ -39,6 +39,7 @@ describe('WELD_OPTION_PROPERTIES', () => {
             modulesDir: {},
             layers: {},
             moduleLayers: {},
+            flatModules: {},
         });
     });
 });

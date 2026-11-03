@@ -106,13 +106,20 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
     ].join('\n');
 }
 
-/** Текст строки отчета: списочные настройки — через `listStateText`, остальные — как строка. */
+/**
+ * Текст строки отчета: списочные настройки — через `listStateText`, булево `flatModules` — через
+ * `booleanStateText`, остальные — как строка.
+ */
 function settingValueText(name: ConfigSettingName, s: ConfigData['settings'], c: Colors): string {
     if (name === 'layers' || name === 'moduleLayers') {
         return listStateText(s[name], c);
     }
 
-    // Единственное нестроковое поле — `aliases`, его здесь нет.
+    if (name === 'flatModules') {
+        return booleanStateText(s[name], c);
+    }
+
+    // `aliases` здесь нет.
     return stateText(s[name] as SettingState<string>, c);
 }
 
@@ -128,6 +135,14 @@ function stateText(state: SettingState<string>, c: Colors): string {
         case 'not-set':
             return c.dim('(not set)');
     }
+}
+
+/** Текст для булевой настройки: `true`/`false` / маркеры как для строковой. */
+function booleanStateText(state: SettingState<boolean>, c: Colors): string {
+    if (state.status === 'value') {
+        return state.value ? 'true' : 'false';
+    }
+    return stateText(state as SettingState<string>, c);
 }
 
 /** Текст для списочной настройки: значения через запятую / маркеры как для строковой. */

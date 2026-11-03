@@ -26,6 +26,7 @@ const CONFIG: ConfigData = {
         modulesDir: { status: 'value', value: 'modules' },
         layers: { status: 'value', value: ['app', '@modules', '@unknown'] },
         moduleLayers: { status: 'value', value: ['features'] },
+        flatModules: { status: 'value', value: false },
     },
     sectionError: null,
 };
@@ -88,6 +89,7 @@ describe('renderConfig: файл', () => {
                 '  modulesDir:     modules',
                 '  layers:         app, @modules, @unknown',
                 '  moduleLayers:   features',
+                '  flatModules:    false',
             ].join('\n'),
         );
     });
@@ -139,7 +141,7 @@ describe('renderConfig: файл', () => {
             { color: false },
         );
 
-        expect(output.split('\n').slice(-6, -4)).toEqual([
+        expect(output.split('\n').slice(-7, -5)).toEqual([
             '    @/config → /src/config',
             '    @/* → /src/*',
         ]);
@@ -163,7 +165,7 @@ describe('renderConfig: файл', () => {
             { color: false },
         );
 
-        expect(output.split('\n').slice(-6, -4)).toEqual([
+        expect(output.split('\n').slice(-7, -5)).toEqual([
             '    @/* → /src/*',
             '    @app/* → /src/app/*',
         ]);
@@ -187,7 +189,7 @@ describe('renderConfig: файл', () => {
             { color: false },
         );
 
-        expect(output.split('\n').slice(-6, -4)).toEqual([
+        expect(output.split('\n').slice(-7, -5)).toEqual([
             '    @/* → /src/*',
             '    @app/* → /src/app/*',
         ]);
@@ -262,6 +264,36 @@ describe('renderConfig: файл', () => {
 
         expect(output).toContain('  layers:         (not set)');
         expect(output).toContain('  moduleLayers:   (not set)');
+    });
+
+    it('flatModules печатается как true/false, ошибка — как у строковых', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: { ...CONFIG.settings, flatModules: { status: 'value', value: true } },
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('  flatModules:    true');
+
+        const broken = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    flatModules: {
+                        status: 'invalid',
+                        message: 'settings.weld.flatModules must be a boolean, got string',
+                    },
+                },
+            },
+            { color: false },
+        );
+
+        expect(broken).toContain(
+            '  flatModules:    settings.weld.flatModules must be a boolean, got string',
+        );
     });
 
     it('ошибка секции печатается один раз на строке settings.weld', () => {
@@ -365,6 +397,7 @@ describe('renderJson / configJson', () => {
                 modulesDir: 'modules',
                 layers: ['app', '@modules', '@unknown'],
                 moduleLayers: ['features'],
+                flatModules: false,
             },
             problems: {},
         });
