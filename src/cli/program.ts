@@ -10,11 +10,11 @@ import { Command, CommanderError } from 'commander';
 
 import { packageVersion } from '@/package.js';
 
-import { effectiveConfig } from './config.js';
+import { configJson, effectiveConfig, hasOwnError } from './config.js';
 import type { LintSettings } from './eslint-config.js';
 import { loadLintSettings } from './eslint-config.js';
 import { inspectFile } from './inspect.js';
-import { renderConfig, renderInspect, renderJson } from './render.js';
+import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
 
 /**
  * Швы CLI: откуда берутся настройки файла, куда пишется вывод и как сообщается код возврата.
@@ -64,7 +64,7 @@ function colorOption(options: GlobalOptions): boolean | undefined {
 function errorText(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
 
-    return [...message].map((char) => (char < ' ' || char === '\u007f' ? '?' : char)).join('');
+    return sanitizeText(message);
 }
 
 /** Печать ошибки в той форме, которую просил пользователь: `--json` → stdout, иначе stderr. */
@@ -151,10 +151,14 @@ function buildProgram(deps: ProgramDeps): Command {
                 const data = effectiveConfig(lint, deps.cwd, path);
                 const text =
                     options.json === true
-                        ? renderJson(data)
+                        ? renderJson(configJson(data))
                         : renderConfig(data, { color: colorOption(options) });
 
                 deps.write(`${text}\n`);
+                // Собственная ошибка в отчете: код 1, но отчет уже напечатан, а не исключение.
+                if (hasOwnError(data)) {
+                    deps.setExitCode(1);
+                }
             }),
         );
 
