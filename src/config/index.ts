@@ -15,3 +15,5 @@
 
 export type { WeldResolveInput, WeldResolveOptions, WeldTarget } from './resolve.js';
 export { resolveForFile } from './resolve.js';
+export type { ConfigReport } from './report.js';
+export { reportForFile } from './report.js';

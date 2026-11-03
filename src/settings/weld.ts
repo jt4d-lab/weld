@@ -19,7 +19,7 @@
 
 import type { Alias } from '@/settings/aliases.js';
 import { parseAliases } from '@/settings/aliases.js';
-import type { Scheme, SchemeField } from '@/settings/layers.js';
+import type { RawScheme, Scheme, SchemeField } from '@/settings/layers.js';
 import { SCHEME_FIELDS, parseScheme } from '@/settings/layers.js';
 
 /** `aliasesBaseUrl` по умолчанию — сам корень репозитория. */
@@ -280,4 +280,41 @@ export function getSectionError(settings: unknown): string | null {
     }
 
     return null;
+}
+
+/**
+ * Сырые значения полей схемы из `settings.weld` с подстановкой дефолтов (`srcDir`, `modulesDir`)
+ * — диагностическая точка доступа для небросающего отчета. `null` — секция невалидна и поля без
+ * override прочитать нельзя: отчет помечает их `unresolved`, а опции разбирает самостоятельно.
+ *
+ * В отличие от `readScheme` не бросает и не принимает override: порядок бросающего пути для
+ * правил не меняется, опции налагает вызывающий.
+ */
+export function getSchemeRaw(settings: unknown): RawScheme | null {
+    if (getSectionError(settings) !== null) {
+        return null;
+    }
+
+    const section = getWeldSettings(settings);
+
+    const pick = (field: SchemeField, fallback?: string): unknown => {
+        const configured = section?.[field];
+        return configured === undefined ? fallback : configured;
+    };
+
+    return {
+        srcDir: pick('srcDir', DEFAULT_SRC_DIR),
+        modulesDir: pick('modulesDir', DEFAULT_MODULES_DIR),
+        layers: pick('layers'),
+        moduleLayers: pick('moduleLayers'),
+    };
+}
+
+/**
+ * Сырое значение `settings.weld.aliases` для небросающего отчета: `undefined` — ключа нет или
+ * секции нет. Зовется только когда `getSectionError` вернул `null`: при невалидной секции отчет
+ * не читает значение, а помечает алиасы `unresolved`.
+ */
+export function getAliasesRaw(settings: unknown): unknown {
+    return getWeldSettings(settings)?.aliases;
 }

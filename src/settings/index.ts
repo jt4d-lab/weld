@@ -18,8 +18,10 @@ export {
     getAliases,
     getAliasesBaseUrl,
     getAliasesFromPaths,
+    getAliasesRaw,
     getRepoRoot,
     getScheme,
+    getSchemeRaw,
     getSectionError,
     getTsconfigName,
     hasAliases,
@@ -31,5 +33,5 @@ export {
  * слоя бывает только `UNKNOWN_MARKER`: это имя слоя, которого нет в схеме, и единственная метка,
  * которую потребителю есть с чем сравнивать. `@modules` в `layers` — метка места, а не слой.
  */
-export type { Scheme, SchemeReport, SettingState } from './layers.js';
-export { parseSchemeReport, UNKNOWN_MARKER } from './layers.js';
+export type { RawScheme, Scheme, SchemeField, SchemeReport, SettingState } from './layers.js';
+export { parseSchemeReport, SCHEME_FIELDS, UNKNOWN_MARKER } from './layers.js';
