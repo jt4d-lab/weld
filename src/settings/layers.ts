@@ -328,21 +328,10 @@ export function parseSchemeReport(
     const moduleLayersSource = sourceOf('moduleLayers');
     const flatModulesSource = sourceOf('flatModules');
 
-    let srcDirState: SettingState<string>;
-    try {
-        srcDirState = { status: 'value', value: parseSrcDir(raw.srcDir, srcDirSource) };
-    } catch (e) {
-        srcDirState = { status: 'invalid', message: (e as Error).message };
-    }
+    const srcDirState = tryValue(() => parseSrcDir(raw.srcDir, srcDirSource));
 
-    let modulesDirState: SettingState<string>;
-    let modulesDirValue: string | null = null;
-    try {
-        modulesDirValue = parseModulesDir(raw.modulesDir, modulesDirSource);
-        modulesDirState = { status: 'value', value: modulesDirValue };
-    } catch (e) {
-        modulesDirState = { status: 'invalid', message: (e as Error).message };
-    }
+    const modulesDirState = tryValue(() => parseModulesDir(raw.modulesDir, modulesDirSource));
+    const modulesDirValue = modulesDirState.status === 'value' ? modulesDirState.value : null;
 
     // Списки: собственный формат → зависимость от modulesDir
     let layersState = parseListReport(raw.layers, layersSource, modulesDirValue, true);
@@ -372,15 +361,7 @@ export function parseSchemeReport(
         }
     }
 
-    let flatModulesState: SettingState<boolean>;
-    try {
-        flatModulesState = {
-            status: 'value',
-            value: parseFlatModules(raw.flatModules, flatModulesSource),
-        };
-    } catch (e) {
-        flatModulesState = { status: 'invalid', message: (e as Error).message };
-    }
+    const flatModulesState = tryValue(() => parseFlatModules(raw.flatModules, flatModulesSource));
 
     return {
         srcDir: srcDirState,
@@ -389,6 +370,17 @@ export function parseSchemeReport(
         moduleLayers: moduleLayersState,
         flatModules: flatModulesState,
     };
+}
+
+/**
+ * Бросающий разбор поля в состояние отчета: `value` с результатом либо `invalid` с текстом ошибки.
+ */
+function tryValue<T>(compute: () => T): SettingState<T> {
+    try {
+        return { status: 'value', value: compute() };
+    } catch (e) {
+        return { status: 'invalid', message: (e as Error).message };
+    }
 }
 
 /**

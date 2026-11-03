@@ -127,11 +127,11 @@ function descendModules(
 
 /** Слой по первому сегменту директории; файл слоем не бывает, незнакомое имя — `@unknown`. */
 function layerOf(rest: readonly string[], layers: readonly string[]): string {
-    const [first] = rest;
-
-    if (first === undefined || rest.length < 2) {
+    // Слой — только директория: путь короче двух сегментов — файл или корень, не слой.
+    if (rest.length < 2) {
         return UNKNOWN_MARKER;
     }
 
+    const first = rest[0] as string;
     return layers.includes(first) ? first : UNKNOWN_MARKER;
 }

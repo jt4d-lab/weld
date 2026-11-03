@@ -26,7 +26,9 @@ export {
     getTsconfigName,
     hasAliases,
     resetSettingsCaches,
+    schemeSourceOf,
 } from './weld.js';
+export type { SchemeOverrides } from './weld.js';
 /**
  * Схема слоев проекта: `srcDir`, `modulesDir`, `layers`, `moduleLayers` и `flatModules` — уже
  * проверенными и разобранными. Метки `@modules` и `@unknown` описывают позиции в схеме, а не директории. Значением

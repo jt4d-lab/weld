@@ -26,11 +26,12 @@ import { SCHEME_FIELDS, parseScheme } from '@/settings/layers.js';
 const DEFAULT_ALIASES_BASE_URL = '.';
 const DEFAULT_TSCONFIG_NAME = 'tsconfig.json';
 
-/** `srcDir` по умолчанию — директория исходного кода в корне репозитория. */
-const DEFAULT_SRC_DIR = 'src';
-
-/** `modulesDir` по умолчанию — имя директории-контейнера модулей. */
-const DEFAULT_MODULES_DIR = 'modules';
+/** Значения по умолчанию полей схемы: у списков нет дефолта, `flatModules` — `false`. */
+const SCHEME_DEFAULTS: Partial<Record<SchemeField, string | boolean>> = {
+    srcDir: 'src',
+    modulesDir: 'modules',
+    flatModules: false,
+};
 
 /** `settings.weld`, если задан. `undefined` без ошибки — секция необязательна. */
 function getWeldSettings(settings: unknown): Record<string, unknown> | undefined {
@@ -221,7 +222,7 @@ export function hasAliases(settings: unknown, override?: unknown): boolean {
 }
 
 /** Поля схемы, заданные опциями правила: каждое целиком перекрывает одноименную настройку. */
-type SchemeOverrides = { [Field in SchemeField]?: unknown };
+export type SchemeOverrides = { [Field in SchemeField]?: unknown };
 
 /**
  * Схема слоев: `settings.weld` с подстановкой опций правила.
@@ -240,26 +241,32 @@ export function getScheme(settings: unknown, overrides: SchemeOverrides = {}): S
 }
 
 function readScheme(settings: unknown, overrides: SchemeOverrides): Scheme {
-    const pick = (field: SchemeField, fallback?: string | boolean): unknown => {
-        if (overrides[field] !== undefined) {
-            return overrides[field];
-        }
-
-        // Секцию читаем по каждому полю без override: кривая секция бросает здесь, а схема,
-        // перекрытая опциями целиком, секции не читает вовсе.
-        return pickSchemeValue(getWeldSettings(settings), field, fallback);
-    };
+    // Секция читается, пока хоть одно поле схемы может быть взято из нее; при полном
+    // перекрытии опциями секция не читается.
+    const section = SCHEME_FIELDS.some((field) => overrides[field] === undefined)
+        ? getWeldSettings(settings)
+        : undefined;
 
     return parseScheme(
-        {
-            srcDir: pick('srcDir', DEFAULT_SRC_DIR),
-            modulesDir: pick('modulesDir', DEFAULT_MODULES_DIR),
-            layers: pick('layers'),
-            moduleLayers: pick('moduleLayers'),
-            flatModules: pick('flatModules', false),
-        },
-        (field) => (overrides[field] !== undefined ? `options.${field}` : `settings.weld.${field}`),
+        Object.fromEntries(
+            SCHEME_FIELDS.map((field) => [
+                field,
+                overrides[field] !== undefined
+                    ? overrides[field]
+                    : pickSchemeValue(section, field, SCHEME_DEFAULTS[field]),
+            ]),
+        ) as RawScheme,
+        schemeSourceOf(overrides),
     );
+}
+
+/**
+ * Источник значения поля схемы в сообщениях об ошибках: опция правила или секция `settings.weld`.
+ * Один источник формулировки на оба пути — бросающий `getScheme` и небросающий отчет `report.ts`.
+ */
+export function schemeSourceOf(overrides: SchemeOverrides) {
+    return (field: SchemeField) =>
+        overrides[field] !== undefined ? `options.${field}` : `settings.weld.${field}`;
 }
 
 /** Значение поля секции с дефолтом: одно правило на оба пути — `readScheme` и `getSchemeRaw`. */
@@ -303,13 +310,13 @@ export function getSchemeRaw(settings: unknown): RawScheme | null {
 
     const section = getWeldSettings(settings);
 
-    return {
-        srcDir: pickSchemeValue(section, 'srcDir', DEFAULT_SRC_DIR),
-        modulesDir: pickSchemeValue(section, 'modulesDir', DEFAULT_MODULES_DIR),
-        layers: pickSchemeValue(section, 'layers'),
-        moduleLayers: pickSchemeValue(section, 'moduleLayers'),
-        flatModules: pickSchemeValue(section, 'flatModules', false),
-    };
+    // Дефолты — из `SCHEME_DEFAULTS`: то же правило, что в `readScheme`.
+    return Object.fromEntries(
+        SCHEME_FIELDS.map((field) => [
+            field,
+            pickSchemeValue(section, field, SCHEME_DEFAULTS[field]),
+        ]),
+    ) as RawScheme;
 }
 
 /**

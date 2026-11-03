@@ -324,9 +324,80 @@ describe('getScheme', () => {
     });
 
     it('settings.weld не объект → исключение', () => {
+        expect(() => getScheme({ weld: 'nope' })).toThrow('settings.weld must be an object');
+    });
+
+    it('секция читается, пока хоть один список из секции — сломанная секция бросает', () => {
+        expect(() => getScheme({ weld: 'nope' }, { flatModules: true })).toThrow(
+            'settings.weld must be an object',
+        );
+    });
+
+    it('списки из опций, скаляры без override — скаляры берутся из settings.weld', () => {
+        const settings = {
+            weld: {
+                srcDir: 'app',
+                modulesDir: 'mods',
+                flatModules: true,
+                layers: ['ui', '@modules'],
+                moduleLayers: ['widgets'],
+            },
+        };
+
+        expect(
+            getScheme(settings, { layers: ['pages', '@modules'], moduleLayers: ['features'] }),
+        ).toEqual({
+            srcDir: '/app',
+            modulesDir: 'mods',
+            layers: ['pages', '@modules'],
+            moduleLayers: ['features'],
+            flatModules: true,
+        });
+    });
+
+    it('списки из опций, скаляры без override — сломанная секция бросает', () => {
         expect(() =>
-            getScheme({ weld: 'nope' }, { layers: ['app', '@modules'], moduleLayers: [] }),
+            getScheme(
+                { weld: 'nope' },
+                { layers: ['app', '@modules'], moduleLayers: ['features'] },
+            ),
         ).toThrow('settings.weld must be an object');
+    });
+
+    it('схема перекрыта опциями целиком — сломанная секция не читается', () => {
+        expect(
+            getScheme(
+                { weld: 'nope' },
+                {
+                    srcDir: 'app',
+                    modulesDir: 'mods',
+                    layers: ['pages', '@modules'],
+                    moduleLayers: ['features'],
+                    flatModules: true,
+                },
+            ),
+        ).toEqual({
+            srcDir: '/app',
+            modulesDir: 'mods',
+            layers: ['pages', '@modules'],
+            moduleLayers: ['features'],
+            flatModules: true,
+        });
+    });
+
+    it('секция не читается при полном перекрытии — кривое поле бросает ошибку из опций', () => {
+        expect(() =>
+            getScheme(
+                { weld: 'nope' },
+                {
+                    srcDir: 'app',
+                    modulesDir: 'mods',
+                    layers: ['app', '@modules'],
+                    moduleLayers: [],
+                    flatModules: true,
+                },
+            ),
+        ).toThrow('options.moduleLayers must not be empty');
     });
 
     it('flatModules по умолчанию false', () => {

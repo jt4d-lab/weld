@@ -15,7 +15,7 @@
 import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import { getFsHost, resolveRoot } from '@/host/index.js';
-import type { Alias, Scheme } from '@/settings/index.js';
+import type { Alias, Scheme, SchemeOverrides } from '@/settings/index.js';
 import {
     getAliases,
     getAliasesFromPaths,
@@ -30,18 +30,16 @@ import { loadTsconfigPaths } from '@/tsconfig/index.js';
 const debug = createLogger('config');
 
 /**
- * Поля схемы слоев в опциях. Тип не сужен намеренно: схема ESLint разрешает для них любые значения,
- * а проверяются они только при запросе `getScheme()`.
+ * Общие настройки WELD, подставленные вместо `settings.weld` — опции правила или флаги CLI. Поля
+ * схемы (`SchemeOverrides`) не сужаются: схема ESLint разрешает для них любые значения, а
+ * проверяются они только при запросе `getScheme()`.
  */
-type SchemeOptionFields = { [Field in keyof Scheme]?: unknown };
-
-/** Общие настройки WELD, подставленные вместо `settings.weld` — опции правила или флаги CLI. */
 export type WeldResolveOptions = {
     repoRoot?: string;
     aliasesBaseUrl?: string;
     aliases?: Record<string, unknown>;
     tsconfig?: string;
-} & SchemeOptionFields;
+} & SchemeOverrides;
 
 /** Вход резолва — всё, что нужно знать о файле, без единого типа ESLint. */
 export type WeldResolveInput = {

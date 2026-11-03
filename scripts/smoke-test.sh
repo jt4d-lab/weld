@@ -152,6 +152,7 @@ grep -qxF '  srcDir:         /src' <<<"$CONFIG" || { echo "    нет строк
 grep -qxF '  modulesDir:     modules' <<<"$CONFIG" || { echo "    нет строки modulesDir: $CONFIG" >&2; exit 1; }
 grep -qxF '  layers:         app, @modules' <<<"$CONFIG" || { echo "    нет строки layers: $CONFIG" >&2; exit 1; }
 grep -qxF '  moduleLayers:   features' <<<"$CONFIG" || { echo "    нет строки moduleLayers: $CONFIG" >&2; exit 1; }
+grep -qxF '  flatModules:    false' <<<"$CONFIG" || { echo "    нет строки flatModules: $CONFIG" >&2; exit 1; }
 echo "$CONFIG" | sed 's/^/    /'
 
 $CLI config --json src > "$TMP/config.json"
@@ -167,6 +168,7 @@ node -e "
   assert.equal(data.settings.modulesDir, 'modules', 'modulesDir в JSON');
   assert.deepEqual(data.settings.layers, ['app', '@modules'], 'layers в JSON');
   assert.deepEqual(data.settings.moduleLayers, ['features'], 'moduleLayers в JSON');
+  assert.equal(data.settings.flatModules, false, 'flatModules в JSON');
   assert.deepEqual(data.problems, {}, 'problems должен быть пуст');
   console.log('    json: ' + JSON.stringify(data.settings));
 "

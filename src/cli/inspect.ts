@@ -21,25 +21,27 @@ type MetaFields = {
 };
 
 /**
- * Данные текстового вывода `weld inspect`. `alias` — уже готовый к печати путь импорта: алиас, а
- * если файл не покрыт ни одним алиасом, то виртуальный путь.
+ * Данные `weld inspect`. `alias: null` — алиаса нет, и тогда: текстовая форма печатает
+ * `virtualPath`, JSON оставляет `null`. Машинная форма — тот же объект без `virtualPath`
+ * (`inspectJson`).
  */
 export type InspectData = MetaFields & {
     file: string;
-    alias: string;
-};
-
-/**
- * Машинная форма `weld inspect`: `alias: null` отличает «алиаса нет» от «алиас совпал с
- * виртуальным путем».
- */
-type InspectJsonData = MetaFields & {
-    file: string;
     alias: string | null;
+    /** Виртуальный путь модуля — для текстовой формы при `alias: null`. */
+    virtualPath: string;
 };
 
-/** Обе формы ответа `inspectFile`: `program.ts` выбирает форму, а не перечисляет поля. */
-type InspectResult = { text: InspectData; json: InspectJsonData };
+/** Машинная форма `weld inspect`: `InspectData` без `virtualPath`, который нужен только тексту. */
+export function inspectJson(data: InspectData): Record<string, unknown> {
+    return {
+        file: data.file,
+        alias: data.alias,
+        module: data.module,
+        layer: data.layer,
+        innerPath: data.innerPath,
+    };
+}
 
 /**
  * Директория — ошибка: `inspect` спрашивает про конкретный файл. `shownPath` попадает в сообщение.
@@ -48,7 +50,7 @@ type InspectResult = { text: InspectData; json: InspectJsonData };
  * потребители, которым схема не нужна, ее не читают. Метаданные считаются по исходному виртуальному
  * пути: схлопывание точки входа нужно только для алиаса.
  */
-export function inspectFile(lint: LintSettings, cwd: string, shownPath: string): InspectResult {
+export function inspectFile(lint: LintSettings, cwd: string, shownPath: string): InspectData {
     if (lint.sampleOf !== undefined) {
         throw new Error(`expected a file, got a directory: ${lint.sampleOf}`);
     }
@@ -64,17 +66,15 @@ export function inspectFile(lint: LintSettings, cwd: string, shownPath: string):
 
     const virtualPath = collapseEntryPoint(fromFile);
     const rendered = renderAliasPath(virtualPath, target.getAliases());
-    const alias = rendered === null ? null : withEntryName(rendered, fromFile);
-    const meta: MetaFields = {
+
+    return {
+        file: repoPath(repoRootOf(target, shownPath), lint.filePath),
+        // `null` — алиаса нет: текстовая форма подставит `virtualPath`, JSON оставит `null`.
+        alias: rendered === null ? null : withEntryName(rendered, fromFile),
+        virtualPath,
         module: renderModuleName(located.module),
         layer: located.layer,
         innerPath: located.innerPath,
-    };
-    const file = repoPath(repoRootOf(target, shownPath), lint.filePath);
-
-    return {
-        text: { file, alias: alias ?? virtualPath, ...meta },
-        json: { file, alias, ...meta },
     };
 }
 

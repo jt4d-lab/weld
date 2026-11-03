@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 import type { ConfigData } from './config.js';
 import { configJson } from './config.js';
 import type { InspectData } from './inspect.js';
+import { inspectJson } from './inspect.js';
 import { plain } from './program.testing.js';
 import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
 
 const INSPECT: InspectData = {
     file: '/repo/src/feature/internal.ts',
     alias: '@/feature/internal.ts',
+    virtualPath: '/src/feature/internal.ts',
     module: '@root',
     layer: '@unknown',
     innerPath: 'feature/internal.ts',
@@ -50,11 +52,8 @@ describe('renderInspect', () => {
         );
     });
 
-    it('без алиаса печатает то, что подставила команда — виртуальный путь', () => {
-        const output = renderInspect(
-            { ...INSPECT, alias: '/src/feature/internal.ts' },
-            { color: false },
-        );
+    it('без алиаса (alias: null) печатает виртуальный путь', () => {
+        const output = renderInspect({ ...INSPECT, alias: null }, { color: false });
 
         expect(output).toContain('alias:     /src/feature/internal.ts');
     });
@@ -70,6 +69,26 @@ describe('renderInspect', () => {
 
         expect(plain(colored)).not.toBe(colored);
         expect(plain(colored)).toBe(renderInspect(INSPECT, { color: false }));
+    });
+
+    it('значения путей с управляющими символами очищаются', () => {
+        const output = renderInspect(
+            {
+                ...INSPECT,
+                file: '/repo/src/feature/int\x01ernal.ts',
+                alias: '@/feature/int\u007fernal.ts',
+                module: 'billing\x02::sub',
+                layer: 'fea\x1btures',
+                innerPath: 'feature/inter\x03nal.ts',
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('file:      /repo/src/feature/int?ernal.ts');
+        expect(output).toContain('alias:     @/feature/int?ernal.ts');
+        expect(output).toContain('module:    billing?::sub');
+        expect(output).toContain('layer:     fea?tures');
+        expect(output).toContain('innerPath: feature/inter?nal.ts');
     });
 });
 
@@ -358,7 +377,7 @@ describe('renderConfig: директория', () => {
 
 describe('renderJson / configJson', () => {
     it('inspect с алиасом', () => {
-        expect(renderJson(INSPECT)).toBe(
+        expect(renderJson(inspectJson(INSPECT))).toBe(
             `{\n  "file": "/repo/src/feature/internal.ts",\n  "alias": "@/feature/internal.ts",\n` +
                 `  "module": "@root",\n  "layer": "@unknown",\n` +
                 `  "innerPath": "feature/internal.ts"\n}`,
@@ -368,7 +387,7 @@ describe('renderJson / configJson', () => {
     it('inspect без алиаса — alias: null', () => {
         const data = { ...INSPECT, file: '/repo/src/a.ts', alias: null, innerPath: 'a.ts' };
 
-        expect(renderJson(data)).toBe(
+        expect(renderJson(inspectJson(data))).toBe(
             `{\n  "file": "/repo/src/a.ts",\n  "alias": null,\n  "module": "@root",\n` +
                 `  "layer": "@unknown",\n  "innerPath": "a.ts"\n}`,
         );

@@ -28,7 +28,8 @@ const ALIAS_INDENT = `${SETTINGS_INDENT}${SETTINGS_INDENT}`;
 
 /**
  * Очистка управляющих символов: все символы < ' ' и DEL (0x7F) заменяются на `?`.
- * Используется и для сообщений об ошибках CLI, и для сообщений отчета.
+ * Используется и для сообщений об ошибках CLI, и для значений и путей отчета, которые могут
+ * нести управляющие символы из аргументов.
  */
 export function sanitizeText(text: string): string {
     return [...text].map((char) => (char < ' ' || char === '\u007f' ? '?' : char)).join('');
@@ -49,16 +50,18 @@ function widthOf(rows: readonly { label: string }[]): number {
 
 /**
  * `weld inspect`: путь файла, путь импорта и метаданные в схеме слоев. Значение `alias`
- * печатается как есть — команда уже подставила виртуальный путь, если алиаса нет.
+ * печатается как есть; при `alias: null` (алиаса нет) печатается `virtualPath`. Печатается
+ * очищенный текст: путь из аргумента может нести управляющие символы.
  */
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
+    const alias = data.alias ?? data.virtualPath;
     const rows = [
-        { label: 'file:', value: data.file },
-        { label: 'alias:', value: c.cyan(data.alias) },
-        { label: 'module:', value: data.module },
-        { label: 'layer:', value: data.layer },
-        { label: 'innerPath:', value: data.innerPath },
+        { label: 'file:', value: sanitizeText(data.file) },
+        { label: 'alias:', value: c.cyan(sanitizeText(alias)) },
+        { label: 'module:', value: sanitizeText(data.module) },
+        { label: 'layer:', value: sanitizeText(data.layer) },
+        { label: 'innerPath:', value: sanitizeText(data.innerPath) },
     ];
     const width = widthOf(rows);
 
@@ -67,35 +70,42 @@ export function renderInspect(data: InspectData, options: RenderOptions): string
 
 /**
  * `weld config`: файл (или сэмпл директории), примененный ESLint-конфиг, разобранные настройки
- * и схема слоев. Состояния `invalid`/`unresolved`/`not set` печатаются маркерами.
+ * и схема слоев. Состояния `invalid`/`unresolved`/`not set` печатаются маркерами. Печатается
+ * очищенный текст: пути и сообщения отчета могут нести управляющие символы.
  */
 export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
     const rows = [
         { label: 'file:', value: withSample(data, c) },
-        { label: 'config:', value: data.configFile },
+        { label: 'config:', value: sanitizeText(data.configFile) },
     ];
     const width = widthOf(rows);
-    const s = data.settings;
 
-    // Порядок строк — `CONFIG_SETTING_NAMES`; `aliases` — особая строка (под ней список),
-    // поэтому в ширину колонки подписей не входит.
-    const singleLabels = CONFIG_SETTING_NAMES.filter((name) => name !== 'aliases').map((name) => ({
-        label: `${name}:`,
-        value: settingValueText(name, s, c),
-    }));
-    const settingsWidth = widthOf(singleLabels);
+    // Ширина колонки подписей настроек берется из подписей, а не из значений: `aliases` под собой
+    // несет список и в ширину не входит, текст значения считается один раз — в строках печати.
+    const settingsWidth = widthOf(
+        CONFIG_SETTING_NAMES.filter((name) => name !== 'aliases').map((name) => ({
+            label: `${name}:`,
+        })),
+    );
 
     const sectionHeader =
         data.sectionError !== null
-            ? `${c.dim('settings.weld:')} ${c.red(data.sectionError)}`
+            ? `${c.dim('settings.weld:')} ${c.red(sanitizeText(data.sectionError))}`
             : c.dim('settings.weld:');
 
+    // Строки настроек в порядке `CONFIG_SETTING_NAMES`; `aliases` раскрывается в список на своем
+    // месте, остальные печатаются одной строкой.
     const settingsLines = CONFIG_SETTING_NAMES.flatMap((name) =>
         name === 'aliases'
-            ? renderAliases(s.aliases, c, settingsWidth)
+            ? renderAliases(data.settings.aliases, c, settingsWidth)
             : [
-                  `${SETTINGS_INDENT}${row(c, `${name}:`, settingValueText(name, s, c), settingsWidth)}`,
+                  `${SETTINGS_INDENT}${row(
+                      c,
+                      `${name}:`,
+                      rowValue(name, data.settings[name], c),
+                      settingsWidth,
+                  )}`,
               ],
     );
 
@@ -107,50 +117,31 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
 }
 
 /**
- * Текст строки отчета: списочные настройки — через `listStateText`, булево `flatModules` — через
- * `booleanStateText`, остальные — как строка.
+ * Текст строки настройки: списочные — через запятую, булево `flatModules` — `true`/`false`,
+ * остальные — как строка. Маркеры состояний — красная ошибка / желтый unresolved / серый not set.
  */
-function settingValueText(name: ConfigSettingName, s: ConfigData['settings'], c: Colors): string {
+function rowValue(name: ConfigSettingName, state: SettingState<unknown>, c: Colors): string {
+    if (state.status === 'invalid') {
+        return c.red(sanitizeText(state.message));
+    }
+
+    if (state.status === 'unresolved') {
+        return c.yellow(`(unresolved: ${state.dependency})`);
+    }
+
+    if (state.status === 'not-set') {
+        return c.dim('(not set)');
+    }
+
     if (name === 'layers' || name === 'moduleLayers') {
-        return listStateText(s[name], c);
+        return (state.value as readonly string[]).join(', ');
     }
 
     if (name === 'flatModules') {
-        return booleanStateText(s[name], c);
+        return (state.value as boolean) ? 'true' : 'false';
     }
 
-    // `aliases` здесь нет.
-    return stateText(s[name] as SettingState<string>, c);
-}
-
-/** Текст для строковой настройки: значение / красная ошибка / желтый unresolved / серый not set. */
-function stateText(state: SettingState<string>, c: Colors): string {
-    switch (state.status) {
-        case 'value':
-            return state.value;
-        case 'invalid':
-            return c.red(state.message);
-        case 'unresolved':
-            return c.yellow(`(unresolved: ${state.dependency})`);
-        case 'not-set':
-            return c.dim('(not set)');
-    }
-}
-
-/** Текст для булевой настройки: `true`/`false` / маркеры как для строковой. */
-function booleanStateText(state: SettingState<boolean>, c: Colors): string {
-    if (state.status === 'value') {
-        return state.value ? 'true' : 'false';
-    }
-    return stateText(state as SettingState<string>, c);
-}
-
-/** Текст для списочной настройки: значения через запятую / маркеры как для строковой. */
-function listStateText(state: SettingState<readonly string[]>, c: Colors): string {
-    if (state.status === 'value') {
-        return state.value.join(', ');
-    }
-    return stateText(state as SettingState<string>, c);
+    return sanitizeText(state.value as string);
 }
 
 /**
@@ -168,17 +159,22 @@ function renderAliases(state: SettingState<Alias[]>, c: Colors, width: number): 
             ...state.value.map((alias) => `${ALIAS_INDENT}${c.cyan(formatAlias(alias))}`),
         ];
     }
-    return [
-        `${SETTINGS_INDENT}${row(c, 'aliases:', stateText(state as SettingState<string>, c), width)}`,
-    ];
+
+    const marker =
+        state.status === 'invalid'
+            ? c.red(sanitizeText(state.message))
+            : state.status === 'unresolved'
+              ? c.yellow(`(unresolved: ${state.dependency})`)
+              : c.dim('(not set)');
+    return [`${SETTINGS_INDENT}${row(c, 'aliases:', marker, width)}`];
 }
 
 function withSample(data: ConfigData, c: Colors): string {
     if (data.sampleOf === undefined) {
-        return data.file;
+        return sanitizeText(data.file);
     }
 
-    return `${data.file} ${c.dim(`(sample of ${data.sampleOf})`)}`;
+    return `${sanitizeText(data.file)} ${c.dim(`(sample of ${sanitizeText(data.sampleOf)})`)}`;
 }
 
 /**

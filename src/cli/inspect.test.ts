@@ -168,6 +168,25 @@ export default [
 ];
 `;
 
+/**
+ * `flatModules: true`: корневой модуль лежит прямо в `srcDir`, а контейнер в корне
+ * (`src/modules/`) не распознается.
+ */
+const FLAT_MODULES_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: {
+            weld: {
+                aliasesBaseUrl: '.',
+                aliases: { '@/*': ['src/*'] },
+                ${SCHEME_SETTINGS_TEXT},
+                flatModules: true,
+            },
+        },
+    },
+];
+`;
+
 /** Одна строка таблицы примеров `weld inspect`: путь файла и его место в схеме. */
 type MetaRow = { path: string; module: string; layer: string; innerPath: string };
 
@@ -652,6 +671,98 @@ describe('weld inspect: метаданные файла', () => {
             innerPath: 'panel.ts',
         });
     });
+
+    describe('flatModules: true', () => {
+        it('корневой модуль прямо в srcDir, слой модуля — по имени из moduleLayers', async () => {
+            const root = makeCliProject({
+                'eslint.config.mjs': FLAT_MODULES_CONFIG,
+                'src/order/features/w.ts': '',
+            });
+            const { program, out, err, codes } = capture(root);
+
+            await program.parseAsync(['inspect', 'src/order/features/w.ts'], { from: 'user' });
+
+            expect(printed(out)).toBe(
+                inspectOutput({
+                    file: 'src/order/features/w.ts',
+                    alias: '@/order/features/w.ts',
+                    module: 'order',
+                    layer: 'features',
+                    innerPath: 'w.ts',
+                }),
+            );
+            expect(err).toEqual([]);
+            expect(codes).toEqual([]);
+        });
+
+        it('вложенный модуль — в контейнере: src/order/modules/sub — order::sub', async () => {
+            const root = makeCliProject({
+                'eslint.config.mjs': FLAT_MODULES_CONFIG,
+                'src/order/modules/sub/features/w.ts': '',
+            });
+            const { program, out, err, codes } = capture(root);
+
+            await program.parseAsync(['inspect', 'src/order/modules/sub/features/w.ts'], {
+                from: 'user',
+            });
+
+            expect(printed(out)).toBe(
+                inspectOutput({
+                    file: 'src/order/modules/sub/features/w.ts',
+                    alias: '@/order/modules/sub/features/w.ts',
+                    module: 'order::sub',
+                    layer: 'features',
+                    innerPath: 'w.ts',
+                }),
+            );
+            expect(err).toEqual([]);
+            expect(codes).toEqual([]);
+        });
+
+        it('контейнер в корне не распознается: файл под src/modules — @root и @unknown', async () => {
+            const root = makeCliProject({
+                'eslint.config.mjs': FLAT_MODULES_CONFIG,
+                'src/modules/order/w.ts': '',
+            });
+            const { program, out, err, codes } = capture(root);
+
+            await program.parseAsync(['inspect', 'src/modules/order/w.ts'], { from: 'user' });
+
+            expect(printed(out)).toBe(
+                inspectOutput({
+                    file: 'src/modules/order/w.ts',
+                    alias: '@/modules/order/w.ts',
+                    module: '@root',
+                    layer: '@unknown',
+                    innerPath: 'modules/order/w.ts',
+                }),
+            );
+            expect(err).toEqual([]);
+            expect(codes).toEqual([]);
+        });
+
+        it('имя слоя в корне побеждает модуль: src/app — слой, даже при flatModules', async () => {
+            const root = makeCliProject({
+                'eslint.config.mjs': FLAT_MODULES_CONFIG,
+                'src/app/x.ts': '',
+            });
+            const { program, out, err, codes } = capture(root);
+
+            await program.parseAsync(['inspect', 'src/app/x.ts'], { from: 'user' });
+
+            expect(printed(out)).toBe(
+                inspectOutput({
+                    file: 'src/app/x.ts',
+                    alias: '@/app/x.ts',
+                    module: '@root',
+                    layer: 'app',
+                    innerPath: 'x.ts',
+                }),
+            );
+            expect(err).toEqual([]);
+            expect(codes).toEqual([]);
+        });
+    });
 });
 
 describe('weld inspect: схема слоев', () => {
@@ -827,10 +938,10 @@ describe('inspectFile: имя файла в алиасе', () => {
             'src/index.ts',
         );
 
-        expect(result.text.alias).toBe('@/index.ts');
-        expect(result.text.module).toBe('@root');
-        expect(result.text.layer).toBe('@unknown');
-        expect(result.text.innerPath).toBe('index.ts');
-        expect(result.json).toEqual(result.text);
+        expect(result.alias).toBe('@/index.ts');
+        expect(result.module).toBe('@root');
+        expect(result.layer).toBe('@unknown');
+        expect(result.innerPath).toBe('index.ts');
+        expect(result.virtualPath).toBe('/src');
     });
 });

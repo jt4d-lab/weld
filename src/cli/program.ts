@@ -13,7 +13,7 @@ import { packageVersion } from '@/package.js';
 import { configJson, effectiveConfig, hasOwnError } from './config.js';
 import type { LintSettings } from './eslint-config.js';
 import { loadLintSettings } from './eslint-config.js';
-import { inspectFile } from './inspect.js';
+import { inspectFile, inspectJson } from './inspect.js';
 import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
 
 /**
@@ -134,8 +134,8 @@ function buildProgram(deps: ProgramDeps): Command {
                 const data = inspectFile(lint, deps.cwd, path);
                 const text =
                     options.json === true
-                        ? renderJson(data.json)
-                        : renderInspect(data.text, { color: colorOption(options) });
+                        ? renderJson(inspectJson(data))
+                        : renderInspect(data, { color: colorOption(options) });
 
                 deps.write(`${text}\n`);
             }),

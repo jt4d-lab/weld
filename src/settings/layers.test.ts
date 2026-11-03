@@ -244,6 +244,12 @@ describe('parseScheme — flatModules', () => {
         );
     });
 
+    it('обратный порядок: кривой список бьет кривое flatModules — списки разбираются раньше', () => {
+        expect(() => parse({ layers: ['app', '9bad'], flatModules: 'no' })).toThrow(
+            'settings.weld.layers[1] is not a valid layer name: "9bad"',
+        );
+    });
+
     it('flatModules не мешает другим полям', () => {
         expect(parse({ flatModules: true }).modulesDir).toBe('modules');
     });
@@ -284,6 +290,7 @@ describe('parseSchemeReport — состояния', () => {
         expect(result.modulesDir).toEqual({ status: 'value', value: 'modules' });
         expect(result.layers).toEqual({ status: 'value', value: ['app', '@modules'] });
         expect(result.moduleLayers).toEqual({ status: 'value', value: ['features'] });
+        expect(result.flatModules).toEqual({ status: 'value', value: false });
     });
 
     it('нет layers → not set, остальные поля не ломаются', () => {

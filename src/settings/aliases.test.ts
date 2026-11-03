@@ -145,12 +145,12 @@ describe('checkAliasesFormat — собственный формат', () => {
     it('валидные алиасы → value', () => {
         expect(checkAliasesFormat({ '@src/*': ['src/*'] }, SOURCE)).toEqual({
             status: 'value',
-            value: null,
+            value: '',
         });
     });
 
     it('пустой объект → value', () => {
-        expect(checkAliasesFormat({}, SOURCE)).toEqual({ status: 'value', value: null });
+        expect(checkAliasesFormat({}, SOURCE)).toEqual({ status: 'value', value: '' });
     });
 
     it('не объект → invalid', () => {
@@ -184,7 +184,7 @@ describe('checkAliasesFormat — собственный формат', () => {
     it('запись с некорректным ключом отбрасывается и не дает ошибки', () => {
         expect(checkAliasesFormat({ '*': ['src'], '@a*b': ['src'] }, SOURCE)).toEqual({
             status: 'value',
-            value: null,
+            value: '',
         });
     });
 });

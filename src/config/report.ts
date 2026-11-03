@@ -32,6 +32,7 @@ import {
     getTsconfigName,
     hasAliases,
     parseSchemeReport,
+    schemeSourceOf,
 } from '@/settings/index.js';
 
 import type { WeldResolveInput, WeldResolveOptions, WeldTarget } from './resolve.js';
@@ -309,14 +310,12 @@ function schemeStates(settings: unknown, options: WeldResolveOptions): SchemeRep
         } else if (sectionRaw !== null) {
             raw[field] = sectionRaw[field];
         } else {
-            raw[field] = undefined;
+            // `raw[field]` уже `undefined` по инициализации — поле просто не заполняется.
             blocked.add(field);
         }
     }
 
-    const report = parseSchemeReport(raw, (field) =>
-        options[field] !== undefined ? `options.${field}` : `settings.weld.${field}`,
-    );
+    const report = parseSchemeReport(raw, schemeSourceOf(options));
 
     for (const field of blocked) {
         report[field] = { status: 'unresolved', dependency: 'settings.weld' };

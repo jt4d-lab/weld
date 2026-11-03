@@ -9,12 +9,12 @@ const debug = createLogger('aliases');
  * Небросающая проверка собственного формата алиасов: объект, значения — строка или массив строк.
  * Делегирует бросающему `parseAliases`: форматные ошибки — те же броски с теми же текстами, а
  * записи с некорректной формой ключа/якоря отбрасываются там же и не дают ошибки формата.
- * Якоря не используются: результат разбора отбрасывается, важен только факт формата.
+ * Разобранные значения не используются — важен только факт формата, поэтому `value` — пустая строка.
  */
-export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<null> {
+export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<string> {
     try {
         parseAliases(rawAliases, '.', source);
-        return { status: 'value', value: null };
+        return { status: 'value', value: '' };
     } catch (error) {
         return { status: 'invalid', message: (error as Error).message };
     }
