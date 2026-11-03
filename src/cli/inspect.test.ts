@@ -9,7 +9,7 @@ import { inspectFile } from './inspect.js';
 import {
     ALIAS_CONFIG,
     OUTSIDE_ROOT_CONFIG,
-    SCHEME_FIELDS,
+    SCHEME_SETTINGS_TEXT,
     capture,
     makeCliProject,
     printed,
@@ -25,7 +25,7 @@ vi.mock('../config/index.js', async (importOriginal) => {
 const NO_ALIASES_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliasesBaseUrl: '.', ${SCHEME_FIELDS} } },
+        settings: { weld: { aliasesBaseUrl: '.', ${SCHEME_SETTINGS_TEXT} } },
     },
 ];
 `;
@@ -50,7 +50,7 @@ const NO_UNKNOWN_MARKER_CONFIG = `export default [
 const TSCONFIG_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { ${SCHEME_FIELDS} } },
+        settings: { weld: { ${SCHEME_SETTINGS_TEXT} } },
     },
 ];
 `;
@@ -70,7 +70,7 @@ const NO_SCHEME_CONFIG = `export default [
 const ROOT_SRC_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliasesBaseUrl: '.', srcDir: '.', ${SCHEME_FIELDS} } },
+        settings: { weld: { aliasesBaseUrl: '.', srcDir: '.', ${SCHEME_SETTINGS_TEXT} } },
     },
 ];
 `;
@@ -79,7 +79,7 @@ const ROOT_SRC_CONFIG = `export default [
 const FEATURE_ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliases: { '@/feature/*': ['src/feature/*'] }, ${SCHEME_FIELDS} } },
+        settings: { weld: { aliases: { '@/feature/*': ['src/feature/*'] }, ${SCHEME_SETTINGS_TEXT} } },
     },
 ];
 `;
@@ -88,7 +88,7 @@ const FEATURE_ALIAS_CONFIG = `export default [
 const EXACT_ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliases: { '@/config': ['src/config'] }, ${SCHEME_FIELDS} } },
+        settings: { weld: { aliases: { '@/config': ['src/config'] }, ${SCHEME_SETTINGS_TEXT} } },
     },
 ];
 `;
@@ -100,7 +100,7 @@ const EXACT_AND_STAR_ALIAS_CONFIG = `export default [
         settings: {
             weld: {
                 aliases: { '@/config': ['src/config'], '@/*': ['src/*'] },
-                ${SCHEME_FIELDS},
+                ${SCHEME_SETTINGS_TEXT},
             },
         },
     },

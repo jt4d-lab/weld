@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ConfigData } from './config.js';
+import { configJson } from './config.js';
 import type { InspectData } from './inspect.js';
 import { plain } from './program.testing.js';
 import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
-import { configJson } from './config.js';
 
 const INSPECT: InspectData = {
     file: '/repo/src/feature/internal.ts',

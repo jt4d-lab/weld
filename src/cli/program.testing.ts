@@ -16,7 +16,7 @@ export const SCHEME_SETTINGS = {
 };
 
 /** Та же схема строкой — для конфигов, которые тесты пишут на диск. */
-export const SCHEME_FIELDS = Object.entries(SCHEME_SETTINGS)
+export const SCHEME_SETTINGS_TEXT = Object.entries(SCHEME_SETTINGS)
     .map(([field, names]) => `${field}: ${renderNames(names)}`)
     .join(', ');
 
@@ -33,7 +33,7 @@ export const ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
         settings: {
-            weld: { aliasesBaseUrl: '.', aliases: { '@/*': ['src/*'] }, ${SCHEME_FIELDS} },
+            weld: { aliasesBaseUrl: '.', aliases: { '@/*': ['src/*'] }, ${SCHEME_SETTINGS_TEXT} },
         },
     },
 ];
@@ -58,7 +58,7 @@ export const OTHER_CONFIG = `export default [
     {
         files: ['**/*.ts', '**/*.js'],
         settings: {
-            weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] }, ${SCHEME_FIELDS} },
+            weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] }, ${SCHEME_SETTINGS_TEXT} },
         },
     },
 ];

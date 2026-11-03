@@ -1,7 +1,7 @@
 import { createLogger } from '@/debug.js';
 import { isEntryFileName } from '@/extensions.js';
 import { basename, resolvePath, splitExtension } from '@/path/index.js';
-import type { SettingState } from './layers.js';
+import type { SettingState } from './state.js';
 
 const debug = createLogger('aliases');
 

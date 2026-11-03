@@ -3,8 +3,8 @@
  * директории. Отчет строит `reportForFile`; команда только определяет пути и отдает отчет наружу.
  */
 
-import { reportForFile } from '@/config/index.js';
 import type { ConfigReport } from '@/config/index.js';
+import { reportForFile } from '@/config/index.js';
 import type { SettingState } from '@/settings/index.js';
 
 import { sanitizeText } from './render.js';
@@ -13,7 +13,7 @@ import { assertInsideRoot, repoPath } from './target.js';
 
 /**
  * Данные `weld config`: состояния эффективных настроек из отчета `src/config/` плюс пути. Граф
- * зависимостей живёт в отчёте, здесь он не пересобирается. Текстовую и JSON-форму собирают
+ * зависимостей живет в отчете, здесь он не пересобирается. Текстовую и JSON-форму собирают
  * `renderConfig` и `configJson`.
  */
 export type ConfigData = {

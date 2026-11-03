@@ -6,12 +6,10 @@
 
 import pc from 'picocolors';
 
-import type { SettingState } from '@/settings/index.js';
-import type { Alias } from '@/settings/index.js';
+import type { Alias, SettingState } from '@/settings/index.js';
 
-import type { ConfigData } from './config.js';
+import type { ConfigData, ConfigSettingName } from './config.js';
 import { CONFIG_SETTING_NAMES } from './config.js';
-import type { ConfigSettingName } from './config.js';
 import type { InspectData } from './inspect.js';
 
 /** Формат `picocolors`: `createColors(false)` — те же функции, но без escape-последовательностей. */
@@ -155,15 +153,9 @@ function renderAliases(state: SettingState<Alias[]>, c: Colors, width: number): 
             ...state.value.map((alias) => `${ALIAS_INDENT}${c.cyan(formatAlias(alias))}`),
         ];
     }
-    if (state.status === 'invalid') {
-        return [`${SETTINGS_INDENT}${row(c, 'aliases:', c.red(state.message), width)}`];
-    }
-    if (state.status === 'unresolved') {
-        return [
-            `${SETTINGS_INDENT}${row(c, 'aliases:', c.yellow(`(unresolved: ${state.dependency})`), width)}`,
-        ];
-    }
-    return [`${SETTINGS_INDENT}${row(c, 'aliases:', c.dim('(not set)'), width)}`];
+    return [
+        `${SETTINGS_INDENT}${row(c, 'aliases:', stateText(state as SettingState<string>, c), width)}`,
+    ];
 }
 
 function withSample(data: ConfigData, c: Colors): string {

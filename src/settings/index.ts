@@ -33,5 +33,7 @@ export {
  * слоя бывает только `UNKNOWN_MARKER`: это имя слоя, которого нет в схеме, и единственная метка,
  * которую потребителю есть с чем сравнивать. `@modules` в `layers` — метка места, а не слой.
  */
-export type { RawScheme, Scheme, SchemeField, SchemeReport, SettingState } from './layers.js';
+export type { RawScheme, Scheme, SchemeField, SchemeReport } from './layers.js';
 export { parseSchemeReport, SCHEME_FIELDS, UNKNOWN_MARKER } from './layers.js';
+/** Состояние значения в небросающих диагностических разборах слоя: `checkAliasesFormat`, `parseSchemeReport`. */
+export type { SettingState } from './state.js';

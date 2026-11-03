@@ -10,6 +10,7 @@
  */
 
 import { resolvePath } from '@/path/index.js';
+import type { SettingState } from './state.js';
 
 /** Метка места слоев модулей в `layers` — не имя директории. */
 const MODULES_MARKER = '@modules';
@@ -53,13 +54,6 @@ const LAYER_NAME = /^[\p{L}][\p{L}\p{N}._-]*$/u;
  * имен модулей в выводе).
  */
 const INVALID_DIR_CHARS = /[/\\@:]/;
-
-/** Состояние значения в диагностическом отчете. */
-export type SettingState<T = unknown> =
-    | { status: 'value'; value: T }
-    | { status: 'invalid'; message: string }
-    | { status: 'unresolved'; dependency: string }
-    | { status: 'not-set' };
 
 /** Отчет по схеме: состояние каждого поля. */
 export type SchemeReport = {
@@ -318,7 +312,6 @@ export function parseSchemeReport(
     const layersSource = sourceOf('layers');
     const moduleLayersSource = sourceOf('moduleLayers');
 
-    // srcDir — независимое поле
     let srcDirState: SettingState<string>;
     try {
         srcDirState = { status: 'value', value: parseSrcDir(raw.srcDir, srcDirSource) };
@@ -326,7 +319,6 @@ export function parseSchemeReport(
         srcDirState = { status: 'invalid', message: (e as Error).message };
     }
 
-    // modulesDir — независимое поле
     let modulesDirState: SettingState<string>;
     let modulesDirValue: string | null = null;
     try {
