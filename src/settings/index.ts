@@ -13,19 +13,14 @@
  */
 
 export type { Alias } from './aliases.js';
-/**
- * Форма записи `paths`/`aliases`, которую примет разбор (`hasValidStarShape`: без `*` либо с
- * хвостом `/*`), и снятие этого хвоста (`stripStarSuffix`). Наружу выходят для потребителей,
- * которым нужно предсказать решение разбора, не запуская его, — например, расчету root в
- * `src/tsconfig/` нельзя поднимать root ради якоря записи, которую разбор потом отбросит.
- */
-export { hasValidStarShape, stripStarSuffix } from './aliases.js';
+export { checkAliasesFormat, hasValidStarShape, stripStarSuffix } from './aliases.js';
 export {
     getAliases,
     getAliasesBaseUrl,
     getAliasesFromPaths,
     getRepoRoot,
     getScheme,
+    getSectionError,
     getTsconfigName,
     hasAliases,
     resetSettingsCaches,
@@ -36,5 +31,5 @@ export {
  * слоя бывает только `UNKNOWN_MARKER`: это имя слоя, которого нет в схеме, и единственная метка,
  * которую потребителю есть с чем сравнивать. `@modules` в `layers` — метка места, а не слой.
  */
-export type { Scheme } from './layers.js';
-export { UNKNOWN_MARKER } from './layers.js';
+export type { Scheme, SchemeReport, SettingState } from './layers.js';
+export { parseSchemeReport, UNKNOWN_MARKER } from './layers.js';

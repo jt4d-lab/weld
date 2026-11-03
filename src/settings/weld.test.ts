@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAliasesFromPaths, getScheme, getTsconfigName } from '@/settings/index.js';
+import {
+    getAliasesFromPaths,
+    getSectionError,
+    getScheme,
+    getTsconfigName,
+} from '@/settings/index.js';
 import {
     getAliases,
     getAliasesBaseUrl,
@@ -456,5 +461,23 @@ describe('override — валидация', () => {
         expect(() => getAliases({}, { '@bad': 42 })).toThrow(
             "options.aliases['@bad'] must be a string or an array of strings",
         );
+    });
+});
+
+describe('getSectionError', () => {
+    it('нет settings.weld → null', () => {
+        expect(getSectionError({})).toBeNull();
+    });
+
+    it('settings.weld валидный объект → null', () => {
+        expect(getSectionError({ weld: { repoRoot: '/repo' } })).toBeNull();
+    });
+
+    it('settings.weld не объект → возвращает сообщение об ошибке', () => {
+        expect(getSectionError({ weld: 'nope' })).toBe('settings.weld must be an object');
+    });
+
+    it('settings не объект → null (нет секции)', () => {
+        expect(getSectionError('string')).toBeNull();
     });
 });

@@ -1,8 +1,43 @@
 import { createLogger } from '@/debug.js';
 import { isEntryFileName } from '@/extensions.js';
 import { basename, resolvePath, splitExtension } from '@/path/index.js';
+import type { SettingState } from './layers.js';
 
 const debug = createLogger('aliases');
+
+/**
+ * Небросающая проверка собственного формата алиасов: объект, значения — строка или массив строк.
+ * Записи с некорректным форматом ключа (звездочка в середине, пустой префикс) отбрасываются
+ * так же, как в `parseAliases`, и не дают ошибки формата.
+ * Якоря не резолвятся: для этого нужен валидный `aliasesBaseUrl`.
+ */
+export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<null> {
+    if (typeof rawAliases !== 'object' || rawAliases === null || Array.isArray(rawAliases)) {
+        return { status: 'invalid', message: `${source} must be an object` };
+    }
+
+    for (const [key, rawValue] of Object.entries(rawAliases as Record<string, unknown>)) {
+        if (!hasValidStarShape(key)) continue;
+        if (typeof rawValue === 'string') continue;
+        if (Array.isArray(rawValue)) {
+            for (const item of rawValue) {
+                if (typeof item !== 'string') {
+                    return {
+                        status: 'invalid',
+                        message: `${source}['${key}'] must contain only strings`,
+                    };
+                }
+            }
+            continue;
+        }
+        return {
+            status: 'invalid',
+            message: `${source}['${key}'] must be a string or an array of strings`,
+        };
+    }
+
+    return { status: 'value', value: null };
+}
 
 /**
  * Одна разобранная запись `paths`: префикс специфаера, якорь-директория и форма ключа. `star`

@@ -54,6 +54,21 @@ const LAYER_NAME = /^[\p{L}][\p{L}\p{N}._-]*$/u;
  */
 const INVALID_DIR_CHARS = /[/\\@:]/;
 
+/** Состояние значения в диагностическом отчете. */
+export type SettingState<T = unknown> =
+    | { status: 'value'; value: T }
+    | { status: 'invalid'; message: string }
+    | { status: 'unresolved'; dependency: string }
+    | { status: 'not-set' };
+
+/** Отчет по схеме: состояние каждого поля. */
+export type SchemeReport = {
+    srcDir: SettingState<string>;
+    modulesDir: SettingState<string>;
+    layers: SettingState<readonly string[]>;
+    moduleLayers: SettingState<readonly string[]>;
+};
+
 /**
  * Разбирает схему из уже добытых значений. `sourceOf` называет место значения в конфиге
  * (`settings.weld.layers` или `options.layers`) — источники полей могут быть разными, поэтому имя
@@ -206,4 +221,156 @@ function checkSharedNames(
             );
         }
     }
+}
+
+/**
+ * Небросающий разбор схемы: каждое поле получает состояние `value`, `invalid`, `unresolved`
+ * или `not-set`. Правила и порядок проверок совпадают с бросающим `parseScheme`; отличие —
+ * ошибки собираются, а не бросаются.
+ *
+ * Порядок проверок на элемент: собственный формат (тип, имя, метки), затем зависимость от
+ * `modulesDir`. Совместные проверки (`@modules`, общие имена) выполняются, только когда оба
+ * списка разрешились в `value`.
+ */
+export function parseSchemeReport(
+    raw: RawScheme,
+    sourceOf: (field: SchemeField) => string,
+): SchemeReport {
+    const srcDirSource = sourceOf('srcDir');
+    const modulesDirSource = sourceOf('modulesDir');
+    const layersSource = sourceOf('layers');
+    const moduleLayersSource = sourceOf('moduleLayers');
+
+    // srcDir — независимое поле
+    let srcDirState: SettingState<string>;
+    try {
+        srcDirState = { status: 'value', value: parseSrcDir(raw.srcDir, srcDirSource) };
+    } catch (e) {
+        srcDirState = { status: 'invalid', message: (e as Error).message };
+    }
+
+    // modulesDir — независимое поле
+    let modulesDirState: SettingState<string>;
+    let modulesDirValue: string | null = null;
+    try {
+        modulesDirValue = parseModulesDir(raw.modulesDir, modulesDirSource);
+        modulesDirState = { status: 'value', value: modulesDirValue };
+    } catch (e) {
+        modulesDirState = { status: 'invalid', message: (e as Error).message };
+    }
+
+    // Списки: собственный формат → зависимость от modulesDir
+    let layersState = parseListReport(raw.layers, layersSource, modulesDirValue, true);
+    let moduleLayersState = parseListReport(
+        raw.moduleLayers,
+        moduleLayersSource,
+        modulesDirValue,
+        false,
+    );
+
+    // Совместные проверки — только когда оба списка в состоянии value
+    if (layersState.status === 'value' && moduleLayersState.status === 'value') {
+        if (!layersState.value.includes(MODULES_MARKER)) {
+            layersState = {
+                status: 'invalid',
+                message: `${layersSource} must contain the "${MODULES_MARKER}" marker`,
+            };
+        } else {
+            const projectNames = new Set(layersState.value.filter((n) => !isMarker(n)));
+            for (const [i, name] of moduleLayersState.value.entries()) {
+                if (projectNames.has(name)) {
+                    moduleLayersState = {
+                        status: 'invalid',
+                        message: `${moduleLayersSource}[${i}]: "${name}" is also listed in ${layersSource}`,
+                    };
+                    break;
+                }
+            }
+        }
+    }
+
+    return {
+        srcDir: srcDirState,
+        modulesDir: modulesDirState,
+        layers: layersState,
+        moduleLayers: moduleLayersState,
+    };
+}
+
+/**
+ * Небросающий разбор списка слоев. `isProjectLayers` определяет, допускаются ли метки.
+ * Порядок проверок на элемент совпадает с `parseLayerName` + маркерной проверкой.
+ */
+function parseListReport(
+    value: unknown,
+    source: string,
+    modulesDir: string | null,
+    isProjectLayers: boolean,
+): SettingState<readonly string[]> {
+    if (value === undefined) {
+        return { status: 'not-set' };
+    }
+
+    if (!Array.isArray(value)) {
+        return {
+            status: 'invalid',
+            message: `${source} must be an array of strings, got ${typeof value}`,
+        };
+    }
+
+    if (value.length === 0) {
+        return { status: 'invalid', message: `${source} must not be empty` };
+    }
+
+    const parsed: string[] = [];
+    const seenMarkers = new Set<LayerMarker>();
+
+    for (let i = 0; i < value.length; i++) {
+        const item = value[i];
+
+        if (typeof item !== 'string') {
+            return {
+                status: 'invalid',
+                message: `${source}[${i}] must be a string, got ${typeof item}`,
+            };
+        }
+
+        if (isMarker(item)) {
+            if (isProjectLayers) {
+                if (seenMarkers.has(item as LayerMarker)) {
+                    return {
+                        status: 'invalid',
+                        message: `${source}[${i}]: "${item}" marker is allowed only once`,
+                    };
+                }
+                seenMarkers.add(item as LayerMarker);
+            } else {
+                return {
+                    status: 'invalid',
+                    message: `${source}[${i}]: "${item}" marker is not allowed here`,
+                };
+            }
+        } else {
+            if (!LAYER_NAME.test(item)) {
+                return {
+                    status: 'invalid',
+                    message: `${source}[${i}] is not a valid layer name: "${item}"`,
+                };
+            }
+            if (modulesDir !== null && item === modulesDir) {
+                return {
+                    status: 'invalid',
+                    message: `${source}[${i}]: "${item}" must not be the modulesDir name`,
+                };
+            }
+        }
+
+        parsed.push(item);
+    }
+
+    if (modulesDir === null) {
+        return { status: 'unresolved', dependency: 'modulesDir' };
+    }
+
+    return { status: 'value', value: parsed };
 }

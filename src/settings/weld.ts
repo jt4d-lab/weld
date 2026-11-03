@@ -259,3 +259,25 @@ function readScheme(settings: unknown, overrides: SchemeOverrides): Scheme {
         (field) => (overrides[field] !== undefined ? `options.${field}` : `settings.weld.${field}`),
     );
 }
+
+/**
+ * Диагностическая точка доступа: ошибка самой секции `settings.weld`, если секция задана,
+ * но не является объектом. `null` — секции нет (необязательно) либо она валидна. Сырую
+ * секцию наружу не отдаем: наружу только текст ошибки или `null`.
+ */
+export function getSectionError(settings: unknown): string | null {
+    if (typeof settings !== 'object' || settings === null) {
+        return null;
+    }
+
+    const weld = (settings as Record<string, unknown>).weld;
+    if (weld === undefined) {
+        return null;
+    }
+
+    if (typeof weld !== 'object' || weld === null) {
+        return 'settings.weld must be an object';
+    }
+
+    return null;
+}

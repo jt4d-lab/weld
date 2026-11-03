@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RawScheme, SchemeField } from '@/settings/layers.js';
-import { parseScheme } from '@/settings/layers.js';
+import { parseScheme, parseSchemeReport } from '@/settings/layers.js';
 
 /** Схема, которую разбирает каждый тест, если он не переопределил поле. */
 const validScheme: RawScheme = {
@@ -232,5 +232,170 @@ describe('parseScheme — источники значений', () => {
                 fromSettings,
             ),
         ).toThrow('options.moduleLayers[0]: "shared" is also listed in settings.weld.layers');
+    });
+});
+
+describe('parseSchemeReport — состояния', () => {
+    function report(
+        raw: Partial<RawScheme>,
+        sourceOf: (field: SchemeField) => string = settingsSource,
+    ) {
+        return parseSchemeReport({ ...validScheme, ...raw }, sourceOf);
+    }
+
+    it('валидная схема — все поля value', () => {
+        const result = report({});
+
+        expect(result.srcDir).toEqual({ status: 'value', value: '/src' });
+        expect(result.modulesDir).toEqual({ status: 'value', value: 'modules' });
+        expect(result.layers).toEqual({ status: 'value', value: ['app', '@modules'] });
+        expect(result.moduleLayers).toEqual({ status: 'value', value: ['features'] });
+    });
+
+    it('нет layers → not set, остальные поля не ломаются', () => {
+        const result = report({ layers: undefined });
+
+        expect(result.layers).toEqual({ status: 'not-set' });
+        expect(result.moduleLayers.status).toBe('value');
+    });
+
+    it('нет moduleLayers → not set, остальные поля не ломаются', () => {
+        const result = report({ moduleLayers: undefined });
+
+        expect(result.moduleLayers).toEqual({ status: 'not-set' });
+        expect(result.layers.status).toBe('value');
+    });
+
+    it('оба списка отсутствуют → оба not set, без ошибок', () => {
+        const result = report({ layers: undefined, moduleLayers: undefined });
+
+        expect(result.layers).toEqual({ status: 'not-set' });
+        expect(result.moduleLayers).toEqual({ status: 'not-set' });
+        expect(result.srcDir.status).toBe('value');
+        expect(result.modulesDir.status).toBe('value');
+    });
+
+    it('невалидный srcDir получает собственную ошибку', () => {
+        const result = report({ srcDir: 42 });
+
+        expect(result.srcDir).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.srcDir must be a string, got number',
+        });
+    });
+
+    it('невалидный modulesDir получает собственную ошибку', () => {
+        const result = report({ modulesDir: 'a/b' });
+
+        expect(result.modulesDir).toEqual({
+            status: 'invalid',
+            message:
+                'settings.weld.modulesDir must be a single directory name without "/", "\\", "@" or ":", not "." or "..", got "a/b"',
+        });
+    });
+
+    it('невалидное имя слоя получает сообщение с индексом', () => {
+        const result = report({ layers: ['app', '1bad', '@modules'] });
+
+        expect(result.layers).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.layers[1] is not a valid layer name: "1bad"',
+        });
+    });
+
+    it('метка в moduleLayers — ошибка этого поля', () => {
+        const result = report({ moduleLayers: ['features', '@unknown'] });
+
+        expect(result.moduleLayers).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.moduleLayers[1]: "@unknown" marker is not allowed here',
+        });
+    });
+
+    it('несколько собственных ошибок не прячутся друг под другом', () => {
+        const result = report({
+            srcDir: 1,
+            modulesDir: 2,
+            layers: ['app', 3, '@modules'],
+            moduleLayers: ['features', 4],
+        });
+
+        expect(result.srcDir.status).toBe('invalid');
+        expect(result.modulesDir.status).toBe('invalid');
+        expect(result.layers).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.layers[1] must be a string, got number',
+        });
+        expect(result.moduleLayers).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.moduleLayers[1] must be a string, got number',
+        });
+    });
+
+    it('корректное поле, зависящее от кривого modulesDir, получает unresolved', () => {
+        const result = report({ modulesDir: 42, layers: ['app', '@modules'] });
+
+        expect(result.modulesDir.status).toBe('invalid');
+        expect(result.layers).toEqual({ status: 'unresolved', dependency: 'modulesDir' });
+    });
+
+    it('корректное поле, зависящее от кривого modulesDir, получает unresolved даже при невалидном srcDir', () => {
+        const result = report({
+            srcDir: 1,
+            modulesDir: 2,
+            layers: ['app', '@modules'],
+            moduleLayers: ['features'],
+        });
+
+        expect(result.srcDir.status).toBe('invalid');
+        expect(result.modulesDir.status).toBe('invalid');
+        expect(result.layers).toEqual({ status: 'unresolved', dependency: 'modulesDir' });
+        expect(result.moduleLayers).toEqual({ status: 'unresolved', dependency: 'modulesDir' });
+    });
+
+    it('собственная ошибка списка имеет приоритет над unresolved', () => {
+        const result = report({ modulesDir: 42, layers: ['app', 'bad name', '@modules'] });
+
+        expect(result.modulesDir.status).toBe('invalid');
+        expect(result.layers).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.layers[1] is not a valid layer name: "bad name"',
+        });
+    });
+
+    it('отсутствие @modules — ошибка прикрепляется к layers', () => {
+        const result = report({ layers: ['app', 'pages'] });
+
+        expect(result.layers).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.layers must contain the "@modules" marker',
+        });
+        expect(result.moduleLayers.status).toBe('value');
+    });
+
+    it('общее имя в списках — ошибка прикрепляется к moduleLayers', () => {
+        const result = report({ layers: ['app', '@modules', 'shared'], moduleLayers: ['shared'] });
+
+        expect(result.layers.status).toBe('value');
+        expect(result.moduleLayers).toEqual({
+            status: 'invalid',
+            message:
+                'settings.weld.moduleLayers[0]: "shared" is also listed in settings.weld.layers',
+        });
+    });
+
+    it('ошибка общего имени называет источник обоих списков', () => {
+        const fromSettings = (field: SchemeField): string =>
+            field === 'layers' ? 'settings.weld.layers' : `options.${field}`;
+
+        const result = parseSchemeReport(
+            { ...validScheme, layers: ['app', '@modules', 'shared'], moduleLayers: ['shared'] },
+            fromSettings,
+        );
+
+        expect(result.moduleLayers).toEqual({
+            status: 'invalid',
+            message: 'options.moduleLayers[0]: "shared" is also listed in settings.weld.layers',
+        });
     });
 });
