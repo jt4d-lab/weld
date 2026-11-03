@@ -20,6 +20,7 @@ settings.weld:
   modulesDir:     modules
   layers:         app, @modules, @unknown
   moduleLayers:   features
+  flatModules:    false
 ```
 
 ### `file`
@@ -74,6 +75,13 @@ settings.weld:
 ### `moduleLayers`
 
 слои модулей в схеме; те же правила, что у `layers`.
+
+### `flatModules`
+
+флаг плоской схемы: при `true` корневые модули лежат прямо в `srcDir`, а не в контейнере
+`modulesDir`. Булево; дефолт `false`, поэтому `(not set)` у этой настройки не бывает: не задано —
+печатается `false`. В состоянии `value` печатается `true` или `false`; `invalid` и `unresolved` —
+как у строковых настроек (у поля из нечитабельной секции — `(unresolved: settings.weld)`).
 
 ## Состояния настроек
 
@@ -141,7 +149,8 @@ settings.weld:
         "srcDir": "/src",
         "modulesDir": "modules",
         "layers": ["app", "@modules", "@unknown"],
-        "moduleLayers": ["features"]
+        "moduleLayers": ["features"],
+        "flatModules": false
     },
     "problems": {}
 }
@@ -170,7 +179,8 @@ settings.weld:
         "srcDir": "/src",
         "modulesDir": "modules",
         "layers": null,
-        "moduleLayers": null
+        "moduleLayers": null,
+        "flatModules": false
     },
     "problems": {
         "repoRoot": {

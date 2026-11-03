@@ -24,10 +24,14 @@ innerPath: panel.ts
 
 ### `module`
 
-имя модуля файла: `@root`, если файл не попал ни в один модуль — где угодно внутри `srcDir`, включая
-`src/utils/...` и `src/modules/x.ts`, — иначе имена модулей в контейнерах от внешнего к внутреннему,
-соединенные `::`: `billing::subscription` для `src/modules/billing/modules/subscription/...`. Само
-имя хранится цепочкой, `::` — только форма вывода.
+имя модуля файла: `@root`, если файл не попал ни в один модуль, — иначе имена модулей от внешнего к
+внутреннему, соединенные `::`. Где живут модули, зависит от режима. В дефолтном — корневые модули в
+контейнере `modulesDir`: `billing::subscription` для `src/modules/billing/modules/subscription/...`,
+а `@root` — где угодно внутри `srcDir`, включая `src/utils/...` и `src/modules/x.ts`. При
+`flatModules: true` корневые модули лежат прямо в `srcDir`: `auth` для `src/auth/...`, а
+`src/modules/...` — тоже `@root`, потому что контейнер в корне не распознается. Вложенные модули в
+обоих режимах находятся в контейнере: при `flatModules: true` `billing::subscription` — для
+`src/billing/modules/subscription/...`. Само имя хранится цепочкой, `::` — только форма вывода.
 
 ### `layer`
 

@@ -13,6 +13,7 @@ export default [
                 moduleLayers: ['widgets', 'features', 'entities'],
 
                 // Конфигурация директорий
+                flatModules: false,
                 modulesDir: 'modules',
                 srcDir: 'src',
 
@@ -50,6 +51,13 @@ export default [
 Слои модулей.
 
 ## Конфигурация директорий
+
+### `flatModules`
+
+> Значение по умолчанию — `false`
+
+При `true` корневые модули расположены прямо в `srcDir`; при `false` — в контейнере `modulesDir`.
+Вложенные модули в обоих случаях находятся в контейнере.
 
 ### `modulesDir`
 

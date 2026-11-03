@@ -76,14 +76,15 @@ export default [
                 modulesDir: 'modules', // необязательно; по умолчанию 'modules'
                 layers: ['app', 'pages', '@modules', 'common'], // нужны только weld inspect
                 moduleLayers: ['widgets', 'features', 'entities'], // то же
+                flatModules: false, // необязательно; по умолчанию — false
             },
         },
     },
 ];
 ```
 
-`srcDir`, `modulesDir`, `layers` и `moduleLayers` описывают схему слоев проекта. Правила линтинга ее
-пока не читают, а `weld inspect` без двух списков схемы работать не может.
+`srcDir`, `modulesDir`, `layers`, `moduleLayers` и `flatModules` описывают схему слоев проекта.
+Правила линтинга ее пока не читают, а `weld inspect` без двух списков схемы работать не может.
 
 Формат и разбор этих настроек описаны в [документации настроек](docs/rules/settings.md); подробности
 самого правила — в [документации правила](docs/rules/no-barrel-bypass.md).
