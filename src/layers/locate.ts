@@ -83,19 +83,39 @@ function insideSrcDir(path: string, srcDir: string): string[] | null {
 /**
  * Спуск по контейнерам модулей: `modules/billing/modules/subscription/...` дает цепочку
  * `billing::subscription`. `root` — виртуальный корень последнего найденного модуля, пока модулей
- * нет — `srcDir`; `rest` — сегменты ниже него.
+ * нет — `srcDir`; `rest` — сегменты ниже него. Контейнер — на каждом уровне вложенного режима; в
+ * `flatModules` — только внутри модулей, в корне корневой модуль лежит прямо в `srcDir`.
  */
 function descendModules(
     inner: string[],
     scheme: Scheme,
 ): { module: string[]; rest: string[]; root: string } {
+    const flat = scheme.flatModules;
     const module: string[] = [];
     let root = scheme.srcDir;
     let index = 0;
 
+    // В flat-режиме корневой контейнер не распознается, и корневой модуль — первый сегмент,
+    // только если это директория (под ней есть что-то), а не имя слоя и не сам контейнер.
+    if (
+        flat &&
+        inner.length >= 2 &&
+        !scheme.layers.includes(inner[0] as string) &&
+        inner[0] !== scheme.modulesDir
+    ) {
+        module.push(inner[0] as string);
+        root = joinPath(root, inner[0] as string);
+        index = 1;
+    }
+
     // Контейнер — директория, поэтому он засчитывается, только если под ним остались имя модуля и
-    // что-то внутри него.
-    while (inner[index] === scheme.modulesDir && index + 2 < inner.length) {
+    // что-то внутри него. В flat-режиме корневой контейнер цикл не поглощает (иначе `src/modules/x`
+    // стал бы модулем `x`), но вложенные контейнеры работают на любой глубине.
+    while (
+        (!flat || module.length > 0) &&
+        inner[index] === scheme.modulesDir &&
+        index + 2 < inner.length
+    ) {
         const name = inner[index + 1] as string;
         module.push(name);
         root = joinPath(joinPath(root, scheme.modulesDir), name);

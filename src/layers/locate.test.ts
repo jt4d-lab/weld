@@ -11,6 +11,7 @@ const scheme: Scheme = {
     modulesDir: 'modules',
     layers: ['app', '@modules'],
     moduleLayers: ['features'],
+    flatModules: false,
 };
 
 function locate(path: string, overrides: Partial<Scheme> = {}): FileMeta {
@@ -267,6 +268,130 @@ describe('locateFile — имена путей', () => {
             module: [],
             layer: 'app',
             innerPath: 'x.ts',
+        });
+    });
+});
+
+describe('locateFile — flatModules', () => {
+    /** Таблица примеров из плана: корневые модули прямо в `srcDir`, вложенные — через контейнер. */
+    const flat: Partial<Scheme> = {
+        layers: ['app', '@modules', 'common'],
+        moduleLayers: ['entities'],
+        flatModules: true,
+    };
+
+    it.each<MetaRow>([
+        // Имя из `layers` в корне побеждает модуль: слой, а не модуль.
+        { path: '/src/app/file.ts', module: [], layer: 'app', innerPath: 'file.ts' },
+        { path: '/src/common/file.ts', module: [], layer: 'common', innerPath: 'file.ts' },
+        // Контейнер в корне не признается: поддерево целиком `@unknown`.
+        {
+            path: '/src/modules/x/file.ts',
+            module: [],
+            layer: '@unknown',
+            innerPath: 'modules/x/file.ts',
+        },
+        // Корневой модуль прямо в `srcDir`.
+        {
+            path: '/src/auth/entities/file.ts',
+            module: ['auth'],
+            layer: 'entities',
+            innerPath: 'file.ts',
+        },
+        // Вложенные модули в flat-режиме — через контейнер на любой глубине.
+        {
+            path: '/src/auth/modules/bar/entities/file.ts',
+            module: ['auth', 'bar'],
+            layer: 'entities',
+            innerPath: 'file.ts',
+        },
+        { path: '/src/file.ts', module: [], layer: '@unknown', innerPath: 'file.ts' },
+        { path: '/src/auth/file.ts', module: ['auth'], layer: '@unknown', innerPath: 'file.ts' },
+    ])('flat, $path → модуль $module, слой $layer', ({ path, module, layer, innerPath }) => {
+        expect(locate(path, flat)).toEqual({ module, layer, innerPath });
+    });
+
+    it.each<MetaRow>([
+        { path: '/src/app/file.ts', module: [], layer: 'app', innerPath: 'file.ts' },
+        { path: '/src/common/file.ts', module: [], layer: 'common', innerPath: 'file.ts' },
+        // В дефолтном режиме контейнер в корне — модули идут через него.
+        { path: '/src/modules/x/file.ts', module: ['x'], layer: '@unknown', innerPath: 'file.ts' },
+        {
+            path: '/src/auth/entities/file.ts',
+            module: [],
+            layer: '@unknown',
+            innerPath: 'auth/entities/file.ts',
+        },
+        {
+            path: '/src/auth/modules/bar/entities/file.ts',
+            module: [],
+            layer: '@unknown',
+            innerPath: 'auth/modules/bar/entities/file.ts',
+        },
+        { path: '/src/file.ts', module: [], layer: '@unknown', innerPath: 'file.ts' },
+        {
+            path: '/src/auth/file.ts',
+            module: [],
+            layer: '@unknown',
+            innerPath: 'auth/file.ts',
+        },
+    ])(
+        'та же схема при flat=false: $path → модуль $module, слой $layer',
+        ({ path, module, layer, innerPath }) => {
+            expect(locate(path, { ...flat, flatModules: false })).toEqual({
+                module,
+                layer,
+                innerPath,
+            });
+        },
+    );
+
+    it.each<MetaRow>([
+        // Файл прямо в `srcDir` и файл в корне корневого модуля.
+        { path: '/src/file.ts', module: [], layer: '@unknown', innerPath: 'file.ts' },
+        { path: '/src/auth/index.ts', module: ['auth'], layer: '@unknown', innerPath: 'index.ts' },
+        // Модуль может называться как слой модулей: имя в корне — модуль, а не слой.
+        {
+            path: '/src/entities/file.ts',
+            module: ['entities'],
+            layer: '@unknown',
+            innerPath: 'file.ts',
+        },
+        // Поддерево корневого контейнера не скрывается даже на глубине.
+        {
+            path: '/src/modules/x/entities/file.ts',
+            module: [],
+            layer: '@unknown',
+            innerPath: 'modules/x/entities/file.ts',
+        },
+        // Файл прямо в корневом контейнере.
+        {
+            path: '/src/modules/file.ts',
+            module: [],
+            layer: '@unknown',
+            innerPath: 'modules/file.ts',
+        },
+    ])('flat, граничный случай: $path', ({ path, module, layer, innerPath }) => {
+        expect(locate(path, flat)).toEqual({ module, layer, innerPath });
+    });
+
+    it('свой modulesDir в flat-режиме: в корне не признается, внутри модуля — да', () => {
+        const overrides: Partial<Scheme> = { ...flat, modulesDir: 'mods' };
+
+        expect(locate('/src/x/file.ts', overrides)).toEqual({
+            module: ['x'],
+            layer: '@unknown',
+            innerPath: 'file.ts',
+        });
+        expect(locate('/src/mods/x/file.ts', overrides)).toEqual({
+            module: [],
+            layer: '@unknown',
+            innerPath: 'mods/x/file.ts',
+        });
+        expect(locate('/src/x/mods/y/entities/file.ts', overrides)).toEqual({
+            module: ['x', 'y'],
+            layer: 'entities',
+            innerPath: 'file.ts',
         });
     });
 });
