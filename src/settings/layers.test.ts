@@ -9,6 +9,7 @@ const validScheme: RawScheme = {
     modulesDir: 'modules',
     layers: ['app', '@modules'],
     moduleLayers: ['features'],
+    flatModules: false,
 };
 
 function settingsSource(field: SchemeField): string {
@@ -45,6 +46,7 @@ describe('parseScheme — значения', () => {
             modulesDir: 'modules',
             layers: ['app.v2', '@modules'],
             moduleLayers: ['widgets.ui'],
+            flatModules: false,
         });
     });
 
@@ -212,6 +214,38 @@ describe('parseScheme — имена слоев и метки', () => {
         expect(() => parse({ layers: ['app', 'pages'] })).toThrow(
             'settings.weld.layers must contain the "@modules" marker',
         );
+    });
+});
+
+describe('parseScheme — flatModules', () => {
+    it('true сохраняется как есть', () => {
+        expect(parse({ flatModules: true }).flatModules).toBe(true);
+    });
+
+    it('false сохраняется как есть', () => {
+        expect(parse({ flatModules: false }).flatModules).toBe(false);
+    });
+
+    it('не boolean → исключение называет settings.weld.flatModules', () => {
+        expect(() => parse({ flatModules: 'yes' })).toThrow(
+            'settings.weld.flatModules must be a boolean, got string',
+        );
+    });
+
+    it('не boolean из опций → исключение называет options.flatModules', () => {
+        expect(() => parse({ flatModules: 1 }, (field) => `options.${field}`)).toThrow(
+            'options.flatModules must be a boolean, got number',
+        );
+    });
+
+    it('не boolean независимо от ошибок списков', () => {
+        expect(() => parse({ layers: ['app', '@modules'], flatModules: 'no' })).toThrow(
+            'settings.weld.flatModules must be a boolean, got string',
+        );
+    });
+
+    it('flatModules не мешает другим полям', () => {
+        expect(parse({ flatModules: true }).modulesDir).toBe('modules');
     });
 });
 

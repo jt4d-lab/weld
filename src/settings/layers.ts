@@ -30,6 +30,8 @@ export type Scheme = {
     layers: readonly string[];
     /** Слои модулей сверху вниз — одинаковые для всех модулей и на любой глубине вложенности. */
     moduleLayers: readonly string[];
+    /** Плоские корневые модули: корневые модули живут прямо в `srcDir`, а не в контейнере. */
+    flatModules: boolean;
 };
 
 /** Поля схемы: по ним же называются источники значений в сообщениях об ошибках. */
@@ -41,6 +43,7 @@ export const SCHEME_FIELDS: readonly SchemeField[] = [
     'modulesDir',
     'layers',
     'moduleLayers',
+    'flatModules',
 ];
 
 /** Сырые значения полей схемы: типы проверяются при разборе. */
@@ -61,6 +64,7 @@ export type SchemeReport = {
     modulesDir: SettingState<string>;
     layers: SettingState<readonly string[]>;
     moduleLayers: SettingState<readonly string[]>;
+    flatModules: SettingState<boolean>;
 };
 
 /** Результат общего обхода списка: отсутствие (отчет решит, что с ним делать), ошибка или разобранные имена. */
@@ -82,11 +86,13 @@ export function parseScheme(raw: RawScheme, sourceOf: (field: SchemeField) => st
     const modulesDirSource = sourceOf('modulesDir');
     const layersSource = sourceOf('layers');
     const moduleLayersSource = sourceOf('moduleLayers');
+    const flatModulesSource = sourceOf('flatModules');
 
     const srcDir = parseSrcDir(raw.srcDir, srcDirSource);
     const modulesDir = parseModulesDir(raw.modulesDir, modulesDirSource);
     const layers = readLayerList(raw.layers, layersSource, modulesDir, true);
     const moduleLayers = readLayerList(raw.moduleLayers, moduleLayersSource, modulesDir, false);
+    const flatModules = parseFlatModules(raw.flatModules, flatModulesSource);
 
     // Сводные проверки — только когда оба списка разобрались: отсутствие одного
     // не делает другой ошибкой.
@@ -100,7 +106,16 @@ export function parseScheme(raw: RawScheme, sourceOf: (field: SchemeField) => st
         throw new Error(sharedProblem);
     }
 
-    return { srcDir, modulesDir, layers, moduleLayers };
+    return { srcDir, modulesDir, layers, moduleLayers, flatModules };
+}
+
+/** `flatModules` — флаг, без него контейнер в корне не распознается. */
+function parseFlatModules(value: unknown, source: string): boolean {
+    if (typeof value !== 'boolean') {
+        throw new Error(`${source} must be a boolean, got ${typeof value}`);
+    }
+
+    return value;
 }
 
 function isMarker(name: string): name is LayerMarker {
@@ -311,6 +326,7 @@ export function parseSchemeReport(
     const modulesDirSource = sourceOf('modulesDir');
     const layersSource = sourceOf('layers');
     const moduleLayersSource = sourceOf('moduleLayers');
+    const flatModulesSource = sourceOf('flatModules');
 
     let srcDirState: SettingState<string>;
     try {
@@ -356,11 +372,22 @@ export function parseSchemeReport(
         }
     }
 
+    let flatModulesState: SettingState<boolean>;
+    try {
+        flatModulesState = {
+            status: 'value',
+            value: parseFlatModules(raw.flatModules, flatModulesSource),
+        };
+    } catch (e) {
+        flatModulesState = { status: 'invalid', message: (e as Error).message };
+    }
+
     return {
         srcDir: srcDirState,
         modulesDir: modulesDirState,
         layers: layersState,
         moduleLayers: moduleLayersState,
+        flatModules: flatModulesState,
     };
 }
 

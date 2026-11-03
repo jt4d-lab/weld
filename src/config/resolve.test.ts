@@ -209,6 +209,7 @@ describe('resolveForFile: схема слоев', () => {
             modulesDir: 'modules',
             layers: ['app', '@modules'],
             moduleLayers: ['features'],
+            flatModules: false,
         });
     });
 
@@ -240,6 +241,7 @@ describe('resolveForFile: схема слоев', () => {
             modulesDir: 'nested',
             layers: ['pages', '@modules'],
             moduleLayers: ['entities'],
+            flatModules: false,
         });
     });
 

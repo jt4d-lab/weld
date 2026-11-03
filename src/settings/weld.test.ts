@@ -236,6 +236,7 @@ describe('getScheme', () => {
             modulesDir: 'modules',
             layers: ['app', '@modules'],
             moduleLayers: ['features'],
+            flatModules: false,
         });
     });
 
@@ -254,6 +255,7 @@ describe('getScheme', () => {
             modulesDir: 'mods',
             layers: ['ui', '@modules'],
             moduleLayers: ['widgets'],
+            flatModules: false,
         });
     });
 
@@ -279,6 +281,7 @@ describe('getScheme', () => {
             modulesDir: 'nested',
             layers: ['pages', '@modules'],
             moduleLayers: ['entities'],
+            flatModules: false,
         });
     });
 
@@ -288,6 +291,7 @@ describe('getScheme', () => {
             modulesDir: 'modules',
             layers: ['app', '@modules'],
             moduleLayers: ['features'],
+            flatModules: false,
         });
     });
 
@@ -324,6 +328,31 @@ describe('getScheme', () => {
             getScheme({ weld: 'nope' }, { layers: ['app', '@modules'], moduleLayers: [] }),
         ).toThrow('settings.weld must be an object');
     });
+
+    it('flatModules по умолчанию false', () => {
+        expect(
+            getScheme({ weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } })
+                .flatModules,
+        ).toBe(false);
+    });
+
+    it('опция правила перекрывает flatModules из settings.weld', () => {
+        const settings = {
+            weld: { flatModules: true, layers: ['app', '@modules'], moduleLayers: ['features'] },
+        };
+
+        expect(getScheme(settings).flatModules).toBe(true);
+        expect(getScheme(settings, { flatModules: false }).flatModules).toBe(false);
+    });
+
+    it('кривой flatModules → исключение называет options.flatModules', () => {
+        expect(() =>
+            getScheme(
+                { weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } },
+                { flatModules: 'no' },
+            ),
+        ).toThrow('options.flatModules must be a boolean, got string');
+    });
 });
 
 describe('getScheme — кэш', () => {
@@ -348,6 +377,14 @@ describe('getScheme — кэш', () => {
 
         expect(getScheme(settings, { srcDir: 'app' }).srcDir).toBe('/app');
         expect(getScheme(settings).srcDir).toBe('/src');
+    });
+
+    it('разное flatModules → разные результаты, одинаковое → тот же объект', () => {
+        const settings = { weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } };
+
+        const flat = getScheme(settings, { flatModules: true });
+        expect(flat).toBe(getScheme(settings, { flatModules: true }));
+        expect(getScheme(settings, { flatModules: false })).not.toBe(flat);
     });
 
     it('через минуту запись протухает — разбор заново', () => {

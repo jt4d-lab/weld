@@ -240,7 +240,7 @@ export function getScheme(settings: unknown, overrides: SchemeOverrides = {}): S
 }
 
 function readScheme(settings: unknown, overrides: SchemeOverrides): Scheme {
-    const pick = (field: SchemeField, fallback?: string): unknown => {
+    const pick = (field: SchemeField, fallback?: string | boolean): unknown => {
         if (overrides[field] !== undefined) {
             return overrides[field];
         }
@@ -256,6 +256,7 @@ function readScheme(settings: unknown, overrides: SchemeOverrides): Scheme {
             modulesDir: pick('modulesDir', DEFAULT_MODULES_DIR),
             layers: pick('layers'),
             moduleLayers: pick('moduleLayers'),
+            flatModules: pick('flatModules', false),
         },
         (field) => (overrides[field] !== undefined ? `options.${field}` : `settings.weld.${field}`),
     );
@@ -265,7 +266,7 @@ function readScheme(settings: unknown, overrides: SchemeOverrides): Scheme {
 function pickSchemeValue(
     section: Record<string, unknown> | undefined,
     field: SchemeField,
-    fallback?: string,
+    fallback?: string | boolean,
 ): unknown {
     const configured = section?.[field];
     return configured === undefined ? fallback : configured;
@@ -307,6 +308,7 @@ export function getSchemeRaw(settings: unknown): RawScheme | null {
         modulesDir: pickSchemeValue(section, 'modulesDir', DEFAULT_MODULES_DIR),
         layers: pickSchemeValue(section, 'layers'),
         moduleLayers: pickSchemeValue(section, 'moduleLayers'),
+        flatModules: pickSchemeValue(section, 'flatModules', false),
     };
 }
 

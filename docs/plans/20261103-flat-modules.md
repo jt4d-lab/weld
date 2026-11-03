@@ -127,20 +127,20 @@ while (!flat || module.length > 0)
 - Изменить: `src/settings/layers.ts`, `src/settings/weld.ts`
 - Изменить: `src/settings/layers.test.ts`, `src/settings/weld.test.ts`, `src/config/resolve.test.ts`
 
-- [ ] Добавить `flatModules: boolean` в `Scheme`; дописать в конец `SCHEME_FIELDS` и в
+- [x] Добавить `flatModules: boolean` в `Scheme`; дописать в конец `SCHEME_FIELDS` и в
       `SchemeReport` (`SettingState<boolean>`).
-- [ ] `parseScheme`: разобрать `flatModules` после `moduleLayers`, до совместных проверок;
+- [x] `parseScheme`: разобрать `flatModules` после `moduleLayers`, до совместных проверок;
       обязателен `boolean`, ошибка с источником поля.
-- [ ] `parseSchemeReport`: состояние поля (`value` / `invalid`).
-- [ ] `readScheme` и `getSchemeRaw`: `flatModules: pick('flatModules', false)`; расширить тип
+- [x] `parseSchemeReport`: состояние поля (`value` / `invalid`).
+- [x] `readScheme` и `getSchemeRaw`: `flatModules: pick('flatModules', false)`; расширить тип
       `fallback` у `pick`/`pickSchemeValue` до `string | boolean`.
-- [ ] Тесты в `layers.test.ts`: `true`/`false`, не-`boolean` (тексты ошибок
+- [x] Тесты в `layers.test.ts`: `true`/`false`, не-`boolean` (тексты ошибок
       `settings.weld.flatModules` и `options.flatModules`), независимость от ошибок списков.
-- [ ] Тесты в `weld.test.ts`: дефолт `false`, перекрытие опцией правила, кэш (разное значение —
+- [x] Тесты в `weld.test.ts`: дефолт `false`, перекрытие опцией правила, кэш (разное значение —
       разные результаты, одинаковое — тот же объект).
-- [ ] Механически дописать `flatModules: false` в полные `toEqual`-ожидания схемы:
+- [x] Механически дописать `flatModules: false` в полные `toEqual`-ожидания схемы:
       `src/settings/layers.test.ts`, `src/settings/weld.test.ts`, `src/config/resolve.test.ts`.
-- [ ] Запустить `yarn test`; до следующей задачи все тесты проходят.
+- [x] Запустить `yarn test`; до следующей задачи все тесты проходят.
 
 ### Задача 2: плоский спуск в `src/layers/locate.ts`
 

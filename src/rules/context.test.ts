@@ -246,6 +246,7 @@ describe('resolveWeldContext: схема слоев', () => {
             modulesDir: 'modules',
             layers: ['app', '@modules'],
             moduleLayers: ['features'],
+            flatModules: false,
         });
     });
 
