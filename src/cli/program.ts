@@ -13,7 +13,7 @@ import { packageVersion } from '@/package.js';
 import { configJson, effectiveConfig, hasOwnError } from './config.js';
 import type { LintSettings } from './eslint-config.js';
 import { loadLintSettings } from './eslint-config.js';
-import { inspectFile, inspectJson } from './inspect.js';
+import { InspectConfigError, inspectFile, inspectJson } from './inspect.js';
 import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
 
 /**
@@ -68,14 +68,31 @@ function errorText(error: unknown): string {
 }
 
 /** Печать ошибки в той форме, которую просил пользователь: `--json` → stdout, иначе stderr. */
-function reportError(deps: ProgramDeps, message: string, json: boolean): void {
+function reportError(deps: ProgramDeps, message: string, json: boolean, hint?: string): void {
     if (json) {
-        deps.write(`${renderJson({ error: message })}\n`);
+        deps.write(
+            `${renderJson(hint === undefined ? { error: message } : { error: message, hint })}\n`,
+        );
     } else {
-        deps.writeError(`error: ${message}\n`);
+        deps.writeError(`error: ${message}\n${hint === undefined ? '' : `hint: ${hint}\n`}`);
     }
 
     deps.setExitCode(1);
+}
+
+function shellArgument(value: string): string {
+    return /^[A-Za-z0-9_@%+=:,./-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function configHint(path: string, config?: string): string {
+    const configOption =
+        config === undefined
+            ? ''
+            : ` --config${config.startsWith('-') ? '=' : ' '}${shellArgument(config)}`;
+    const separator = path.startsWith('-') ? ' --' : '';
+    return sanitizeText(
+        `Check configuration: weld config${configOption}${separator} ${shellArgument(path)}`,
+    );
 }
 
 export function createProgram(overrides: Partial<ProgramDeps> = {}): Command {
@@ -118,7 +135,11 @@ function buildProgram(deps: ProgramDeps): Command {
             try {
                 await run(path, options);
             } catch (error) {
-                reportError(deps, errorText(error), options.json === true);
+                const hint =
+                    error instanceof InspectConfigError
+                        ? configHint(path, options.config)
+                        : undefined;
+                reportError(deps, errorText(error), options.json === true, hint);
             }
         };
 
@@ -154,7 +175,8 @@ function buildProgram(deps: ProgramDeps): Command {
             `
 For a directory, a representative file is selected and shown in the output.
 
-Invalid settings are reported alongside the other settings.
+WELD settings are reported alongside their validation errors.
+ESLint configuration or rule option errors can prevent the report from being generated.
 (unresolved: <dependency>) means a dependency could not be resolved.
 (not set) means an optional setting was not provided.
 The exit code is 1 for an invalid setting or command error, and 0 otherwise.

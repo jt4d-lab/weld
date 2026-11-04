@@ -10,6 +10,20 @@ import { basename, dirname, splitExtension } from '@/path/index.js';
 import type { LintSettings } from './eslint-config.js';
 import { repoPath, repoRootOf, virtualPathOf } from './target.js';
 
+export class InspectConfigError extends Error {
+    constructor(cause: unknown) {
+        super(cause instanceof Error ? cause.message : String(cause), { cause });
+    }
+}
+
+function readConfig<T>(read: () => T): T {
+    try {
+        return read();
+    } catch (error) {
+        throw new InspectConfigError(error);
+    }
+}
+
 /** Метаданные файла в схеме слоев: общая часть текстового вывода и JSON. */
 type MetaFields = {
     /** Имя модуля: `@root` либо цепочка через `::`. */
@@ -61,14 +75,17 @@ export function inspectFile(lint: LintSettings, cwd: string, shownPath: string):
         cwd,
         options: lint.options,
     });
-    const fromFile = virtualPathOf(target, shownPath);
-    const located = locateFile(fromFile, target.getScheme(), shownPath);
+    const fromFile = virtualPathOf(readConfig(target.getFromFile), shownPath);
+    const located = locateFile(fromFile, readConfig(target.getScheme), shownPath);
 
     const virtualPath = collapseEntryPoint(fromFile);
-    const rendered = renderAliasPath(virtualPath, target.getAliases());
+    const rendered = renderAliasPath(virtualPath, readConfig(target.getAliases));
 
     return {
-        file: repoPath(repoRootOf(target, shownPath), lint.filePath),
+        file: repoPath(
+            readConfig(() => repoRootOf(target, shownPath)),
+            lint.filePath,
+        ),
         // `null` — алиаса нет: текстовая форма подставит `virtualPath`, JSON оставит `null`.
         alias: rendered === null ? null : withEntryName(rendered, fromFile),
         virtualPath,

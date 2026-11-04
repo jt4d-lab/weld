@@ -87,6 +87,7 @@ describe('runCli: версия и справка', () => {
         const { out, err, codes } = await runCliCapture(['help', 'config'], root);
         const help = printed(out);
 
+        expect(help).toContain('ESLint configuration or rule option errors can prevent the report');
         expect(help).toContain('(unresolved: <dependency>)');
         expect(help).toContain('(not set)');
         expect(help).toContain('The exit code is 1');

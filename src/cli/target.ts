@@ -4,9 +4,7 @@ import { isAbsolute, relative, sep } from 'node:path';
 
 import type { WeldTarget } from '@/config/index.js';
 
-export function virtualPathOf(target: WeldTarget, shownPath: string): string {
-    const fromFile = target.getFromFile();
-
+export function virtualPathOf(fromFile: string | null, shownPath: string): string {
     if (fromFile === null) {
         throw outsideRoot(shownPath);
     }

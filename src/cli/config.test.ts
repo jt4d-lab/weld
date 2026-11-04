@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { rules } from '@/rules/index.js';
 import type { SettingState } from '@/settings/index.js';
 import { cleanupTmpProjects } from '@/testing/index.js';
 
@@ -64,6 +65,19 @@ export default [
         },
     },
 ];
+`;
+
+const INVALID_RULE_OPTION_CONFIG = `const weld = {
+    rules: {
+        'no-barrel-bypass': { meta: { schema: ${JSON.stringify(rules['no-barrel-bypass'].meta?.schema)} }, create: () => ({}) },
+    },
+};
+export default [{
+    files: ['**/*.ts'],
+    plugins: { weld },
+    rules: { 'weld/no-barrel-bypass': ['error', { repoRoot: 42 }] },
+    settings: { weld: { layers: 'nope' } },
+}];
 `;
 
 /** Кривой `repoRoot` в секции: корень не вычисляется, авто-алиасы не могут быть получены. */
@@ -144,6 +158,22 @@ afterEach(() => {
 });
 
 describe('weld config: файл', () => {
+    it('ошибка схемы опций ESLint не дает построить отчет', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': INVALID_RULE_OPTION_CONFIG,
+            'src/a.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['--json', 'config', 'src/a.ts'], { from: 'user' });
+
+        const result = JSON.parse(printed(out)) as Record<string, unknown>;
+        expect(result.error).toEqual(expect.stringContaining('Value 42 should be string'));
+        expect(result).not.toHaveProperty('settings');
+        expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+    });
+
     it('печатает корень, базу алиасов, имя tsconfig, алиасы и схему, код 0', async () => {
         const root = makeCliProject({
             'eslint.config.mjs': ALIAS_CONFIG,

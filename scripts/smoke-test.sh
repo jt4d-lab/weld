@@ -251,6 +251,7 @@ BARE_INSPECT_CODE=$?
 set -e
 [ "$BARE_INSPECT_CODE" -ne 0 ] || { echo "    inspect без схемы не вернул код ошибки" >&2; exit 1; }
 grep -qxF 'error: settings.weld.layers is required' <<<"$BARE_INSPECT" || { echo "    неверное сообщение: $BARE_INSPECT" >&2; exit 1; }
+grep -qxF 'hint: Check configuration: weld config src/a.js' <<<"$BARE_INSPECT" || { echo "    нет подсказки: $BARE_INSPECT" >&2; exit 1; }
 echo "    $BARE_INSPECT"
 
 echo "==> Проверяю отрицательные случаи: код 1 и сообщение об ошибке"

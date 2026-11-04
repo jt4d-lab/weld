@@ -776,7 +776,9 @@ describe('weld inspect: схема слоев', () => {
         await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
 
         expect(out).toEqual([]);
-        expect(printed(err)).toBe('error: settings.weld.layers is required\n');
+        expect(printed(err)).toBe(
+            'error: settings.weld.layers is required\nhint: Check configuration: weld config src/feature/internal.ts\n',
+        );
         expect(codes).toEqual([1]);
     });
 
@@ -791,8 +793,56 @@ describe('weld inspect: схема слоев', () => {
             from: 'user',
         });
 
-        expect(JSON.parse(printed(out))).toEqual({ error: 'settings.weld.layers is required' });
+        expect(JSON.parse(printed(out))).toEqual({
+            error: 'settings.weld.layers is required',
+            hint: 'Check configuration: weld config src/feature/internal.ts',
+        });
         expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+    });
+
+    it('ошибка схемы сохраняет --config и экранирует аргументы в подсказке', async () => {
+        const root = makeCliProject({
+            'configs/my config.mjs': `export default [{ files: ['**/*.ts'], settings: { weld: { layers: 42 } } }];`,
+            "src/it's here.ts": '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(
+            ['inspect', '--config', 'configs/my config.mjs', "src/it's here.ts"],
+            {
+                from: 'user',
+            },
+        );
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe(
+            'error: settings.weld.layers must be an array of strings, got number\n' +
+                "hint: Check configuration: weld config --config 'configs/my config.mjs' 'src/it'\\''s here.ts'\n",
+        );
+        expect(codes).toEqual([1]);
+    });
+
+    it.each([
+        ['repoRoot', 'repoRoot: 42', 'settings.weld.repoRoot must be a string, got number'],
+        [
+            'aliases',
+            "aliases: { '@a': 42 }",
+            "settings.weld.aliases['@a'] must be a string or an array of strings",
+        ],
+    ])('ошибка %s предлагает проверить настройки', async (_name, setting, message) => {
+        const root = makeCliProject({
+            'eslint.config.mjs': `export default [{ files: ['**/*.ts'], settings: { weld: { ${SCHEME_SETTINGS_TEXT}, ${setting} } } }];`,
+            'src/a.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/a.ts'], { from: 'user' });
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe(
+            `error: ${message}\nhint: Check configuration: weld config src/a.ts\n`,
+        );
         expect(codes).toEqual([1]);
     });
 
@@ -874,7 +924,9 @@ describe('weld inspect: выбор опций правила', () => {
         await program.parseAsync(['inspect', 'src/feature/internal.ts'], { from: 'user' });
 
         expect(out).toEqual([]);
-        expect(printed(err)).toBe('error: settings.weld.layers is required\n');
+        expect(printed(err)).toBe(
+            'error: settings.weld.layers is required\nhint: Check configuration: weld config src/feature/internal.ts\n',
+        );
         expect(codes).toEqual([1]);
     });
 });
