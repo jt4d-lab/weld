@@ -128,6 +128,10 @@ function buildProgram(deps: ProgramDeps): Command {
             'print the file path, the import path written with an alias and the module info',
         )
         .argument('<file>', 'file to inspect')
+        .addHelpText(
+            'after',
+            '\nRequires layers and moduleLayers in the effective WELD settings.\n',
+        )
         .action(
             action(async (path, options) => {
                 const lint = await deps.loadLintSettings(path, deps.cwd, options.config);
@@ -145,6 +149,24 @@ function buildProgram(deps: ProgramDeps): Command {
         .command('config')
         .description('print the effective WELD settings of a file or a directory')
         .argument('<path>', 'file or directory')
+        .addHelpText(
+            'after',
+            `
+For a directory, a representative file is selected and shown in the output.
+
+Invalid settings are reported alongside the other settings.
+(unresolved: <dependency>) means a dependency could not be resolved.
+(not set) means an optional setting was not provided.
+The exit code is 1 for an invalid setting or command error, and 0 otherwise.
+Command errors are written to stderr, or to stdout as JSON with --json.
+
+With --json, file and configFile contain paths, and sampleOf identifies a directory argument.
+settings contains the values; an alias has prefix, anchor, and star (a key ending in /*).
+Invalid or unresolved settings are null; problems maps their names to:
+  {"status":"invalid","message":"..."} or {"status":"unresolved","dependency":"..."}
+A section error is recorded under settings.weld. A null setting without a problem was not provided.
+`,
+        )
         .action(
             action(async (path, options) => {
                 const lint = await deps.loadLintSettings(path, deps.cwd, options.config);

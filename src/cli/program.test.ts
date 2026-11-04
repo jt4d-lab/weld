@@ -69,6 +69,32 @@ describe('runCli: версия и справка', () => {
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
     });
+
+    it.each([
+        ['inspect', 'Requires layers and moduleLayers in the effective WELD settings.'],
+        ['config', 'For a directory, a representative file is selected and shown in the output.'],
+    ])('%s --help описывает условия использования', async (command, detail) => {
+        const root = makeCliProject();
+        const { out, err, codes } = await runCliCapture([command, '--help'], root);
+
+        expect(printed(out)).toContain(detail);
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
+
+    it('help config описывает состояния и JSON-вывод', async () => {
+        const root = makeCliProject();
+        const { out, err, codes } = await runCliCapture(['help', 'config'], root);
+        const help = printed(out);
+
+        expect(help).toContain('(unresolved: <dependency>)');
+        expect(help).toContain('(not set)');
+        expect(help).toContain('The exit code is 1');
+        expect(help).toContain('{"status":"invalid","message":"..."}');
+        expect(help).toContain('{"status":"unresolved","dependency":"..."}');
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
 });
 
 describe('runCli: ошибки использования', () => {
