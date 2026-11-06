@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
+import { createFakeFsHost, resetFsHostCaches } from '@/repo-fs/index.js';
 
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
 import { consumerFile, createRuleTester, fixtureRoot } from '@/testing/index.js';

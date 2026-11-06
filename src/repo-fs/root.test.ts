@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createFakeExists } from '@/host/fs.testing.js';
-import { findRepoRoot } from '@/host/root.js';
+import { createFakeExists } from '@/repo-fs/fs.testing.js';
+import { findRepoRoot } from '@/repo-fs/root.js';
 
 describe('findRepoRoot', () => {
     it('находит единственный package.json выше startDir', () => {

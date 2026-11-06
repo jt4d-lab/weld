@@ -48,7 +48,7 @@ function requireString(value: unknown, source: string): string {
 
 /**
  * `settings.weld.repoRoot` как он записан в конфиге — реальный путь, не виртуальный. Резолв
- * относительного значения и всё прочее знание о реальной ФС — за границей `src/host/`.
+ * относительного значения и всё прочее знание о реальной ФС — за границей `src/repo-fs/`.
  * `undefined` — корень не задан, вызывающий ищет его сам.
  */
 export function getRepoRoot(settings: unknown, override?: unknown): string | undefined {

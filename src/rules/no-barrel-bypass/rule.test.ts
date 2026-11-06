@@ -1,8 +1,8 @@
 import type { Rule } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
-import type { FsHost } from '@/host/index.js';
-import { createFakeFsHost, createFsHost } from '@/host/index.js';
+import type { FsHost } from '@/repo-fs/index.js';
+import { createFakeFsHost, createFsHost } from '@/repo-fs/index.js';
 
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
 import { createRuleTester } from '@/testing/index.js';

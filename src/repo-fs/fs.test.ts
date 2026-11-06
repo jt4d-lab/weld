@@ -6,9 +6,9 @@ import { ENTRY_EXTENSIONS } from '@/extensions.js';
 import { basename, toPosix } from '@/utils/path/index.js';
 import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
 
-import { createFsHost, getFsHost, resetFsHostCaches, resolveRoot } from '@/host/fs.js';
-import { createFakeExists, createFakeFsHost } from '@/host/fs.testing.js';
-import { commonRealDirectory } from '@/host/real-path.js';
+import { createFsHost, getFsHost, resetFsHostCaches, resolveRoot } from '@/repo-fs/fs.js';
+import { createFakeExists, createFakeFsHost } from '@/repo-fs/fs.testing.js';
+import { commonRealDirectory } from '@/repo-fs/real-path.js';
 
 describe('createFsHost.toVirtual', () => {
     it('путь внутри root → виртуальный от /', () => {

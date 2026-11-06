@@ -9,7 +9,7 @@
 import type { Rule } from 'eslint';
 
 import { createLogger } from '@/debug.js';
-import type { FsHost } from '@/host/index.js';
+import type { FsHost } from '@/repo-fs/index.js';
 import type { SpecifierNode, SpecifierSkip } from '@/imports/index.js';
 import { createSpecifierVisitor, replaceSpecifier } from '@/imports/index.js';
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';

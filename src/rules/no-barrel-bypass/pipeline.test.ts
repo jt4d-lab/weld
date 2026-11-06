@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createFakeFsHost } from '@/host/index.js';
+import { createFakeFsHost } from '@/repo-fs/index.js';
 import type { Alias } from '@/settings/index.js';
 
 import type { CheckDecision } from '@/rules/no-barrel-bypass/pipeline.js';
