@@ -13,12 +13,16 @@ flowchart TD
     tsconfig
     imports
     config
+    layers
     settings
 
     input --> config
     input --> settings
     input --> imports
-    input --> host
+    input --> layers
+    input -.-> host
+
+    layers -.-> settings
 
     config --> settings
     config --> tsconfig
@@ -28,5 +32,7 @@ flowchart TD
 
     tsconfig --> settings
 
-    imports --> settings
+    imports -.-> settings
 ```
+
+> Пунктир — из зависимости берутся только типы или константы.

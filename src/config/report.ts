@@ -1,17 +1,27 @@
 /**
- * Диагностический отчет эффективной конфигурации: состояния настроек вместо броска.
+ * Диагностический отчет эффективной конфигурации: состояния настроек вместо исключения.
  */
 
 import type { FsHost } from '@/host/index.js';
-import type { Alias, SettingState } from '@/settings/index.js';
+import type {
+    Alias,
+    RawScheme,
+    SchemeField,
+    SchemeReport,
+    SettingState,
+} from '@/settings/index.js';
 import {
+    SCHEME_FIELDS,
     checkAliasesFormat,
     getAliasesBaseUrl,
     getAliasesRaw,
     getRepoRoot,
+    getSchemeRaw,
     getSectionError,
     getTsconfigName,
     hasAliases,
+    parseSchemeReport,
+    schemeSourceOf,
 } from '@/settings/index.js';
 
 import type { WeldResolveInput, WeldResolveOptions, WeldTarget } from './resolve.js';
@@ -24,6 +34,11 @@ export type ConfigReport = {
         aliasesBaseUrl: SettingState<string>;
         tsconfig: SettingState<string>;
         aliases: SettingState<Alias[]>;
+        srcDir: SettingState<string>;
+        modulesDir: SettingState<string>;
+        layers: SettingState<readonly string[]>;
+        moduleLayers: SettingState<readonly string[]>;
+        flatModules: SettingState<boolean>;
     };
     /** Собственная проблема секции: `null`, если секция валидна или отсутствует. */
     sectionError: string | null;
@@ -91,6 +106,7 @@ export function reportForFile(
                     options,
                     target,
                 }),
+                ...schemeStates(settings, options),
             },
             sectionError,
         },
@@ -223,4 +239,41 @@ function explicitAliases(
     }
 
     return { status: 'value', value: target.getAliases() };
+}
+
+/**
+ * Схема: `parseSchemeReport` по сырым значениям «override > секция > дефолт», а поля, которые
+ * нельзя прочитать из невалидной секции и не перекрыты опцией, получают `unresolved` с именем
+ * секции.
+ */
+function schemeStates(settings: unknown, options: WeldResolveOptions): SchemeReport {
+    const sectionRaw = getSchemeRaw(settings);
+    const raw: RawScheme = {
+        srcDir: undefined,
+        modulesDir: undefined,
+        layers: undefined,
+        moduleLayers: undefined,
+        flatModules: undefined,
+    };
+    const blocked = new Set<SchemeField>();
+
+    for (const field of SCHEME_FIELDS) {
+        const override = options[field];
+        if (override !== undefined) {
+            raw[field] = override;
+        } else if (sectionRaw !== null) {
+            raw[field] = sectionRaw[field];
+        } else {
+            // `raw[field]` уже `undefined` по инициализации — поле просто не заполняется.
+            blocked.add(field);
+        }
+    }
+
+    const report = parseSchemeReport(raw, schemeSourceOf(options));
+
+    for (const field of blocked) {
+        report[field] = { status: 'unresolved', dependency: 'settings.weld' };
+    }
+
+    return report;
 }
