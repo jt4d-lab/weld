@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { createFakeFsHost } from '@/host/index.js';
-import type { Alias } from '@/settings/index.js';
+import { createFakeRepoFs } from '@/repo-fs/index.js';
+import type { Alias } from '@/raw-settings/index.js';
 
 import type { CheckDecision } from '@/rules/no-barrel-bypass/pipeline.js';
 import { createChecker } from '@/rules/no-barrel-bypass/pipeline.js';
@@ -10,7 +10,7 @@ const fromFile = '/repo/src/feature/util.ts';
 
 /** Проверка поверх фейкового диска: список файлов + необязательные алиасы. */
 function checker(files: string[], aliases: Alias[] = []): (specifier: string) => CheckDecision {
-    return createChecker({ fromFile, aliases }, createFakeFsHost(files));
+    return createChecker({ fromFile, aliases }, createFakeRepoFs(files));
 }
 
 const barrelFiles = ['/repo/src/other/index.ts'];

@@ -1,7 +1,7 @@
 /**
  * Единственная точка чтения `settings.weld`. Наружу слой отдает не сырую секцию, а геттер на каждую
  * настройку — `getRepoRoot` / `getAliasesBaseUrl` / `getAliases`; формат конфига за пределами
- * `src/settings/` не знает никто.
+ * `src/raw-settings/` не знает никто.
  *
  * Каждый геттер принимает необязательный `override` — значение этой настройки, подставляемое вместо
  * конфига. Оно тоже приходит из пользовательского конфига (опции правила), поэтому проверяется теми
@@ -13,8 +13,8 @@
  * должно быть одно на оба источника.
  */
 
-import type { Alias } from '@/settings/aliases.js';
-import { parseAliases } from '@/settings/aliases.js';
+import type { Alias } from '@/raw-settings/aliases.js';
+import { parseAliases } from '@/raw-settings/aliases.js';
 
 /** `aliasesBaseUrl` по умолчанию — сам корень репозитория. */
 const DEFAULT_ALIASES_BASE_URL = '.';
@@ -48,7 +48,7 @@ function requireString(value: unknown, source: string): string {
 
 /**
  * `settings.weld.repoRoot` как он записан в конфиге — реальный путь, не виртуальный. Резолв
- * относительного значения и всё прочее знание о реальной ФС — за границей `src/host/`.
+ * относительного значения и всё прочее знание о реальной ФС — за границей `src/repo-fs/`.
  * `undefined` — корень не задан, вызывающий ищет его сам.
  */
 export function getRepoRoot(settings: unknown, override?: unknown): string | undefined {

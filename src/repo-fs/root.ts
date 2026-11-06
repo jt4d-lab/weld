@@ -1,7 +1,7 @@
 import { createLogger } from '@/debug.js';
-import { toPosix } from '@/path/index.js';
+import { toPosix } from '@/utils/path/index.js';
 
-import { joinReal, parentOf } from '@/host/real-path.js';
+import { joinReal, parentOf } from '@/repo-fs/real-path.js';
 
 const debug = createLogger('root');
 
@@ -10,7 +10,7 @@ const debug = createLogger('root');
  * Останавливается на первой директории с `.git` (включительно — ее `package.json` еще учитывается)
  * или, если `.git` не встретился, на корне файловой системы. Ничего не нашли → `null`.
  *
- * Принимает реальный путь и реальный `exists` — работает до создания `FsHost`.
+ * Принимает реальный путь и реальный `exists` — работает до создания `RepoFs`.
  */
 export function findRepoRoot(startDir: string, exists: (path: string) => boolean): string | null {
     let current = toPosix(startDir);

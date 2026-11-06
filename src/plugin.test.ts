@@ -4,7 +4,7 @@ import { ESLint } from 'eslint';
 import type { Rule } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
-import { resetFsHostCaches } from '@/host/index.js';
+import { resetRepoFsCaches } from '@/repo-fs/index.js';
 import plugin from '@/index.js';
 import { consumerJsFile, fixtureRoot } from '@/testing/index.js';
 
@@ -90,7 +90,7 @@ describe('ESLint integration', () => {
             });
 
             it('flags a real barrel-bypass violation through the plugin config', async () => {
-                resetFsHostCaches();
+                resetRepoFsCaches();
 
                 const violationEslint = new ESLint({
                     overrideConfigFile: true,

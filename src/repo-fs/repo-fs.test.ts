@@ -3,127 +3,127 @@ import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ENTRY_EXTENSIONS } from '@/extensions.js';
-import { basename, toPosix } from '@/path/index.js';
+import { basename, toPosix } from '@/utils/path/index.js';
 import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
 
-import { createFsHost, getFsHost, resetFsHostCaches, resolveRoot } from '@/host/fs.js';
-import { createFakeExists, createFakeFsHost } from '@/host/fs.testing.js';
-import { commonRealDirectory } from '@/host/real-path.js';
+import { createRepoFs, getRepoFs, resetRepoFsCaches, resolveRoot } from '@/repo-fs/repo-fs.js';
+import { createFakeExists, createFakeRepoFs } from '@/repo-fs/repo-fs.testing.js';
+import { commonRealDirectory } from '@/repo-fs/real-path.js';
 
-describe('createFsHost.toVirtual', () => {
+describe('createRepoFs.toVirtual', () => {
     it('путь внутри root → виртуальный от /', () => {
-        const fsHost = createFsHost('/repo');
-        expect(fsHost.toVirtual('/repo/src/x.ts')).toBe('/src/x.ts');
+        const repoFs = createRepoFs('/repo');
+        expect(repoFs.toVirtual('/repo/src/x.ts')).toBe('/src/x.ts');
     });
 
     it('сам root → /', () => {
-        const fsHost = createFsHost('/repo');
-        expect(fsHost.toVirtual('/repo')).toBe('/');
+        const repoFs = createRepoFs('/repo');
+        expect(repoFs.toVirtual('/repo')).toBe('/');
     });
 
     it('путь вне root → null', () => {
-        const fsHost = createFsHost('/repo');
-        expect(fsHost.toVirtual('/other/x.ts')).toBeNull();
+        const repoFs = createRepoFs('/repo');
+        expect(repoFs.toVirtual('/other/x.ts')).toBeNull();
     });
 
     it('сегментная проверка: /repo-evil при root /repo → null', () => {
-        const fsHost = createFsHost('/repo');
-        expect(fsHost.toVirtual('/repo-evil/x.ts')).toBeNull();
+        const repoFs = createRepoFs('/repo');
+        expect(repoFs.toVirtual('/repo-evil/x.ts')).toBeNull();
     });
 
     it('Windows-путь C:\\proj\\src\\x.ts при root C:\\proj → /src/x.ts', () => {
-        const fsHost = createFsHost('C:\\proj');
-        expect(fsHost.toVirtual('C:\\proj\\src\\x.ts')).toBe('/src/x.ts');
+        const repoFs = createRepoFs('C:\\proj');
+        expect(repoFs.toVirtual('C:\\proj\\src\\x.ts')).toBe('/src/x.ts');
     });
 
     it('регистр буквы диска не важен: c:\\proj\\src\\x.ts при root C:\\proj → /src/x.ts', () => {
-        const fsHost = createFsHost('C:\\proj');
-        expect(fsHost.toVirtual('c:\\proj\\src\\x.ts')).toBe('/src/x.ts');
+        const repoFs = createRepoFs('C:\\proj');
+        expect(repoFs.toVirtual('c:\\proj\\src\\x.ts')).toBe('/src/x.ts');
     });
 
     it('регистр остальных сегментов важен: C:\\Proj при root C:\\proj → null', () => {
-        const fsHost = createFsHost('C:\\proj');
-        expect(fsHost.toVirtual('C:\\Proj\\src\\x.ts')).toBeNull();
+        const repoFs = createRepoFs('C:\\proj');
+        expect(repoFs.toVirtual('C:\\Proj\\src\\x.ts')).toBeNull();
     });
 
     it('относительный путь → null', () => {
-        const fsHost = createFsHost('/repo');
-        expect(fsHost.toVirtual('relative/path.ts')).toBeNull();
+        const repoFs = createRepoFs('/repo');
+        expect(repoFs.toVirtual('relative/path.ts')).toBeNull();
     });
 });
 
-describe('createFsHost: нормализация root', () => {
+describe('createRepoFs: нормализация root', () => {
     it('root с завершающим слэшем (/repo/)', () => {
-        const fsHost = createFsHost('/repo/');
-        expect(fsHost.toVirtual('/repo/x.ts')).toBe('/x.ts');
+        const repoFs = createRepoFs('/repo/');
+        expect(repoFs.toVirtual('/repo/x.ts')).toBe('/x.ts');
     });
 
     it('root — корень ФС unix (/)', () => {
         const exists = vi.fn(() => true);
-        const fsHost = createFsHost('/', { exists });
-        expect(fsHost.toVirtual('/x.ts')).toBe('/x.ts');
-        expect(fsHost.hasEntryPoint('/src')).toBe(true);
+        const repoFs = createRepoFs('/', { exists });
+        expect(repoFs.toVirtual('/x.ts')).toBe('/x.ts');
+        expect(repoFs.hasEntryPoint('/src')).toBe(true);
         expect(exists).toHaveBeenCalledWith('/src/index.ts');
     });
 
     it('root — корень ФС Windows (C:/)', () => {
         const exists = vi.fn(() => true);
-        const fsHost = createFsHost('C:/', { exists });
-        expect(fsHost.toVirtual('C:/x.ts')).toBe('/x.ts');
-        expect(fsHost.hasEntryPoint('/src')).toBe(true);
+        const repoFs = createRepoFs('C:/', { exists });
+        expect(repoFs.toVirtual('C:/x.ts')).toBe('/x.ts');
+        expect(repoFs.hasEntryPoint('/src')).toBe(true);
         expect(exists).toHaveBeenCalledWith('C:/src/index.ts');
     });
 
     it('root — корень ФС Windows (C:\\)', () => {
         const exists = vi.fn(() => true);
-        const fsHost = createFsHost('C:\\', { exists });
-        expect(fsHost.toVirtual('C:\\x.ts')).toBe('/x.ts');
-        expect(fsHost.hasEntryPoint('/src')).toBe(true);
+        const repoFs = createRepoFs('C:\\', { exists });
+        expect(repoFs.toVirtual('C:\\x.ts')).toBe('/x.ts');
+        expect(repoFs.hasEntryPoint('/src')).toBe(true);
         expect(exists).toHaveBeenCalledWith('C:/src/index.ts');
     });
 });
 
-describe('createFsHost.hasEntryPoint', () => {
+describe('createRepoFs.hasEntryPoint', () => {
     it('директория с index.ts — точка входа', () => {
-        const fsHost = createFsHost('/repo', {
+        const repoFs = createRepoFs('/repo', {
             exists: createFakeExists(['/repo/src/feature', '/repo/src/feature/index.ts']),
         });
 
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(true);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(true);
     });
 
     it('index с другим известным расширением тоже считается точкой входа', () => {
-        const fsHost = createFsHost('/repo', {
+        const repoFs = createRepoFs('/repo', {
             exists: createFakeExists(['/repo/src/feature', '/repo/src/feature/index.mjs']),
         });
 
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(true);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(true);
     });
 
     it('директория без index — не точка входа', () => {
-        const fsHost = createFsHost('/repo', {
+        const repoFs = createRepoFs('/repo', {
             exists: createFakeExists(['/repo/src/feature', '/repo/src/feature/other.ts']),
         });
 
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(false);
     });
 
     it('несуществующая директория — один вызов exists, без перебора расширений', () => {
         const exists = vi.fn(() => false);
-        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+        const repoFs = createRepoFs('/repo', { exists, now: () => 0 });
 
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(false);
         expect(exists).toHaveBeenCalledTimes(1);
         expect(exists).toHaveBeenCalledWith('/repo/src/feature');
     });
 
     it('спуск в отсутствующую ветку: диск спрашивается только про первую директорию', () => {
         const exists = vi.fn(() => false);
-        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+        const repoFs = createRepoFs('/repo', { exists, now: () => 0 });
 
-        expect(fsHost.hasEntryPoint('/src/src')).toBe(false);
-        expect(fsHost.hasEntryPoint('/src/src/client')).toBe(false);
-        expect(fsHost.hasEntryPoint('/src/src/client/modules')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/src')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/src/client')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/src/client/modules')).toBe(false);
 
         expect(exists).toHaveBeenCalledTimes(1);
         expect(exists).toHaveBeenCalledWith('/repo/src/src');
@@ -131,60 +131,60 @@ describe('createFsHost.hasEntryPoint', () => {
 
     it('ответ «директории нет» кэшируется: повторный вызов не дергает exists снова', () => {
         const exists = vi.fn(() => false);
-        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+        const repoFs = createRepoFs('/repo', { exists, now: () => 0 });
 
-        fsHost.hasEntryPoint('/src/feature');
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
 
         expect(exists).toHaveBeenCalledTimes(1);
     });
 
     it('dir не начинающийся с / → false без вызова нативного exists', () => {
         const exists = vi.fn(() => true);
-        const fsHost = createFsHost('/repo', { exists });
+        const repoFs = createRepoFs('/repo', { exists });
 
-        expect(fsHost.hasEntryPoint('src/feature')).toBe(false);
+        expect(repoFs.hasEntryPoint('src/feature')).toBe(false);
         expect(exists).not.toHaveBeenCalled();
     });
 
     it('положительный ответ кэшируется: повторный вызов не дергает exists снова', () => {
         const exists = vi.fn(() => true);
-        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+        const repoFs = createRepoFs('/repo', { exists, now: () => 0 });
 
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
         const afterFirst = exists.mock.calls.length;
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
 
         expect(exists.mock.calls.length).toBe(afterFirst);
     });
 
     it('отрицательный ответ кэшируется одной записью на директорию', () => {
         const exists = vi.fn(createFakeExists(['/repo/src/feature']));
-        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+        const repoFs = createRepoFs('/repo', { exists, now: () => 0 });
 
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(false);
         // Отрицательный ответ стоит проверки директории плюс перебора всех расширений — но ровно
         // одного, на первый вызов.
         expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length);
 
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(false);
         expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length);
     });
 });
 
-describe('createFsHost.findModuleTarget', () => {
+describe('createRepoFs.findModuleTarget', () => {
     it('находит файл с модульным расширением по пути без расширения', () => {
-        const fsHost = createFsHost('/repo', {
+        const repoFs = createRepoFs('/repo', {
             exists: createFakeExists(['/repo/src/feature/account.entity.ts']),
         });
 
-        expect(fsHost.findModuleTarget('/src/feature/account.entity')).toBe(
+        expect(repoFs.findModuleTarget('/src/feature/account.entity')).toBe(
             '/src/feature/account.entity.ts',
         );
     });
 
     it('находит директорию с index', () => {
-        const fsHost = createFsHost('/repo', {
+        const repoFs = createRepoFs('/repo', {
             exists: createFakeExists([
                 '/repo/src/feature',
                 '/repo/src/feature/account.entity',
@@ -192,7 +192,7 @@ describe('createFsHost.findModuleTarget', () => {
             ]),
         });
 
-        expect(fsHost.findModuleTarget('/src/feature/account.entity')).toBe(
+        expect(repoFs.findModuleTarget('/src/feature/account.entity')).toBe(
             '/src/feature/account.entity/index.ts',
         );
     });
@@ -204,63 +204,63 @@ describe('createFsHost.findModuleTarget', () => {
                 '/repo/src/feature/account.entity/index.ts',
             ]),
         );
-        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+        const repoFs = createRepoFs('/repo', { exists, now: () => 0 });
 
-        fsHost.findModuleTarget('/src/feature/account.entity');
+        repoFs.findModuleTarget('/src/feature/account.entity');
         const afterFind = exists.mock.calls.length;
 
-        expect(fsHost.hasEntryPoint('/src/feature/account.entity')).toBe(true);
+        expect(repoFs.hasEntryPoint('/src/feature/account.entity')).toBe(true);
         expect(exists.mock.calls.length).toBe(afterFind);
     });
 
     it('файл побеждает директорию', () => {
-        const fsHost = createFsHost('/repo', {
+        const repoFs = createRepoFs('/repo', {
             exists: createFakeExists([
                 '/repo/src/feature/account.entity.ts',
                 '/repo/src/feature/account.entity/index.ts',
             ]),
         });
 
-        expect(fsHost.findModuleTarget('/src/feature/account.entity')).toBe(
+        expect(repoFs.findModuleTarget('/src/feature/account.entity')).toBe(
             '/src/feature/account.entity.ts',
         );
     });
 
     it('null, если модуль не найден', () => {
-        const fsHost = createFsHost('/repo', {
+        const repoFs = createRepoFs('/repo', {
             exists: createFakeExists(['/repo/src/feature']),
         });
 
-        expect(fsHost.findModuleTarget('/src/feature/account.entity')).toBeNull();
+        expect(repoFs.findModuleTarget('/src/feature/account.entity')).toBeNull();
     });
 
     it('null для пути без ведущего /', () => {
-        const fsHost = createFsHost('/repo', { exists: vi.fn(() => true) });
+        const repoFs = createRepoFs('/repo', { exists: vi.fn(() => true) });
 
-        expect(fsHost.findModuleTarget('src/feature/account.entity')).toBeNull();
+        expect(repoFs.findModuleTarget('src/feature/account.entity')).toBeNull();
     });
 
     it('кэширует результат: повторный вызов не дергает exists', () => {
         const exists = vi.fn(createFakeExists(['/repo/src/feature/account.entity.ts']));
-        const fsHost = createFsHost('/repo', { exists, now: () => 0 });
+        const repoFs = createRepoFs('/repo', { exists, now: () => 0 });
 
-        fsHost.findModuleTarget('/src/feature/account.entity');
+        repoFs.findModuleTarget('/src/feature/account.entity');
         const afterFirst = exists.mock.calls.length;
-        fsHost.findModuleTarget('/src/feature/account.entity');
+        repoFs.findModuleTarget('/src/feature/account.entity');
 
         expect(exists.mock.calls.length).toBe(afterFirst);
     });
 });
 
-describe('createFsHost: TTL-кэш', () => {
+describe('createRepoFs: TTL-кэш', () => {
     it('положительный ответ в пределах 10 минут — кэш еще живой', () => {
         let time = 0;
         const exists = vi.fn(() => true);
-        const fsHost = createFsHost('/repo', { exists, now: () => time });
+        const repoFs = createRepoFs('/repo', { exists, now: () => time });
 
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
         time = 599_999;
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
 
         // Директория и первое расширение — на первый вызов; второй обходится кэшем.
         expect(exists).toHaveBeenCalledTimes(2);
@@ -269,11 +269,11 @@ describe('createFsHost: TTL-кэш', () => {
     it('положительный ответ после 10 минут — перепроверяет диск', () => {
         let time = 0;
         const exists = vi.fn(() => true);
-        const fsHost = createFsHost('/repo', { exists, now: () => time });
+        const repoFs = createRepoFs('/repo', { exists, now: () => time });
 
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
         time = 600_001;
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
 
         expect(exists).toHaveBeenCalledTimes(4);
     });
@@ -281,11 +281,11 @@ describe('createFsHost: TTL-кэш', () => {
     it('отрицательный ответ живет своим, коротким сроком: 5 секунд — уже перепроверка', () => {
         let time = 0;
         const exists = vi.fn(createFakeExists(['/repo/src/feature']));
-        const fsHost = createFsHost('/repo', { exists, now: () => time });
+        const repoFs = createRepoFs('/repo', { exists, now: () => time });
 
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(false);
         time = 5_001;
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(false);
 
         // Дописанный за это время index.<ext> правило увидит, не дожидаясь десяти минут. Директорию
         // при этом не перепроверяет: ее наличие — положительный ответ, у него срок прежний.
@@ -295,21 +295,21 @@ describe('createFsHost: TTL-кэш', () => {
     it('отрицательный ответ в пределах 5 секунд — кэш еще живой', () => {
         let time = 0;
         const exists = vi.fn(createFakeExists(['/repo/src/feature']));
-        const fsHost = createFsHost('/repo', { exists, now: () => time });
+        const repoFs = createRepoFs('/repo', { exists, now: () => time });
 
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
         time = 4_999;
-        fsHost.hasEntryPoint('/src/feature');
+        repoFs.hasEntryPoint('/src/feature');
 
         expect(exists).toHaveBeenCalledTimes(1 + ENTRY_EXTENSIONS.length);
     });
 
-    it('два инстанса createFsHost не делят кэш', () => {
+    it('два инстанса createRepoFs не делят кэш', () => {
         const exists = vi.fn(() => true);
         const now = () => 0;
 
-        const a = createFsHost('/repo', { exists, now });
-        const b = createFsHost('/repo', { exists, now });
+        const a = createRepoFs('/repo', { exists, now });
+        const b = createRepoFs('/repo', { exists, now });
 
         a.hasEntryPoint('/src/feature');
         b.hasEntryPoint('/src/feature');
@@ -318,70 +318,70 @@ describe('createFsHost: TTL-кэш', () => {
     });
 });
 
-describe('getFsHost', () => {
+describe('getRepoFs', () => {
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
         cleanupTmpProjects();
     });
 
     it('settings.weld.repoRoot выигрывает у авто-поиска', () => {
         const settings = { weld: { repoRoot: '/explicit-root' } };
-        const fsHost = getFsHost(settings, '/some/cwd');
+        const repoFs = getRepoFs(settings, '/some/cwd');
 
-        expect(fsHost.toVirtual('/explicit-root/x.ts')).toBe('/x.ts');
+        expect(repoFs.toVirtual('/explicit-root/x.ts')).toBe('/x.ts');
     });
 
     it('относительный root резолвится от cwd', () => {
         const settings = { weld: { repoRoot: './packages/app' } };
-        const fsHost = getFsHost(settings, '/home/user/repo');
+        const repoFs = getRepoFs(settings, '/home/user/repo');
 
-        expect(fsHost.toVirtual('/home/user/repo/packages/app/x.ts')).toBe('/x.ts');
+        expect(repoFs.toVirtual('/home/user/repo/packages/app/x.ts')).toBe('/x.ts');
     });
 
     it('относительный root с подъемом ..', () => {
         const settings = { weld: { repoRoot: '../shared' } };
-        const fsHost = getFsHost(settings, '/home/user/repo/packages/app');
+        const repoFs = getRepoFs(settings, '/home/user/repo/packages/app');
 
-        expect(fsHost.toVirtual('/home/user/repo/packages/shared/x.ts')).toBe('/x.ts');
+        expect(repoFs.toVirtual('/home/user/repo/packages/shared/x.ts')).toBe('/x.ts');
     });
 
     it('settings.weld.repoRoot не строка → исключение', () => {
         const settings = { weld: { repoRoot: 123 } };
 
-        expect(() => getFsHost(settings, '/some/cwd')).toThrow(/settings\.weld\.repoRoot/);
+        expect(() => getRepoFs(settings, '/some/cwd')).toThrow(/settings\.weld\.repoRoot/);
     });
 
     it('без настройки — findRepoRoot находит директорию с package.json', () => {
         const dir = makeTmpProject({ 'package.json': '{}' });
 
-        const fsHost = getFsHost(undefined, `${dir}/src`);
+        const repoFs = getRepoFs(undefined, `${dir}/src`);
 
-        expect(fsHost.toVirtual(`${dir}/package.json`)).toBe('/package.json');
+        expect(repoFs.toVirtual(`${dir}/package.json`)).toBe('/package.json');
     });
 
     it('без настройки, ничего не найдено — фолбэк на cwd', () => {
         const dir = makeTmpProject();
 
-        const fsHost = getFsHost(undefined, dir);
+        const repoFs = getRepoFs(undefined, dir);
 
-        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
+        expect(repoFs.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
     });
 
     it('повторный вызов с тем же root возвращает тот же инстанс', () => {
         const settings = { weld: { repoRoot: '/same-root' } };
 
-        const a = getFsHost(settings, '/cwd');
-        const b = getFsHost(settings, '/cwd');
+        const a = getRepoFs(settings, '/cwd');
+        const b = getRepoFs(settings, '/cwd');
 
         expect(a).toBe(b);
     });
 
-    it('resetFsHostCaches сбрасывает кэш инстансов', () => {
+    it('resetRepoFsCaches сбрасывает кэш инстансов', () => {
         const settings = { weld: { repoRoot: '/same-root' } };
 
-        const a = getFsHost(settings, '/cwd');
-        resetFsHostCaches();
-        const b = getFsHost(settings, '/cwd');
+        const a = getRepoFs(settings, '/cwd');
+        resetRepoFsCaches();
+        const b = getRepoFs(settings, '/cwd');
 
         expect(a).not.toBe(b);
     });
@@ -427,7 +427,7 @@ describe('commonRealDirectory', () => {
 
 describe('resolveRoot', () => {
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
         cleanupTmpProjects();
     });
 
@@ -454,9 +454,9 @@ describe('resolveRoot', () => {
     });
 });
 
-describe('getFsHost: coverDirs', () => {
+describe('getRepoFs: coverDirs', () => {
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
         cleanupTmpProjects();
     });
 
@@ -464,77 +464,77 @@ describe('getFsHost: coverDirs', () => {
         const dir = makeTmpProject({ 'package.json': '{}' });
         const sibling = `${tmpdir()}/weld-fs-sibling`;
 
-        const fsHost = getFsHost(undefined, dir, undefined, [sibling]);
+        const repoFs = getRepoFs(undefined, dir, undefined, [sibling]);
 
         // Общая директория dir и sibling — tmpdir, значит dir виден как /<basename(dir)>.
-        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe(`/${basename(dir)}/x.ts`);
+        expect(repoFs.toVirtual(`${dir}/x.ts`)).toBe(`/${basename(dir)}/x.ts`);
     });
 
     it('coverDirs ниже найденного root ничего не меняют', () => {
         const dir = makeTmpProject({ 'package.json': '{}' });
 
-        const fsHost = getFsHost(undefined, dir, undefined, [`${dir}/src`]);
+        const repoFs = getRepoFs(undefined, dir, undefined, [`${dir}/src`]);
 
-        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
+        expect(repoFs.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
     });
 
     it('coverDir без общего префикса (другой диск) игнорируется', () => {
         const dir = makeTmpProject({ 'package.json': '{}' });
 
-        const fsHost = getFsHost(undefined, dir, undefined, ['D:/elsewhere']);
+        const repoFs = getRepoFs(undefined, dir, undefined, ['D:/elsewhere']);
 
-        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
+        expect(repoFs.toVirtual(`${dir}/x.ts`)).toBe('/x.ts');
     });
 
     it('несколько coverDirs сразу: чужой диск игнорируется, поднимающая директория работает', () => {
         const dir = makeTmpProject({ 'package.json': '{}' });
         const sibling = `${tmpdir()}/weld-fs-sibling`;
 
-        const fsHost = getFsHost(undefined, dir, undefined, ['D:/elsewhere', sibling]);
+        const repoFs = getRepoFs(undefined, dir, undefined, ['D:/elsewhere', sibling]);
 
         // Как и в тесте с одним coverDir: общая директория dir и sibling — tmpdir.
-        expect(fsHost.toVirtual(`${dir}/x.ts`)).toBe(`/${basename(dir)}/x.ts`);
+        expect(repoFs.toVirtual(`${dir}/x.ts`)).toBe(`/${basename(dir)}/x.ts`);
     });
 
     it('явный root игнорирует coverDirs целиком', () => {
         const settings = { weld: { repoRoot: '/explicit-root' } };
 
-        const fsHost = getFsHost(settings, '/some/cwd', undefined, ['/some']);
+        const repoFs = getRepoFs(settings, '/some/cwd', undefined, ['/some']);
 
-        expect(fsHost.toVirtual('/explicit-root/x.ts')).toBe('/x.ts');
-        expect(fsHost.toVirtual('/some/other.ts')).toBeNull();
+        expect(repoFs.toVirtual('/explicit-root/x.ts')).toBe('/x.ts');
+        expect(repoFs.toVirtual('/some/other.ts')).toBeNull();
     });
 
     it('кэш инстансов ключуется итоговым root: разные coverDirs → разные инстансы', () => {
         const dir = makeTmpProject({ 'package.json': '{}' });
         const sibling = `${tmpdir()}/weld-fs-sibling`;
 
-        const raised = getFsHost(undefined, dir, undefined, [sibling]);
-        const plain = getFsHost(undefined, dir);
-        const raisedAgain = getFsHost(undefined, dir, undefined, [sibling]);
+        const raised = getRepoFs(undefined, dir, undefined, [sibling]);
+        const plain = getRepoFs(undefined, dir);
+        const raisedAgain = getRepoFs(undefined, dir, undefined, [sibling]);
 
         expect(raised).not.toBe(plain);
         expect(raisedAgain).toBe(raised);
     });
 });
 
-describe('createFakeFsHost', () => {
+describe('createFakeRepoFs', () => {
     it('hasEntryPoint — по наличию index.<ext> в списке', () => {
-        const fsHost = createFakeFsHost(['/src/feature/index.ts']);
+        const repoFs = createFakeRepoFs(['/src/feature/index.ts']);
 
-        expect(fsHost.hasEntryPoint('/src/feature')).toBe(true);
-        expect(fsHost.hasEntryPoint('/src/other')).toBe(false);
+        expect(repoFs.hasEntryPoint('/src/feature')).toBe(true);
+        expect(repoFs.hasEntryPoint('/src/other')).toBe(false);
     });
 
     it('toVirtual — identity для путей, начинающихся с /', () => {
-        const fsHost = createFakeFsHost([]);
+        const repoFs = createFakeRepoFs([]);
 
-        expect(fsHost.toVirtual('/src/feature/x.ts')).toBe('/src/feature/x.ts');
+        expect(repoFs.toVirtual('/src/feature/x.ts')).toBe('/src/feature/x.ts');
     });
 
     it('toVirtual — null для путей без ведущего /', () => {
-        const fsHost = createFakeFsHost([]);
+        const repoFs = createFakeRepoFs([]);
 
-        expect(fsHost.toVirtual('src/feature/x.ts')).toBeNull();
+        expect(repoFs.toVirtual('src/feature/x.ts')).toBeNull();
     });
 });

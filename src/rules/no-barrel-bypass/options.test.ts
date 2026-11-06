@@ -5,14 +5,14 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
+import { createFakeRepoFs, resetRepoFsCaches } from '@/repo-fs/index.js';
 
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
 import { consumerFile, createRuleTester, fixtureRoot } from '@/testing/index.js';
 
 const ruleTester = createRuleTester();
 
-const rule = createRule(createFakeFsHost(['/repo/src/other/index.ts']));
+const rule = createRule(createFakeRepoFs(['/repo/src/other/index.ts']));
 
 const aliasError = {
     messageId: 'bypass',
@@ -104,7 +104,7 @@ describe('опции правила перекрывают settings.weld', () =>
 
 describe('опция repoRoot на настоящем диске', () => {
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
     });
 
     it('options.repoRoot выигрывает у settings.weld.repoRoot', () => {

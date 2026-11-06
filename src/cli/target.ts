@@ -2,7 +2,7 @@
 
 import { isAbsolute, relative, sep } from 'node:path';
 
-import type { WeldTarget } from '@/config/index.js';
+import type { WeldTarget } from '@/effective-config/index.js';
 
 export function virtualPathOf(target: WeldTarget, shownPath: string): string {
     const fromFile = target.getFromFile();
@@ -26,7 +26,7 @@ function outsideRoot(shownPath: string): Error {
 }
 
 /**
- * Реальный корень репозитория. `null` резолв отдает только поддельному `FsHost` — шов, которым CLI не
+ * Реальный корень репозитория. `null` резолв отдает только поддельному `RepoFs` — шов, которым CLI не
  * пользуется; проверка нужна, чтобы сузить тип.
  */
 export function repoRootOf(target: WeldTarget, shownPath: string): string {

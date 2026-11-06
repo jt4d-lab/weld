@@ -12,21 +12,22 @@ flowchart TD
 
     tsconfig
     imports
-    config
-    settings
+    effectiveConfig["effective-config"]
+    rawSettings["raw-settings"]
+    repoFs["repo-fs"]
 
-    input --> config
-    input --> settings
+    input --> effectiveConfig
+    input --> rawSettings
     input --> imports
-    input --> host
+    input --> repoFs
 
-    config --> settings
-    config --> tsconfig
-    config --> host
+    effectiveConfig --> rawSettings
+    effectiveConfig --> tsconfig
+    effectiveConfig --> repoFs
 
-    host --> settings
+    repoFs --> rawSettings
 
-    tsconfig --> settings
+    tsconfig --> rawSettings
 
-    imports --> settings
+    imports --> rawSettings
 ```

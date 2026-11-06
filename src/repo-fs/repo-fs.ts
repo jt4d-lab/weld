@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs';
 
 import { createLogger } from '@/debug.js';
 import { ENTRY_FILE_NAMES, MODULE_EXTENSIONS } from '@/extensions.js';
-import { dirname, joinPath, joinSegments, segments, toPosix } from '@/path/index.js';
-import { getRepoRoot } from '@/settings/index.js';
+import { dirname, joinPath, joinSegments, segments, toPosix } from '@/utils/path/index.js';
+import { getRepoRoot } from '@/raw-settings/index.js';
 
 import {
     commonRealDirectory,
@@ -12,13 +12,13 @@ import {
     resolveRealPath,
     sameSegment,
     isAbsoluteRealPath,
-} from '@/host/real-path.js';
-import { findRepoRoot } from '@/host/root.js';
+} from '@/repo-fs/real-path.js';
+import { findRepoRoot } from '@/repo-fs/root.js';
 
 const debug = createLogger('fs');
 
 /** Граница ФС для правил: только виртуальные пути от корня репозитория (`/src/feature/x.ts`). */
-export type FsHost = {
+export type RepoFs = {
     /**
      * Есть ли в директории `dir` (виртуальный путь) точка входа — файл `index.<ext>` с одним из
      * `ENTRY_EXTENSIONS`. Именно этот вопрос, а не сырое «существует ли файл»: ответ на
@@ -37,7 +37,7 @@ export type FsHost = {
 type CacheEntry<T> = { value: T; expiresAt: number };
 type Cache<T> = Map<string, CacheEntry<T>>;
 
-type CreateFsHostOptions = {
+type CreateRepoFsOptions = {
     now?: () => number;
     exists?: (realPath: string) => boolean;
 };
@@ -83,10 +83,10 @@ function remember<T extends boolean | string | null>(
 }
 
 /**
- * `createFsHost` — единственное место, знающее про реальные пути. Всё, что уходит вглубь правил, —
+ * `createRepoFs` — единственное место, знающее про реальные пути. Всё, что уходит вглубь правил, —
  * виртуальные пути; реальный root в публичный тип не входит, живет в замыкании.
  */
-export function createFsHost(root: string, options: CreateFsHostOptions = {}): FsHost {
+export function createRepoFs(root: string, options: CreateRepoFsOptions = {}): RepoFs {
     const normalizedRoot = normalizeRoot(root);
     const rootSegments = segments(normalizedRoot);
     const now = options.now ?? Date.now;
@@ -232,7 +232,7 @@ export function createFsHost(root: string, options: CreateFsHostOptions = {}): F
     return { hasEntryPoint, findModuleTarget, toVirtual };
 }
 
-const instanceCache = new Map<string, FsHost>();
+const instanceCache = new Map<string, RepoFs>();
 const repoRootCache = new Map<string, string | null>();
 
 function findRepoRootCached(cwd: string): string | null {
@@ -248,7 +248,7 @@ function findRepoRootCached(cwd: string): string | null {
 }
 
 /**
- * Реальный корень, в котором работает `FsHost`.
+ * Реальный корень, в котором работает `RepoFs`.
  *
  * `coverDirs` — реальные директории, которые root обязан покрыть (якоря алиасов из tsconfig).
  * Действует только при автоопределении root: итог — общая директория `findRepoRoot(cwd) ?? cwd` и
@@ -295,18 +295,18 @@ export function resolveRoot(
  * файле.
  *
  * `repoRootOverride` — значение repoRoot из опций правила; разбирает и проверяет его всё тот же
- * `getRepoRoot`, `src/host/` про формат конфига по-прежнему ничего не знает. Кэш инстансов ключуется
+ * `getRepoRoot`, `src/repo-fs/` про формат конфига по-прежнему ничего не знает. Кэш инстансов ключуется
  * уже резолвнутым root, поэтому файлы с разным override (или разными `coverDirs`) не делят инстанс.
  *
  * `coverDirs` — реальные директории, которые root обязан покрыть (якоря алиасов из tsconfig);
  * разбор — в `resolveRoot`.
  */
-export function getFsHost(
+export function getRepoFs(
     settings: unknown,
     cwd: string,
     repoRootOverride?: unknown,
     coverDirs: string[] = [],
-): FsHost {
+): RepoFs {
     const root = resolveRoot(settings, cwd, repoRootOverride, coverDirs);
 
     const cached = instanceCache.get(root);
@@ -314,14 +314,14 @@ export function getFsHost(
         return cached;
     }
 
-    debug('getFsHost: creating instance for root %s', root);
-    const created = createFsHost(root);
+    debug('getRepoFs: creating instance for root %s', root);
+    const created = createRepoFs(root);
     instanceCache.set(root, created);
     return created;
 }
 
-/** Сбрасывает кэш инстансов `getFsHost` и мемоизацию `findRepoRoot` — для изоляции тестов. */
-export function resetFsHostCaches(): void {
+/** Сбрасывает кэш инстансов `getRepoFs` и мемоизацию `findRepoRoot` — для изоляции тестов. */
+export function resetRepoFsCaches(): void {
     instanceCache.clear();
     repoRootCache.clear();
 }

@@ -3,15 +3,15 @@
  * правилу нужно до первого узла».
  *
  * Здесь только адаптер: вход резолва собирается из полей `Rule.RuleContext`, резолв живёт в
- * `src/config/`.
+ * `src/effective-config/`.
  */
 
 import type { Rule } from 'eslint';
 
-import { resolveForFile } from '@/config/index.js';
-import type { WeldResolveOptions } from '@/config/index.js';
-import type { FsHost } from '@/host/index.js';
-import type { Alias } from '@/settings/index.js';
+import { resolveForFile } from '@/effective-config/index.js';
+import type { WeldResolveOptions } from '@/effective-config/index.js';
+import type { RepoFs } from '@/repo-fs/index.js';
+import type { Alias } from '@/raw-settings/index.js';
 
 /**
  * Свойства `meta.schema`, общие для всех правил: те же настройки, что и в `settings.weld`, но
@@ -29,7 +29,7 @@ export type WeldContext<TOwnOptions = unknown> = {
     /** Файл, который сейчас линтуется, — виртуальный путь от корня репозитория. */
     fromFile: string;
     aliases: Alias[];
-    fsHost: FsHost;
+    repoFs: RepoFs;
     /**
      * Опции правила, уже разобранные: собственные опции правила плюс общие (`WeldResolveOptions` —
      * свойства те же, что у `WELD_OPTION_PROPERTIES`).
@@ -41,14 +41,14 @@ export type WeldContext<TOwnOptions = unknown> = {
  * `null` — линтуемый файл вне корня репозитория, и правилу нечего проверять: виртуального пути у
  * него нет.
  *
- * `fsHostOverride` — шов для тестов, общий на все правила: подменяет файловую систему целиком, и
+ * `repoFsOverride` — шов для тестов, общий на все правила: подменяет файловую систему целиком, и
  * тогда опция `repoRoot` ни на что не влияет.
  *
  * `TOwnOptions` — только собственные опции правила: общие известны здесь и подмешиваются сами.
  */
 export function resolveWeldContext<TOwnOptions = unknown>(
     context: Rule.RuleContext,
-    fsHostOverride?: FsHost,
+    repoFsOverride?: RepoFs,
 ): WeldContext<TOwnOptions> | null {
     const options = (context.options[0] ?? {}) as TOwnOptions & WeldResolveOptions;
     const target = resolveForFile(
@@ -58,7 +58,7 @@ export function resolveWeldContext<TOwnOptions = unknown>(
             cwd: context.cwd,
             options,
         },
-        fsHostOverride,
+        repoFsOverride,
     );
 
     const fromFile = target.getFromFile();
@@ -66,5 +66,5 @@ export function resolveWeldContext<TOwnOptions = unknown>(
         return null;
     }
 
-    return { fromFile, aliases: target.getAliases(), fsHost: target.getFsHost(), options };
+    return { fromFile, aliases: target.getAliases(), repoFs: target.getRepoFs(), options };
 }

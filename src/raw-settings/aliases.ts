@@ -1,6 +1,6 @@
 import { createLogger } from '@/debug.js';
 import { isEntryFileName } from '@/extensions.js';
-import { basename, resolvePath, splitExtension } from '@/path/index.js';
+import { basename, resolvePath, splitExtension } from '@/utils/path/index.js';
 
 const debug = createLogger('aliases');
 
@@ -14,7 +14,7 @@ export type Alias = { prefix: string; anchor: string; star: boolean };
 /**
  * Разбирает значение формата `paths` из tsconfig — `settings.weld.aliases` или сами `paths` — в
  * список алиасов, готовых для `parseSpecifier`/`renderSpecifier`. Значение и база приходят уже
- * добытыми: их находит и кэширует `src/settings/weld.ts` (`getAliases` / `getAliasesFromPaths`), он
+ * добытыми: их находит и кэширует `src/raw-settings/weld.ts` (`getAliases` / `getAliasesFromPaths`), он
  * же решает, что делать с отсутствующей настройкой, поэтому `undefined` сюда не доходит.
  * `aliasesBaseUrl` — виртуальный путь от корня репозитория, не от `cwd`. `source` называет место
  * значения в сообщениях об ошибках.

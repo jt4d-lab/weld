@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveForFile } from '@/config/index.js';
-import type * as ConfigLayer from '@/config/index.js';
-import { createFakeFsHost } from '@/host/index.js';
+import { resolveForFile } from '@/effective-config/index.js';
+import type * as ConfigLayer from '@/effective-config/index.js';
+import { createFakeRepoFs } from '@/repo-fs/index.js';
 import { cleanupTmpProjects } from '@/testing/index.js';
 
 import { inspectFile } from './inspect.js';
@@ -14,7 +14,7 @@ import {
     printed,
 } from './program.testing.js';
 
-vi.mock('../config/index.js', async (importOriginal) => {
+vi.mock('../effective-config/index.js', async (importOriginal) => {
     const actual = await importOriginal<typeof ConfigLayer>();
 
     return { ...actual, resolveForFile: vi.fn(actual.resolveForFile) };
@@ -59,7 +59,7 @@ const EXACT_AND_STAR_ALIAS_CONFIG = `export default [
 afterEach(async () => {
     cleanupTmpProjects();
 
-    const actual = await vi.importActual<typeof ConfigLayer>('../config/index.js');
+    const actual = await vi.importActual<typeof ConfigLayer>('../effective-config/index.js');
     vi.mocked(resolveForFile).mockReset();
     vi.mocked(resolveForFile).mockImplementation(actual.resolveForFile);
 });
@@ -324,7 +324,7 @@ describe('inspectFile: имя файла в алиасе', () => {
         vi.mocked(resolveForFile).mockReturnValueOnce({
             getFromFile: () => '/src/index.ts',
             getRoot: () => 'C:\\repo',
-            getFsHost: () => createFakeFsHost([]),
+            getRepoFs: () => createFakeRepoFs([]),
             getAliases: () => [{ prefix: '@', anchor: '/src', star: true }],
         });
 
