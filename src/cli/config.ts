@@ -1,6 +1,6 @@
 /**
  * Команда `weld config`: диагностический отчет эффективной конфигурации WELD для файла или
- * директории. Отчет строит `reportForFile`; команда только определяет пути и отдает отчет наружу.
+ * директории.
  */
 
 import type { ConfigReport } from '@/config/index.js';
@@ -10,11 +10,7 @@ import type { SettingState } from '@/settings/index.js';
 import type { LintSettings } from './eslint-config.js';
 import { assertInsideRoot, repoPath } from './target.js';
 
-/**
- * Данные `weld config`: состояния эффективных настроек из отчета `src/config/` плюс пути. Граф
- * зависимостей живет в отчете, здесь он не пересобирается. Текстовую и JSON-форму собирают
- * `renderConfig` и `configJson`.
- */
+/** Данные `weld config`: состояния эффективных настроек из отчета `src/config/` плюс пути. */
 export type ConfigData = {
     /** Путь файла от корня репозитория; абсолютный исходный путь, если корень не получен. */
     file: string;
@@ -28,18 +24,13 @@ export type ConfigData = {
     sectionError: string | null;
 };
 
-/**
- * Имена настроек отчета в порядке печати и сериализации — единственный список этих полей. Порядок
- * повторяет `docs/rules/settings.md`.
- */
+/** Имена настроек отчета в порядке печати и сериализации, как в `docs/rules/settings.md`. */
 export const CONFIG_SETTING_NAMES = ['aliases', 'aliasesBaseUrl', 'repoRoot', 'tsconfig'] as const;
 
 export type ConfigSettingName = (typeof CONFIG_SETTING_NAMES)[number];
 
 /**
- * Отчет для команды `weld config`. Файл внутри корня проверяется только тогда, когда эффективный
- * корень получен: иначе `file` и `configFile` печатаются абсолютными исходными путями, а файл вне
- * вычисленного корня остается ошибкой команды (код 1), а не состоянием отчета.
+ * Отчет для команды `weld config`.
  */
 export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: string): ConfigData {
     const input = {
@@ -49,8 +40,6 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
         options: lint.options,
     };
 
-    // Один резолв на команду: отчет и проверка «файл внутри корня» делят один и тот же target,
-    // граф зависимостей не пересобирается.
     const { report, target } = reportForFile(input);
 
     const data: ConfigData = {
@@ -65,7 +54,6 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
         return data;
     }
 
-    // Корень получен: файл обязан лежать внутри него, иначе — ошибка команды, как и прежде.
     assertInsideRoot(target, shownPath);
 
     data.file = repoPath(data.settings.repoRoot.value, lint.filePath);
@@ -74,7 +62,7 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
     return data;
 }
 
-/** Машинный вид отчета: простые значения, `null` для недоступных и объект `problems`. */
+/** Машинный вид отчета: недоступные значения — `null`, ошибки — в `problems`. */
 export function configJson(data: ConfigData): Record<string, unknown> {
     const valueOf = (state: SettingState<unknown>): unknown =>
         state.status === 'value' ? state.value : null;

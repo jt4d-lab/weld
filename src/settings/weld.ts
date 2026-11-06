@@ -11,9 +11,6 @@
  * Здесь же живет кэш разобранных алиасов, поэтому и второй вход в тот же разбор — `paths` из
  * tsconfig (`getAliasesFromPaths`) — идет отсюда: решение «алиасы разбираются один раз на конфиг»
  * должно быть одно на оба источника.
- *
- * Для диагностического отчета `weld config` здесь же живут небросающие точки доступа:
- * `getSectionError` и `getAliasesRaw`.
  */
 
 import type { Alias } from '@/settings/aliases.js';
@@ -158,7 +155,7 @@ function cachedAliases(key: AliasesCacheKey, parse: () => Alias[]): Alias[] {
     return result;
 }
 
-/** Сброс кэша — шов для тестов: иначе порядок тестов решает, попадут ли они в чужую запись. */
+/** Сброс кэша — шов для тестов. */
 export function resetSettingsCaches(): void {
     aliasesCache = [];
 }
@@ -210,10 +207,7 @@ export function hasAliases(settings: unknown, override?: unknown): boolean {
 
 /**
  * Диагностическая точка доступа: ошибка самой секции `settings.weld`, если секция задана,
- * но не является объектом. `null` — секции нет (необязательно) либо она валидна. Сырую
- * секцию наружу не отдаем: наружу только текст ошибки или `null`.
- *
- * Проверка — та же, что в `getWeldSettings`: текст ошибки на кривой секции имеет один источник.
+ * но не является объектом. `null` — секции нет либо она валидна.
  */
 export function getSectionError(settings: unknown): string | null {
     try {
@@ -226,8 +220,7 @@ export function getSectionError(settings: unknown): string | null {
 
 /**
  * Сырое значение `settings.weld.aliases` для небросающего отчета: `undefined` — ключа нет или
- * секции нет. Зовется только когда `getSectionError` вернул `null`: при невалидной секции отчет
- * не читает значение, а помечает алиасы `unresolved`.
+ * секции нет. Зовется только когда `getSectionError` вернул `null`.
  */
 export function getAliasesRaw(settings: unknown): unknown {
     return getWeldSettings(settings)?.aliases;

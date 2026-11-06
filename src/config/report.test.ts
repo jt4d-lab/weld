@@ -27,7 +27,7 @@ afterEach(() => {
 
 /**
  * Герметичный вход: несуществующая директория — настоящий автопоиск tsconfig вернет `null`
- * без обращения к фикстурам; реальный поиск проверяют отдельные тесты на фикстурах.
+ * без обращения к фикстурам.
  */
 function input(settings: unknown, options?: WeldResolveOptions): WeldResolveInput {
     return {

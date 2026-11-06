@@ -26,11 +26,6 @@ const SETTINGS_INDENT = '  ';
 /** Список алиасов — ступень вложенности внутри того же блока. */
 const ALIAS_INDENT = `${SETTINGS_INDENT}${SETTINGS_INDENT}`;
 
-/**
- * Очистка управляющих символов: все символы < ' ' и DEL (0x7F) заменяются на `?`.
- * Используется и для сообщений об ошибках CLI, и для значений и путей отчета, которые могут
- * нести управляющие символы из аргументов.
- */
 export function sanitizeText(text: string): string {
     return [...text].map((char) => (char < ' ' || char === '\u007f' ? '?' : char)).join('');
 }
@@ -48,11 +43,6 @@ function widthOf(rows: readonly { label: string }[]): number {
     return Math.max(...rows.map((entry) => entry.label.length));
 }
 
-/**
- * `weld inspect`: путь файла и путь импорта. Значение `alias`
- * печатается как есть; при `alias: null` (алиаса нет) печатается `virtualPath`. Печатается
- * очищенный текст: путь из аргумента может нести управляющие символы.
- */
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
     const rows = [
@@ -64,11 +54,6 @@ export function renderInspect(data: InspectData, options: RenderOptions): string
     return rows.map(({ label, value }) => row(c, label, value, width)).join('\n');
 }
 
-/**
- * `weld config`: файл (или сэмпл директории), примененный ESLint-конфиг и разобранные настройки.
- * Состояния `invalid` и `unresolved` печатаются маркерами. Печатается очищенный текст:
- * пути и сообщения отчета могут нести управляющие символы.
- */
 export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
     const rows = [
@@ -77,8 +62,7 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
     ];
     const width = widthOf(rows);
 
-    // Ширина колонки подписей настроек берется из подписей, а не из значений: `aliases` под собой
-    // несет список и в ширину не входит, текст значения считается один раз — в строках печати.
+    // `aliases` печатается списком и в ширину колонки подписей не входит.
     const settingsWidth = widthOf(
         CONFIG_SETTING_NAMES.filter((name) => name !== 'aliases').map((name) => ({
             label: `${name}:`,
@@ -90,8 +74,6 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
             ? `${c.dim('settings.weld:')} ${c.red(sanitizeText(data.sectionError))}`
             : c.dim('settings.weld:');
 
-    // Строки настроек в порядке `CONFIG_SETTING_NAMES`; `aliases` раскрывается в список на своем
-    // месте, остальные печатаются одной строкой.
     const settingsLines = CONFIG_SETTING_NAMES.flatMap((name) =>
         name === 'aliases'
             ? renderAliases(data.settings.aliases, c, settingsWidth)
@@ -112,10 +94,6 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
     ].join('\n');
 }
 
-/**
- * Текст строки настройки: значение как строка, а маркеры состояний — красная ошибка или желтый
- * unresolved.
- */
 function rowValue(name: ConfigSettingName, state: SettingState<unknown>, c: Colors): string {
     if (state.status === 'invalid') {
         return c.red(sanitizeText(state.message));
@@ -162,7 +140,7 @@ function withSample(data: ConfigData, c: Colors): string {
 /**
  * `star` — признак хвоста в ключе записи: звездная запись печатается с `/*` с обеих сторон, точная —
  * как есть. `anchor` — всегда директория виртуального пути, поэтому звезде хвост дописывается, если
- * его нет. Управляющие символы в имени алиаса заменяются на `?`.
+ * его нет.
  */
 function formatAlias(alias: Alias): string {
     const prefix = sanitizeText(alias.prefix);

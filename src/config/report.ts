@@ -1,16 +1,6 @@
 /**
  * Диагностический отчет эффективной конфигурации: что печатает `weld config`, когда часть
  * конфигурации не вычисляется.
- *
- * Собирается поверх того же `resolveForFile`: эффективные значения берутся из ленивых частей
- * резолва, а каждое состояние определяется по фактическому графу зависимостей. Отчет не бросает:
- * собственная ошибка значения получает `invalid` с сообщением, неразрешенная зависимость —
- * `unresolved` с именем зависимости. Собственные значения проверяются независимо от
- * зависимостей, поэтому две сломанные настройки дают две ошибки, а не каскад, и эффективный
- * корень не подставляется при ошибке его зависимости.
- *
- * Ленивый контракт `WeldTarget` и адаптер правил `src/rules/context.ts` не меняются: правило
- * по-прежнему получает исключение на первой сломанной части.
  */
 
 import type { FsHost } from '@/host/index.js';
@@ -41,10 +31,6 @@ export type ConfigReport = {
     sectionError: string | null;
 };
 
-/**
- * Отчет и тот самый резолв, по которому он собран: потребителю, которому нужна другая ленивая
- * часть `WeldTarget`, `target` позволяет не пересчитывать тот же вход.
- */
 export type ConfigReportResult = {
     report: ConfigReport;
     target: WeldTarget;
@@ -78,7 +64,6 @@ export function reportForFile(
     );
 
     // `hasAliases` читает секцию, поэтому зовется только когда секция читаема.
-    // При нечитабельной секции `aliasesExplicit` равен просто «заданы ли options.aliases».
     const aliasesExplicit =
         options.aliases !== undefined || (sectionError === null && hasAliases(settings));
 
@@ -135,12 +120,6 @@ function ownStringSetting<T extends string | undefined>(
     }
 }
 
-/**
- * Эффективный корень. Порядок неразрешенных зависимостей совпадает с оценкой `resolveForFile`:
- * `coverDirs` считается аргументом **до** вызова `resolveRoot` — сначала вопрос об явности
- * алиасов (читает секцию), затем имя tsconfig; собственный `repoRoot` при этом уже проверен.
- * Инжектированный фейковый хост реального корня не имеет.
- */
 function effectiveRoot(args: {
     fsHostOverride: FsHost | undefined;
     own: SettingState<string | undefined>;
@@ -155,14 +134,10 @@ function effectiveRoot(args: {
         return { status: 'unresolved', dependency: 'fsHost' };
     }
 
-    // `invalid` — собственная ошибка `repoRoot`; `unresolved` — секция нечитабельна.
     if (own.status === 'invalid' || own.status === 'unresolved') {
         return own;
     }
 
-    // Явность алиасов — вопрос, который решается чтением секции, поэтому нечитабельная секция
-    // блокирует корень, пока не заданы `options.aliases`. При валидной секции `aliasesExplicit`
-    // учитывает и явные алиасы секции, и зависимость не возникает.
     let dependency: string | null = null;
     if (sectionError !== null && !aliasesExplicit) {
         dependency = 'settings.weld';
@@ -174,9 +149,7 @@ function effectiveRoot(args: {
         return { status: 'unresolved', dependency };
     }
 
-    // Дальше `getRoot()` не бросает: собственный `repoRoot` валиден, а секция и имя tsconfig
-    // разрешены выше. `null` он отдает только при инъекции хоста, а та отсекена в начале,
-    // — ответ ниже остается только для сужения типа.
+    // `getRoot()` не бросает; `null` бывает только при инъекции хоста — ветка сужает тип.
     const root = target.getRoot();
     if (root === null) {
         return { status: 'unresolved', dependency: 'fsHost' };
@@ -185,12 +158,6 @@ function effectiveRoot(args: {
     return { status: 'value', value: root };
 }
 
-/**
- * Алиасы. Явные проверяются собственным форматом и `aliasesBaseUrl` — независимо от корня
- * (разбираются без рабочего корня); собственная ошибка формата показывается даже при невалидной
- * базе. Автоматические — из tsconfig: зависимость называется в порядке оценки резолва (сначала
- * имя tsconfig, затем корень), чтобы отчет не маскировал причину ошибки.
- */
 function effectiveAliases(args: {
     settings: unknown;
     sectionError: string | null;
@@ -218,7 +185,6 @@ function effectiveAliases(args: {
         return explicitAliases(options.aliases, 'options.aliases', aliasesBaseUrl, target);
     }
 
-    // Секция нечитабельна и override нет: не определить даже явность алиасов.
     if (sectionError !== null) {
         return { status: 'unresolved', dependency: 'settings.weld' };
     }
@@ -240,8 +206,6 @@ function effectiveAliases(args: {
         return { status: 'unresolved', dependency: 'tsconfig' };
     }
 
-    // `unresolved` корня сюда не доходит: инъекция хоста и нечитабельная секция отсечены в
-    // начале функции, а кривой tsconfig — строкой выше; остается только `invalid`.
     if (repoRoot.status !== 'value') {
         return { status: 'unresolved', dependency: 'repoRoot' };
     }
@@ -249,10 +213,6 @@ function effectiveAliases(args: {
     return { status: 'value', value: target.getAliases() };
 }
 
-/**
- * Явные алиасы: сначала собственный формат (не зависит от базы), затем база, затем разбор тем же
- * вызовом, что и резолв.
- */
 function explicitAliases(
     raw: unknown,
     source: string,
