@@ -42,9 +42,9 @@ graph TD
     cli --> vfs
 
     rules --> config
-    rules --> vfs
     rules --> imports
     rules --> settings
+    rules --> vfs
 
     config --> vfs
     config --> settings
