@@ -1,7 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAliasesFromPaths, getTsconfigName } from '@/settings/index.js';
-import { getAliases, getAliasesBaseUrl, getRepoRoot, hasAliases } from '@/settings/weld.js';
+import { getAliasesFromPaths, getSectionError, getTsconfigName } from '@/settings/index.js';
+import {
+    getAliases,
+    getAliasesBaseUrl,
+    getAliasesRaw,
+    getRepoRoot,
+    hasAliases,
+    resetSettingsCaches,
+} from '@/settings/weld.js';
+
+afterEach(() => {
+    resetSettingsCaches();
+});
 
 describe('getRepoRoot', () => {
     it('repoRoot задан → возвращается как есть, без резолва', () => {
@@ -299,5 +310,34 @@ describe('override — валидация', () => {
         expect(() => getAliases({}, { '@bad': 42 })).toThrow(
             "options.aliases['@bad'] must be a string or an array of strings",
         );
+    });
+});
+
+describe('getSectionError', () => {
+    it('нет settings.weld → null', () => {
+        expect(getSectionError({})).toBeNull();
+    });
+
+    it('settings.weld валидный объект → null', () => {
+        expect(getSectionError({ weld: { repoRoot: '/repo' } })).toBeNull();
+    });
+
+    it('settings.weld не объект → возвращает сообщение об ошибке', () => {
+        expect(getSectionError({ weld: 'nope' })).toBe('settings.weld must be an object');
+    });
+
+    it('settings не объект → null (нет секции)', () => {
+        expect(getSectionError('string')).toBeNull();
+    });
+});
+
+describe('getAliasesRaw', () => {
+    it('ключ есть → сырое значение', () => {
+        expect(getAliasesRaw({ weld: { aliases: { '@a': 42 } } })).toEqual({ '@a': 42 });
+    });
+
+    it('ключа нет → undefined', () => {
+        expect(getAliasesRaw({ weld: {} })).toBeUndefined();
+        expect(getAliasesRaw({})).toBeUndefined();
     });
 });

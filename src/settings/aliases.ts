@@ -1,8 +1,24 @@
 import { createLogger } from '@/debug.js';
 import { isEntryFileName } from '@/extensions.js';
 import { basename, resolvePath, splitExtension } from '@/path/index.js';
+import type { SettingState } from './state.js';
 
 const debug = createLogger('aliases');
+
+/**
+ * Небросающая проверка собственного формата алиасов: объект, значения — строка или массив строк.
+ * Делегирует бросающему `parseAliases`: форматные ошибки — те же броски с теми же текстами, а
+ * записи с некорректной формой ключа/якоря отбрасываются там же и не дают ошибки формата.
+ * Разобранные значения не используются — важен только факт формата, поэтому `value` — пустая строка.
+ */
+export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<string> {
+    try {
+        parseAliases(rawAliases, '.', source);
+        return { status: 'value', value: '' };
+    } catch (error) {
+        return { status: 'invalid', message: (error as Error).message };
+    }
+}
 
 /**
  * Одна разобранная запись `paths`: префикс специфаера, якорь-директория и форма ключа. `star`

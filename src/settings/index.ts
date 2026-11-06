@@ -7,7 +7,8 @@
  * - получать настройки корня репозитория, базы алиасов и имени tsconfig;
  * - разбирать и валидировать алиасы из `settings.weld` и внешних `paths`;
  * - различать явно заданные алиасы, включая пустой объект;
- * - кэшировать успешный разбор алиасов и публиковать его результат.
+ * - кэшировать успешный разбор алиасов и публиковать его результат;
+ * - отдавать небросающие точки доступа для диагностического отчета `weld config`.
  */
 
 export type { Alias } from './aliases.js';
@@ -17,12 +18,17 @@ export type { Alias } from './aliases.js';
  * которым нужно предсказать решение разбора, не запуская его, — например, расчету root в
  * `src/tsconfig/` нельзя поднимать root ради якоря записи, которую разбор потом отбросит.
  */
-export { hasValidStarShape, stripStarSuffix } from './aliases.js';
+export { checkAliasesFormat, hasValidStarShape, stripStarSuffix } from './aliases.js';
 export {
     getAliases,
     getAliasesBaseUrl,
     getAliasesFromPaths,
+    getAliasesRaw,
     getRepoRoot,
+    getSectionError,
     getTsconfigName,
     hasAliases,
+    resetSettingsCaches,
 } from './weld.js';
+/** Состояние значения в небросающих диагностических разборах слоя: `checkAliasesFormat` и отчет `src/config/`. */
+export type { SettingState } from './state.js';

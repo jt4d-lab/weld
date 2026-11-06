@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseAliases } from '@/settings/aliases.js';
+import { parseAliases, checkAliasesFormat } from '@/settings/aliases.js';
 
 const SOURCE = 'settings.weld.aliases';
 
@@ -138,5 +138,53 @@ describe('parseAliases — валидация', () => {
         expect(() => parse({ '@bad': ['ok', 42] }, '.')).toThrow(
             "settings.weld.aliases['@bad'] must contain only strings",
         );
+    });
+});
+
+describe('checkAliasesFormat — собственный формат', () => {
+    it('валидные алиасы → value', () => {
+        expect(checkAliasesFormat({ '@src/*': ['src/*'] }, SOURCE)).toEqual({
+            status: 'value',
+            value: '',
+        });
+    });
+
+    it('пустой объект → value', () => {
+        expect(checkAliasesFormat({}, SOURCE)).toEqual({ status: 'value', value: '' });
+    });
+
+    it('не объект → invalid', () => {
+        expect(checkAliasesFormat('nope', SOURCE)).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.aliases must be an object',
+        });
+    });
+
+    it('массив → invalid', () => {
+        expect(checkAliasesFormat([], SOURCE)).toEqual({
+            status: 'invalid',
+            message: 'settings.weld.aliases must be an object',
+        });
+    });
+
+    it('значение не строка и не массив → invalid с именем ключа', () => {
+        expect(checkAliasesFormat({ '@bad': 42 }, SOURCE)).toEqual({
+            status: 'invalid',
+            message: "settings.weld.aliases['@bad'] must be a string or an array of strings",
+        });
+    });
+
+    it('элемент массива не строка → invalid с именем ключа', () => {
+        expect(checkAliasesFormat({ '@bad': ['ok', 42] }, SOURCE)).toEqual({
+            status: 'invalid',
+            message: "settings.weld.aliases['@bad'] must contain only strings",
+        });
+    });
+
+    it('запись с некорректным ключом отбрасывается и не дает ошибки', () => {
+        expect(checkAliasesFormat({ '*': ['src'], '@a*b': ['src'] }, SOURCE)).toEqual({
+            status: 'value',
+            value: '',
+        });
     });
 });
