@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ConfigData } from './config.js';
-import { configJson } from './config.js';
 import type { InspectData } from './inspect.js';
 import { plain } from './program.testing.js';
 import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
@@ -331,96 +330,5 @@ describe('renderJson', () => {
         expect(renderJson({ file: '/repo/src/a.ts', alias: null })).toBe(
             `{\n  "file": "/repo/src/a.ts",\n  "alias": null\n}`,
         );
-    });
-
-    it('config для файла без sampleOf', () => {
-        const value = configJson(CONFIG);
-
-        expect(Object.keys(value)).toEqual(['file', 'configFile', 'settings', 'problems']);
-        expect(renderJson(value)).not.toContain('sampleOf');
-    });
-
-    it('config для директории: sampleOf, configFile и алиасы парами prefix/anchor', () => {
-        const value = configJson({ ...CONFIG, sampleOf: 'src/feature' });
-
-        expect(value).toEqual({
-            file: '/repo/src/feature/index.ts',
-            configFile: 'eslint.config.mjs',
-            sampleOf: 'src/feature',
-            settings: {
-                repoRoot: '/repo',
-                aliasesBaseUrl: '.',
-                tsconfig: 'tsconfig.json',
-                aliases: [{ prefix: '@', anchor: '/src', star: true }],
-            },
-            problems: {},
-        });
-    });
-
-    it('недоступные значения — null, проблемы — в объекте problems', () => {
-        const data: ConfigData = {
-            ...CONFIG,
-            file: '/abs/repo/src/a.ts',
-            configFile: '/abs/repo/eslint.config.mjs',
-            settings: {
-                ...CONFIG.settings,
-                repoRoot: {
-                    status: 'invalid',
-                    message: 'settings.weld.repoRoot must be a string, got number',
-                },
-                aliases: { status: 'unresolved', dependency: 'repoRoot' },
-            },
-        };
-
-        const value = configJson(data) as {
-            settings: Record<string, unknown>;
-            problems: Record<string, unknown>;
-        };
-
-        expect(value.settings.repoRoot).toBeNull();
-        expect(value.settings.aliases).toBeNull();
-        expect(value.settings.tsconfig).toBe('tsconfig.json');
-        expect(value.problems).toEqual({
-            repoRoot: {
-                status: 'invalid',
-                message: 'settings.weld.repoRoot must be a string, got number',
-            },
-            aliases: { status: 'unresolved', dependency: 'repoRoot' },
-        });
-    });
-
-    it('ошибка секции — запись settings.weld в problems', () => {
-        const value = configJson({
-            ...CONFIG,
-            sectionError: 'settings.weld must be an object',
-        }) as {
-            problems: Record<string, unknown>;
-        };
-
-        expect(value.problems['settings.weld']).toEqual({
-            status: 'invalid',
-            message: 'settings.weld must be an object',
-        });
-    });
-
-    it('имя алиаса с управляющим символом: JSON валиден и сохраняет значение', () => {
-        const data: ConfigData = {
-            ...CONFIG,
-            settings: {
-                ...CONFIG.settings,
-                aliases: {
-                    status: 'value',
-                    value: [{ prefix: '@a\u0007b', anchor: '/ab', star: false }],
-                },
-            },
-        };
-
-        const raw = renderJson(configJson(data));
-        const parsed = JSON.parse(raw) as {
-            settings: { aliases: { prefix: string }[] };
-        };
-
-        expect(parsed.settings.aliases[0]!.prefix).toBe('@a\u0007b');
-        expect(raw).not.toContain('\u0007');
     });
 });

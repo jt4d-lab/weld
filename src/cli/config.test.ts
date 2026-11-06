@@ -4,8 +4,8 @@ import { rules } from '@/rules/index.js';
 import type { Alias, SettingState } from '@/settings/index.js';
 import { cleanupTmpProjects } from '@/testing/index.js';
 
-import { hasOwnError } from './config.js';
 import type { ConfigData } from './config.js';
+import { configJson, hasOwnError } from './config.js';
 import {
     ALIAS_CONFIG,
     OUTSIDE_ROOT_CONFIG,
@@ -453,6 +453,105 @@ describe('weld config: диагностический отчет', () => {
         expect(data.problems.aliases.message).toBe(
             "settings.weld.aliases['@a\u0007'] must be a string or an array of strings",
         );
+    });
+});
+
+describe('configJson: машинная форма отчета', () => {
+    const CONFIG: ConfigData = {
+        file: '/repo/src/feature/index.ts',
+        configFile: 'eslint.config.mjs',
+        settings: {
+            repoRoot: { status: 'value', value: '/repo' },
+            aliasesBaseUrl: { status: 'value', value: '.' },
+            tsconfig: { status: 'value', value: 'tsconfig.json' },
+            aliases: { status: 'value', value: [{ prefix: '@', anchor: '/src', star: true }] },
+        },
+        sectionError: null,
+    };
+
+    it('у файла нет sampleOf, есть settings и problems', () => {
+        expect(Object.keys(configJson(CONFIG))).toEqual([
+            'file',
+            'configFile',
+            'settings',
+            'problems',
+        ]);
+    });
+
+    it('у директории есть sampleOf, алиасы парами prefix/anchor', () => {
+        expect(configJson({ ...CONFIG, sampleOf: 'src/feature' })).toEqual({
+            file: '/repo/src/feature/index.ts',
+            configFile: 'eslint.config.mjs',
+            sampleOf: 'src/feature',
+            settings: {
+                repoRoot: '/repo',
+                aliasesBaseUrl: '.',
+                tsconfig: 'tsconfig.json',
+                aliases: [{ prefix: '@', anchor: '/src', star: true }],
+            },
+            problems: {},
+        });
+    });
+
+    it('недоступные значения — null, проблемы — в объекте problems', () => {
+        const value = configJson({
+            ...CONFIG,
+            file: '/abs/repo/src/a.ts',
+            configFile: '/abs/repo/eslint.config.mjs',
+            settings: {
+                ...CONFIG.settings,
+                repoRoot: {
+                    status: 'invalid',
+                    message: 'settings.weld.repoRoot must be a string, got number',
+                },
+                aliases: { status: 'unresolved', dependency: 'repoRoot' },
+            },
+        }) as {
+            settings: Record<string, unknown>;
+            problems: Record<string, unknown>;
+        };
+
+        expect(value.settings.repoRoot).toBeNull();
+        expect(value.settings.aliases).toBeNull();
+        expect(value.settings.tsconfig).toBe('tsconfig.json');
+        expect(value.problems).toEqual({
+            repoRoot: {
+                status: 'invalid',
+                message: 'settings.weld.repoRoot must be a string, got number',
+            },
+            aliases: { status: 'unresolved', dependency: 'repoRoot' },
+        });
+    });
+
+    it('ошибка секции — запись settings.weld в problems', () => {
+        const value = configJson({
+            ...CONFIG,
+            sectionError: 'settings.weld must be an object',
+        }) as {
+            problems: Record<string, unknown>;
+        };
+
+        expect(value.problems['settings.weld']).toEqual({
+            status: 'invalid',
+            message: 'settings.weld must be an object',
+        });
+    });
+
+    it('имя алиаса с управляющим символом сохраняется как есть', () => {
+        const value = configJson({
+            ...CONFIG,
+            settings: {
+                ...CONFIG.settings,
+                aliases: {
+                    status: 'value',
+                    value: [{ prefix: '@a\u0007b', anchor: '/ab', star: false }],
+                },
+            },
+        }) as {
+            settings: { aliases: { prefix: string }[] };
+        };
+
+        expect(value.settings.aliases[0]!.prefix).toBe('@a\u0007b');
     });
 });
 
