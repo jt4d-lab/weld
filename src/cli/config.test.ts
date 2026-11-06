@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { rules } from '@/rules/index.js';
+import type { SettingState } from '@/settings/index.js';
 import { cleanupTmpProjects } from '@/testing/index.js';
 
+import { hasOwnError } from './config.js';
+import type { ConfigData } from './config.js';
 import {
     ALIAS_CONFIG,
     OUTSIDE_ROOT_CONFIG,
@@ -39,12 +43,86 @@ export default [
 ];
 `;
 
+const INVALID_RULE_OPTION_CONFIG = `const weld = {
+    rules: {
+        'no-barrel-bypass': { meta: { schema: ${JSON.stringify(rules['no-barrel-bypass'].meta?.schema)} }, create: () => ({}) },
+    },
+};
+export default [{
+    files: ['**/*.ts'],
+    plugins: { weld },
+    rules: { 'weld/no-barrel-bypass': ['error', { repoRoot: 42 }] },
+    settings: { weld: { aliases: 42 } },
+}];
+`;
+
+/** Кривой `repoRoot` в секции: корень не вычисляется, авто-алиасы не могут быть получены. */
+const BAD_REPO_ROOT_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { repoRoot: 42 } },
+    },
+];
+`;
+
+/** Невалидная секция `settings.weld` вовсе: одна проблема секции, все ее настройки — unresolved. */
+const BAD_SECTION_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: 'nope' },
+    },
+];
+`;
+
+/** Несколько независимых собственных ошибок в одном отчете. */
+const MULTI_PROBLEM_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: {
+            weld: {
+                repoRoot: 42,
+                tsconfig: 42,
+                aliases: { '@a': 42 },
+            },
+        },
+    },
+];
+`;
+
+/**
+ * Имя алиаса с управляющим символом: в файле конфига — JS-экранирование, после загрузки —
+ * реальный символ `\u0007` внутри ключа.
+ */
+const CONTROL_ALIAS_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@a\\u0007/*': ['a/*'] } } },
+    },
+];
+`;
+
 afterEach(() => {
     cleanupTmpProjects();
 });
 
 describe('weld config: файл', () => {
-    it('печатает корень, базу алиасов, имя tsconfig и разобранные алиасы', async () => {
+    it('ошибка схемы опций ESLint не дает построить отчет', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': INVALID_RULE_OPTION_CONFIG,
+            'src/a.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['--json', 'config', 'src/a.ts'], { from: 'user' });
+
+        const result = JSON.parse(printed(out)) as Record<string, unknown>;
+        expect(result.error).toEqual(expect.stringContaining('Value 42 should be string'));
+        expect(result).not.toHaveProperty('settings');
+        expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+    });
+
+    it('печатает корень, базу алиасов, имя tsconfig и алиасы, код 0', async () => {
         const root = makeCliProject({
             'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
@@ -77,7 +155,7 @@ describe('weld config: файл', () => {
             }),
             'src/feature/internal.ts': '',
         });
-        const { program, out } = capture(root);
+        const { program, out, codes } = capture(root);
 
         await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
 
@@ -93,6 +171,7 @@ describe('weld config: файл', () => {
                 '    @/* → /src/*',
             ].join('\n') + '\n',
         );
+        expect(codes).toEqual([]);
     });
 
     it('опции правила из конфига перекрывают settings.weld, как и при линте', async () => {
@@ -100,7 +179,7 @@ describe('weld config: файл', () => {
             'eslint.config.mjs': RULE_OPTIONS_CONFIG,
             'src/feature/internal.ts': '',
         });
-        const { program, out } = capture(root);
+        const { program, out, codes } = capture(root);
 
         await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
 
@@ -116,6 +195,7 @@ describe('weld config: файл', () => {
                 '    @/* → /src/*',
             ].join('\n') + '\n',
         );
+        expect(codes).toEqual([]);
     });
 });
 
@@ -126,14 +206,15 @@ describe('weld config: директория', () => {
             'src/feature/internal.ts': '',
             'src/feature/index.ts': '',
         });
-        const { program, out } = capture(root);
+        const { program, out, codes } = capture(root);
 
         await program.parseAsync(['config', 'src/feature'], { from: 'user' });
 
         expect(printed(out)).toContain('file:   src/feature/index.ts (sample of src/feature)\n');
+        expect(codes).toEqual([]);
     });
 
-    it('--json отдает sampleOf и настройки в машинной форме', async () => {
+    it('--json отдает sampleOf, настройки и пустые problems', async () => {
         const root = makeCliProject({
             'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
@@ -153,12 +234,13 @@ describe('weld config: директория', () => {
                 tsconfig: 'tsconfig.json',
                 aliases: [{ prefix: '@', anchor: '/src', star: true }],
             },
+            problems: {},
         });
     });
 });
 
 describe('weld config: --json у файла', () => {
-    it('не содержит sampleOf', async () => {
+    it('не содержит sampleOf, содержит settings и problems', async () => {
         const root = makeCliProject({
             'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
@@ -168,9 +250,234 @@ describe('weld config: --json у файла', () => {
         await program.parseAsync(['--json', 'config', 'src/feature/internal.ts'], { from: 'user' });
 
         const data = JSON.parse(printed(out)) as Record<string, unknown>;
-        expect(data).not.toHaveProperty('sampleOf');
+        expect(Object.keys(data)).toEqual(['file', 'configFile', 'settings', 'problems']);
         expect(data.file).toBe('src/feature/internal.ts');
         expect(data.configFile).toBe('eslint.config.mjs');
+    });
+});
+
+describe('weld config: диагностический отчет', () => {
+    it('кривой repoRoot: file/config абсолютные, авто-алиасы unresolved, код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BAD_REPO_ROOT_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                `file:   ${root}/src/feature/internal.ts`,
+                `config: ${root}/eslint.config.mjs`,
+                'settings.weld:',
+                '  repoRoot:       settings.weld.repoRoot must be a string, got number',
+                '  aliasesBaseUrl: .',
+                '  tsconfig:       tsconfig.json',
+                '  aliases:        (unresolved: repoRoot)',
+            ].join('\n') + '\n',
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+    });
+
+    it('то же --json: null в settings, problems с invalid и unresolved', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BAD_REPO_ROOT_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out } = capture(root);
+
+        await program.parseAsync(['--json', 'config', 'src/feature/internal.ts'], { from: 'user' });
+
+        const data = JSON.parse(printed(out)) as {
+            file: string;
+            settings: Record<string, unknown>;
+            problems: Record<string, { status: string; message?: string; dependency?: string }>;
+        };
+
+        expect(data.file).toBe(`${root}/src/feature/internal.ts`);
+        expect(data.settings.repoRoot).toBeNull();
+        expect(data.settings.aliases).toBeNull();
+        expect(data.settings.tsconfig).toBe('tsconfig.json');
+        expect(data.problems).toEqual({
+            repoRoot: {
+                status: 'invalid',
+                message: 'settings.weld.repoRoot must be a string, got number',
+            },
+            aliases: { status: 'unresolved', dependency: 'repoRoot' },
+        });
+    });
+
+    it('кривая секция: все настройки unresolved, код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BAD_SECTION_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                `file:   ${root}/src/feature/internal.ts`,
+                `config: ${root}/eslint.config.mjs`,
+                'settings.weld: settings.weld must be an object',
+                '  repoRoot:       (unresolved: settings.weld)',
+                '  aliasesBaseUrl: (unresolved: settings.weld)',
+                '  tsconfig:       (unresolved: settings.weld)',
+                '  aliases:        (unresolved: settings.weld)',
+            ].join('\n') + '\n',
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+
+        const { program: jprogram, out: jout } = capture(root);
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            file: string;
+            settings: Record<string, unknown>;
+            problems: Record<string, { status: string; message?: string; dependency?: string }>;
+        };
+
+        expect(data.file).toBe(`${root}/src/feature/internal.ts`);
+        expect(Object.values(data.settings)).toEqual(Array(4).fill(null));
+        expect(data.problems).toEqual({
+            repoRoot: { status: 'unresolved', dependency: 'settings.weld' },
+            aliasesBaseUrl: { status: 'unresolved', dependency: 'settings.weld' },
+            tsconfig: { status: 'unresolved', dependency: 'settings.weld' },
+            aliases: { status: 'unresolved', dependency: 'settings.weld' },
+            'settings.weld': { status: 'invalid', message: 'settings.weld must be an object' },
+        });
+    });
+
+    it('несколько независимых проблем: каждая своя, без повторения каскадной', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': MULTI_PROBLEM_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                `file:   ${root}/src/feature/internal.ts`,
+                `config: ${root}/eslint.config.mjs`,
+                'settings.weld:',
+                '  repoRoot:       settings.weld.repoRoot must be a string, got number',
+                '  aliasesBaseUrl: .',
+                '  tsconfig:       settings.weld.tsconfig must be a string, got number',
+                "  aliases:        settings.weld.aliases['@a'] must be a string or an array of strings",
+            ].join('\n') + '\n',
+        );
+        expect(codes).toEqual([1]);
+
+        const { program: jprogram, out: jout } = capture(root, {});
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            settings: Record<string, unknown>;
+            problems: Record<string, { status: string }>;
+        };
+
+        expect(data.settings.repoRoot).toBeNull();
+        expect(data.settings.tsconfig).toBeNull();
+        expect(data.settings.aliases).toBeNull();
+        // Три собственные проблемы, без дублирующего `unresolved: repoRoot` для aliases.
+        expect(Object.keys(data.problems).sort()).toEqual(['aliases', 'repoRoot', 'tsconfig']);
+        expect(data.problems.aliases).toEqual({
+            status: 'invalid',
+            message: "settings.weld.aliases['@a'] must be a string or an array of strings",
+        });
+    });
+
+    it('имя алиаса с управляющим символом: текст очищен, JSON сохраняет значение', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': CONTROL_ALIAS_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        const text = printed(out);
+        expect(text).toContain('@a?/* → /a/*');
+        expect(out.join('')).not.toContain('\u0007');
+        expect(codes).toEqual([]);
+
+        const { program: jprogram, out: jout } = capture(root);
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            settings: { aliases: { prefix: string }[] };
+        };
+        expect(data.settings.aliases[0]!.prefix).toBe('@a\u0007');
+    });
+});
+
+describe('hasOwnError: код 1 только при собственной ошибке', () => {
+    const value = (
+        v: string | string[] | boolean | { prefix: string; anchor: string; star: boolean }[],
+    ): SettingState<never> => ({ status: 'value', value: v }) as SettingState<never>;
+
+    const base = (over: Partial<ConfigData['settings']> = {}): ConfigData => ({
+        file: 'src/a.ts',
+        configFile: 'eslint.config.mjs',
+        settings: {
+            repoRoot: value('/repo'),
+            aliasesBaseUrl: value('.'),
+            tsconfig: value('tsconfig.json'),
+            aliases: value([]),
+            ...over,
+        } as ConfigData['settings'],
+        sectionError: null,
+    });
+
+    it('валидная конфигурация — false (код 0)', () => {
+        expect(hasOwnError(base())).toBe(false);
+    });
+
+    it('только unresolved, без invalid и ошибки секции — false (код 0)', () => {
+        expect(
+            hasOwnError(
+                base({
+                    aliases: {
+                        status: 'unresolved',
+                        dependency: 'aliasesBaseUrl',
+                    } as SettingState<never>,
+                }),
+            ),
+        ).toBe(false);
+    });
+
+    it('хотя бы одна invalid — true (код 1)', () => {
+        expect(
+            hasOwnError(
+                base({
+                    repoRoot: { status: 'invalid', message: 'bad root' } as SettingState<never>,
+                    aliases: {
+                        status: 'unresolved',
+                        dependency: 'repoRoot',
+                    } as SettingState<never>,
+                }),
+            ),
+        ).toBe(true);
+    });
+
+    it('ошибка секции — true (код 1), даже если все поля unresolved', () => {
+        const data = base({
+            repoRoot: { status: 'unresolved', dependency: 'settings.weld' } as SettingState<never>,
+        });
+        data.sectionError = 'settings.weld must be an object';
+        expect(hasOwnError(data)).toBe(true);
     });
 });
 

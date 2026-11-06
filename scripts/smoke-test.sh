@@ -110,7 +110,7 @@ CONFIG="$($CLI config --no-color src)"
 grep -qxF 'file:   src/example.js (sample of src)' <<<"$CONFIG" || { echo "    неверная строка file: $CONFIG" >&2; exit 1; }
 grep -qxF 'config: eslint.config.js' <<<"$CONFIG" || { echo "    неверная строка config: $CONFIG" >&2; exit 1; }
 grep -q '^  repoRoot: ' <<<"$CONFIG" || { echo "    нет repoRoot: $CONFIG" >&2; exit 1; }
-grep -q '^  aliases: (none)$' <<<"$CONFIG" || { echo "    неверные aliases: $CONFIG" >&2; exit 1; }
+grep -qxF '  aliases:        (none)' <<<"$CONFIG" || { echo "    неверные aliases: $CONFIG" >&2; exit 1; }
 echo "$CONFIG" | sed 's/^/    /'
 
 $CLI config --json src > "$TMP/config.json"
@@ -122,6 +122,7 @@ node -e "
   assert.equal(data.configFile, 'eslint.config.js');
   assert.equal(data.settings.repoRoot, '$TMP/project', 'repoRoot должен остаться абсолютным');
   assert.ok(Array.isArray(data.settings.aliases), 'aliases — не массив');
+  assert.deepEqual(data.problems, {}, 'problems должен быть пуст');
   console.log('    json: ' + JSON.stringify(data.settings));
 "
 
@@ -205,6 +206,14 @@ set -e
 grep -qxF 'error: settings.weld.aliases must be an object' <<<"$INVALID" || { echo "    неверное сообщение: $INVALID" >&2; exit 1; }
 grep -qxF 'hint: Check configuration: weld config src/a.js' <<<"$INVALID" || { echo "    нет подсказки: $INVALID" >&2; exit 1; }
 echo "$INVALID" | sed 's/^/    /'
+
+set +e
+INVALID_CONFIG="$(cd "$TMP/invalid" && "$TMP/project/node_modules/.bin/weld" config --no-color src/a.js 2>&1)"
+INVALID_CONFIG_CODE=$?
+set -e
+[ "$INVALID_CONFIG_CODE" -eq 1 ] || { echo "    невалидная настройка не вернула код 1" >&2; exit 1; }
+grep -qxF '  aliases:        settings.weld.aliases must be an object' <<<"$INVALID_CONFIG" || { echo "    нет ошибки настройки в отчете: $INVALID_CONFIG" >&2; exit 1; }
+echo "$INVALID_CONFIG" | sed 's/^/    /'
 
 echo "==> Проверяю отрицательные случаи: код 1 и сообщение об ошибке"
 set +e

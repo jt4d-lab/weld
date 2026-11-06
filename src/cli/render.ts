@@ -6,9 +6,10 @@
 
 import pc from 'picocolors';
 
-import type { Alias } from '@/settings/index.js';
+import type { Alias, SettingState } from '@/settings/index.js';
 
-import type { ConfigData } from './config.js';
+import type { ConfigData, ConfigSettingName } from './config.js';
+import { CONFIG_SETTING_NAMES } from './config.js';
 import type { InspectData } from './inspect.js';
 
 /** Формат `picocolors`: `createColors(false)` — те же функции, но без escape-последовательностей. */
@@ -27,8 +28,8 @@ const ALIAS_INDENT = `${SETTINGS_INDENT}${SETTINGS_INDENT}`;
 
 /**
  * Очистка управляющих символов: все символы < ' ' и DEL (0x7F) заменяются на `?`.
- * Используется и для сообщений об ошибках CLI, и для значений вывода, которые могут нести
- * управляющие символы из аргументов.
+ * Используется и для сообщений об ошибках CLI, и для значений и путей отчета, которые могут
+ * нести управляющие символы из аргументов.
  */
 export function sanitizeText(text: string): string {
     return [...text].map((char) => (char < ' ' || char === '\u007f' ? '?' : char)).join('');
@@ -48,9 +49,9 @@ function widthOf(rows: readonly { label: string }[]): number {
 }
 
 /**
- * `weld inspect`: путь файла и путь импорта. Значение `alias` печатается как есть — команда уже
- * подставила виртуальный путь, если алиаса нет. Печатается очищенный текст: путь из аргумента
- * может нести управляющие символы.
+ * `weld inspect`: путь файла, путь импорта и метаданные в схеме слоев. Значение `alias`
+ * печатается как есть; при `alias: null` (алиаса нет) печатается `virtualPath`. Печатается
+ * очищенный текст: путь из аргумента может нести управляющие символы.
  */
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
@@ -65,7 +66,8 @@ export function renderInspect(data: InspectData, options: RenderOptions): string
 
 /**
  * `weld config`: файл (или сэмпл директории), примененный ESLint-конфиг и разобранные настройки.
- * Печатается очищенный текст: пути и разобранные значения могут нести управляющие символы.
+ * Состояния `invalid` и `unresolved` печатаются маркерами. Печатается очищенный текст:
+ * пути и сообщения отчета могут нести управляющие символы.
  */
 export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
@@ -75,23 +77,78 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
     ];
     const width = widthOf(rows);
 
+    // Ширина колонки подписей настроек берется из подписей, а не из значений: `aliases` под собой
+    // несет список и в ширину не входит, текст значения считается один раз — в строках печати.
+    const settingsWidth = widthOf(
+        CONFIG_SETTING_NAMES.filter((name) => name !== 'aliases').map((name) => ({
+            label: `${name}:`,
+        })),
+    );
+
+    const sectionHeader =
+        data.sectionError !== null
+            ? `${c.dim('settings.weld:')} ${c.red(sanitizeText(data.sectionError))}`
+            : c.dim('settings.weld:');
+
+    // Строки настроек в порядке `CONFIG_SETTING_NAMES`; `aliases` раскрывается в список на своем
+    // месте, остальные печатаются одной строкой.
+    const settingsLines = CONFIG_SETTING_NAMES.flatMap((name) =>
+        name === 'aliases'
+            ? renderAliases(data.settings.aliases, c, settingsWidth)
+            : [
+                  `${SETTINGS_INDENT}${row(
+                      c,
+                      `${name}:`,
+                      rowValue(name, data.settings[name], c),
+                      settingsWidth,
+                  )}`,
+              ],
+    );
+
     return [
         ...rows.map(({ label, value }) => row(c, label, value, width)),
-        c.dim('settings.weld:'),
-        ...settingsRows(c, data.settings).map((text) => `${SETTINGS_INDENT}${text}`),
-        ...renderAliases(data.settings.aliases, c),
+        sectionHeader,
+        ...settingsLines,
     ].join('\n');
 }
 
-function settingsRows(c: Colors, settings: ConfigData['settings']): string[] {
-    const rows = [
-        { label: 'repoRoot:', value: sanitizeText(settings.repoRoot) },
-        { label: 'aliasesBaseUrl:', value: sanitizeText(settings.aliasesBaseUrl) },
-        { label: 'tsconfig:', value: sanitizeText(settings.tsconfig) },
-    ];
-    const width = widthOf(rows);
+/**
+ * Текст строки настройки: значение как строка, а маркеры состояний — красная ошибка или желтый
+ * unresolved.
+ */
+function rowValue(name: ConfigSettingName, state: SettingState<unknown>, c: Colors): string {
+    if (state.status === 'invalid') {
+        return c.red(sanitizeText(state.message));
+    }
 
-    return rows.map(({ label, value }) => row(c, label, value, width));
+    if (state.status === 'unresolved') {
+        return c.yellow(`(unresolved: ${state.dependency})`);
+    }
+
+    return sanitizeText(state.value as string);
+}
+
+/**
+ * Алиасы: при пустом списке — явное `(none)` в строке подписи, иначе подпись и список под ней.
+ * Запись печатается в той форме, в которой объявляется в `paths`: `<prefix>/* → <anchor>/*`, а у
+ * точного ключа хвоста `/*` нет ни с одной стороны.
+ */
+function renderAliases(state: SettingState<Alias[]>, c: Colors, width: number): string[] {
+    if (state.status === 'value') {
+        if (state.value.length === 0) {
+            return [`${SETTINGS_INDENT}${row(c, 'aliases:', c.dim('(none)'), width)}`];
+        }
+        return [
+            `${SETTINGS_INDENT}${c.dim('aliases:')}`,
+            ...state.value.map((alias) => `${ALIAS_INDENT}${c.cyan(formatAlias(alias))}`),
+        ];
+    }
+
+    const marker =
+        state.status === 'invalid'
+            ? c.red(sanitizeText(state.message))
+            : c.yellow(`(unresolved: ${state.dependency})`);
+    return [`${SETTINGS_INDENT}${row(c, 'aliases:', marker, width)}`];
 }
 
 function withSample(data: ConfigData, c: Colors): string {
@@ -100,22 +157,6 @@ function withSample(data: ConfigData, c: Colors): string {
     }
 
     return `${sanitizeText(data.file)} ${c.dim(`(sample of ${sanitizeText(data.sampleOf)})`)}`;
-}
-
-/**
- * Алиасы: при пустом списке — явное `(none)` в строке подписи, иначе подпись и список под ней.
- * Запись печатается в той форме, в которой объявляется в `paths`: `<prefix>/* → <anchor>/*`, а у
- * точного ключа хвоста `/*` нет ни с одной стороны.
- */
-function renderAliases(aliases: Alias[], c: Colors): string[] {
-    if (aliases.length === 0) {
-        return [`${SETTINGS_INDENT}${c.dim('aliases:')} ${c.dim('(none)')}`];
-    }
-
-    return [
-        `${SETTINGS_INDENT}${c.dim('aliases:')}`,
-        ...aliases.map((alias) => `${ALIAS_INDENT}${c.cyan(formatAlias(alias))}`),
-    ];
 }
 
 /**
