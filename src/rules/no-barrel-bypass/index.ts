@@ -2,14 +2,14 @@
  * Правило `weld/no-barrel-bypass`: ловит импорты, входящие внутрь модуля мимо его точки входа
  * (`index.<ext>`), и предлагает исправленный путь через `checkImport`.
  *
- * Всё, что не про баррели, — общее: настройки и `FsHost` дает `resolveWeldContext`, обход и правку
+ * Всё, что не про баррели, — общее: настройки и `RepoFs` дает `resolveWeldContext`, обход и правку
  * специфаеров — `src/imports/nodes.ts`. Здесь остается вердикт и текст сообщения.
  */
 
 import type { Rule } from 'eslint';
 
 import { createLogger } from '@/debug.js';
-import type { FsHost } from '@/repo-fs/index.js';
+import type { RepoFs } from '@/repo-fs/index.js';
 import type { SpecifierNode, SpecifierSkip } from '@/imports/index.js';
 import { createSpecifierVisitor, replaceSpecifier } from '@/imports/index.js';
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
@@ -38,11 +38,11 @@ const messages = {
 type RuleOptions = { fix?: boolean };
 
 /**
- * `fsHost` — для инъекции в тестах; без него файловую систему собирает `resolveWeldContext` из
+ * `repoFs` — для инъекции в тестах; без него файловую систему собирает `resolveWeldContext` из
  * `context.settings`/`context.cwd` и опции `repoRoot`. При инъекции опция `repoRoot` ни на что не
  * влияет.
  */
-export function createRule(fsHost?: FsHost): Rule.RuleModule {
+export function createRule(repoFs?: RepoFs): Rule.RuleModule {
     return {
         meta: {
             type: 'problem',
@@ -65,14 +65,14 @@ export function createRule(fsHost?: FsHost): Rule.RuleModule {
             messages,
         },
         create(context) {
-            const weld = resolveWeldContext<RuleOptions>(context, fsHost);
+            const weld = resolveWeldContext<RuleOptions>(context, repoFs);
             if (weld === null) {
                 return {};
             }
 
             const { fromFile } = weld;
             const applyFix = weld.options.fix ?? true;
-            const checkImport = createChecker(weld, weld.fsHost);
+            const checkImport = createChecker(weld, weld.repoFs);
 
             return createSpecifierVisitor((sourceNode: SpecifierNode) => {
                 const original = sourceNode.value;

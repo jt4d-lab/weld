@@ -43,7 +43,7 @@ type CacheEntry = { value: TsconfigPaths | null; expiresAt: number };
 type LoadTsconfigOptions = {
     /** Имя файла tsconfig для поиска. */
     configName?: string;
-    /** Шов для тестов TTL — по образцу `createFsHost`. */
+    /** Шов для тестов TTL — по образцу `createRepoFs`. */
     now?: () => number;
     /** Шов для тестов: подмена чтения диска (по умолчанию — `getTsconfig` из `get-tsconfig`). */
     read?: (searchDir: string, configName: string) => TsConfigResult | null;
@@ -51,14 +51,14 @@ type LoadTsconfigOptions = {
 
 /**
  * TTL найденного результата в мемоизации «директория файла + имя tsconfig → результат», то же значение, что
- * `TTL_MS` в `src/repo-fs/fs.ts`: tsconfig правят руками чаще, чем создают `index.ts`, а вечный кэш в
+ * `TTL_MS` в `src/repo-fs/repo-fs.ts`: tsconfig правят руками чаще, чем создают `index.ts`, а вечный кэш в
  * долгоживущем ESLint редактора неприемлем.
  */
 const TTL_MS = 600_000;
 
 /**
  * TTL отрицательного результата (`null`) — заметно короче, та же асимметрия, что у
- * `NEGATIVE_TTL_MS` в `src/repo-fs/fs.ts`: «paths есть» опровергается их правкой раз в десять минут —
+ * `NEGATIVE_TTL_MS` в `src/repo-fs/repo-fs.ts`: «paths есть» опровергается их правкой раз в десять минут —
  * терпимо, а «paths нет» — тем, что их дописали (или починили битый tsconfig), и именно это делает
  * в редакторе пользователь, настраивающий алиасы. Долгий TTL заставлял бы автопоиск игнорировать
  * только что созданный tsconfig еще десять минут.
@@ -180,7 +180,7 @@ function getImplicitBaseUrl(compilerOptions: object): string | undefined {
 
 /**
  * Реальный абсолютный путь: unix (`/…`) или Windows-диск (`C:…`). Сосед `isAbsoluteRealPath` из
- * `src/repo-fs/fs.ts` отвечает на тот же вопрос, но про уже нормализованные `toPosix`-пути и наружу из
+ * `src/repo-fs/repo-fs.ts` отвечает на тот же вопрос, но про уже нормализованные `toPosix`-пути и наружу из
  * слоя не выходит; здесь проверяются сырые строки из tsconfig — два «пограничных» модуля держат по
  * своей проверке.
  */

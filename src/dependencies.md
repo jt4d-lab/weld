@@ -14,17 +14,18 @@ flowchart TD
     imports
     config
     settings
+    repoFs["repo-fs"]
 
     input --> config
     input --> settings
     input --> imports
-    input --> host
+    input --> repoFs
 
     config --> settings
     config --> tsconfig
-    config --> host
+    config --> repoFs
 
-    host --> settings
+    repoFs --> settings
 
     tsconfig --> settings
 

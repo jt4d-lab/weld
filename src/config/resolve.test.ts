@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createFakeFsHost, resetFsHostCaches } from '@/repo-fs/index.js';
+import { createFakeRepoFs, resetRepoFsCaches } from '@/repo-fs/index.js';
 import {
     cleanupTmpProjects,
     makeTmpProject,
@@ -21,7 +21,7 @@ vi.mock('../tsconfig/index.js', async (importOriginal) => {
 const loadTsconfigPathsMock = vi.mocked(loadTsconfigPaths);
 
 afterEach(() => {
-    resetFsHostCaches();
+    resetRepoFsCaches();
     resetTsconfigCache();
     cleanupTmpProjects();
     loadTsconfigPathsMock.mockClear();
@@ -29,7 +29,7 @@ afterEach(() => {
 
 describe('resolveForFile', () => {
     it('базовый резолв: виртуальный путь, алиасы и та же файловая система', () => {
-        const fsHost = createFakeFsHost([]);
+        const repoFs = createFakeRepoFs([]);
 
         const target = resolveForFile(
             {
@@ -39,20 +39,20 @@ describe('resolveForFile', () => {
                     weld: { aliasesBaseUrl: '/', aliases: { '@other/*': ['src/other/*'] } },
                 },
             },
-            fsHost,
+            repoFs,
         );
 
         expect(target.getFromFile()).toBe('/src/feature/file.ts');
         expect(target.getAliases()).toEqual([
             { prefix: '@other', anchor: '/src/other', star: true },
         ]);
-        expect(target.getFsHost()).toBe(fsHost);
+        expect(target.getRepoFs()).toBe(repoFs);
     });
 
     it('getFromFile() вне корня репозитория → null', () => {
         const target = resolveForFile(
             { filename: 'relative/file.ts', cwd: '/cwd', settings: {} },
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(target.getFromFile()).toBeNull();
@@ -61,7 +61,7 @@ describe('resolveForFile', () => {
     it('getRoot() в поддельной файловой системе → null: реального корня у нее нет', () => {
         const target = resolveForFile(
             { filename: '/src/feature/file.ts', cwd: '/cwd', settings: {} },
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(target.getRoot()).toBeNull();
@@ -77,7 +77,7 @@ describe('resolveForFile', () => {
                 },
                 options: { aliasesBaseUrl: '/', aliases: { '@a/*': ['src/a/*'] } },
             },
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(target.getAliases()).toEqual([{ prefix: '@a', anchor: '/src/a', star: true }]);
@@ -132,11 +132,11 @@ describe('resolveForFile', () => {
         expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
     });
 
-    it('при инъекции fsHost tsconfig не читается: алиасов нет', () => {
+    it('при инъекции repoFs tsconfig не читается: алиасов нет', () => {
         const file = `${tsconfigBasicFixture}/src/consumer.ts`;
         const target = resolveForFile(
             { filename: file, cwd: tsconfigBasicFixture, settings: {} },
-            createFakeFsHost([file]),
+            createFakeRepoFs([file]),
         );
 
         expect(target.getAliases()).toEqual([]);
@@ -211,7 +211,7 @@ describe('resolveForFile: ленивость', () => {
                 cwd: '/cwd',
                 settings: { weld: { aliases: 'nope' } },
             },
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(() => target.getAliases()).toThrow();
@@ -230,7 +230,7 @@ describe('resolveForFile: ленивость', () => {
         target.getRoot();
         expect(loadTsconfigPathsMock).toHaveBeenCalledTimes(1);
 
-        target.getFsHost();
+        target.getRepoFs();
         target.getFromFile();
         target.getAliases();
         target.getAliases();

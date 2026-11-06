@@ -1,8 +1,8 @@
 import type { Rule } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
-import type { FsHost } from '@/repo-fs/index.js';
-import { createFakeFsHost, createFsHost } from '@/repo-fs/index.js';
+import type { RepoFs } from '@/repo-fs/index.js';
+import { createFakeRepoFs, createRepoFs } from '@/repo-fs/index.js';
 
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
 import { createRuleTester } from '@/testing/index.js';
@@ -10,8 +10,8 @@ import { createRuleTester } from '@/testing/index.js';
 const ruleTester = createRuleTester();
 
 describe('weld/no-barrel-bypass', () => {
-    const fsHost = createFakeFsHost(['/repo/src/other/index.ts']);
-    const rule = createRule(fsHost);
+    const repoFs = createFakeRepoFs(['/repo/src/other/index.ts']);
+    const rule = createRule(repoFs);
 
     it('прогоняет RuleTester без исключений', () => {
         ruleTester.run('no-barrel-bypass', rule, {
@@ -252,12 +252,12 @@ describe('weld/no-barrel-bypass', () => {
         expect(() => rule.create(fakeContext)).toThrow(/settings\.weld\.aliases/);
     });
 
-    it('Windows filename нормализуется настоящим createFsHost в границе', () => {
-        const windowsFsHost = createFsHost('C:\\proj', {
+    it('Windows filename нормализуется настоящим createRepoFs в границе', () => {
+        const windowsRepoFs = createRepoFs('C:\\proj', {
             exists: (realPath) =>
                 realPath === 'C:/proj/src/other' || realPath === 'C:/proj/src/other/index.ts',
         });
-        const windowsRule = createRule(windowsFsHost);
+        const windowsRule = createRule(windowsRepoFs);
 
         ruleTester.run('no-barrel-bypass windows', windowsRule, {
             valid: [],
@@ -282,12 +282,12 @@ describe('weld/no-barrel-bypass', () => {
     });
 
     it('файл вне root → правило молчит', () => {
-        const outsideRootFsHost: FsHost = {
+        const outsideRootRepoFs: RepoFs = {
             hasEntryPoint: () => false,
             findModuleTarget: () => null,
             toVirtual: () => null,
         };
-        const outsideRootRule = createRule(outsideRootFsHost);
+        const outsideRootRule = createRule(outsideRootRepoFs);
 
         ruleTester.run('no-barrel-bypass outside root', outsideRootRule, {
             valid: [
