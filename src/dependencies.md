@@ -54,7 +54,7 @@ graph TD
     host --> path
 
     tsconfig --> settings
-    tsconfig --> path
+    tsconfig --> vfs
 
     imports --> settings
     imports --> path
