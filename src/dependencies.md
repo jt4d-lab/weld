@@ -8,56 +8,42 @@
 который `host/index.ts` намеренно отдает наружу. Стрелка `A --> B` — «`A` импортирует `B`».
 
 ```mermaid
-graph TD
-    subgraph cli["cli"]
+flowchart TD
+    subgraph input
         direction TB
 
-        bin["bin.ts"] --> cliDir["cli/"]
+        rules
+
+        cli
     end
-
-    subgraph rules
-        direction TB
-
-        index["index.ts"] --> rulesDir["rules/"]
-    end
-
-    subgraph l2["пограничные и чистые модули"]
-        tsconfig["tsconfig/"]
-        imports["imports/"]
-    end
-
 
     subgraph vfs["виртуальная файловая система"]
         host
         path
     end
 
+    tsconfig
+    imports
     config
-
     settings
 
-    cli --> config
-    cli --> settings
-    cli --> imports
-    cli --> vfs
-
-    rules --> config
-    rules --> imports
-    rules --> settings
-    rules --> vfs
+    input --> config
+    input --> settings
+    input --> imports
+    input --> vfs
 
     config --> settings
     config --> tsconfig
     config --> vfs
 
-    host --> settings
+    host -. getRepoRoot .-> settings
     host --> path
 
     tsconfig --> settings
     tsconfig --> vfs
 
     imports --> settings
-    imports --> path
+    imports --> vfs
 
     settings --> vfs
 ```
