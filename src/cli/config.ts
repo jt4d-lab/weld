@@ -29,8 +29,11 @@ export type ConfigData = {
     sectionError: string | null;
 };
 
-/** Имена настроек отчета в порядке печати и сериализации — единственный список этих полей. */
-export const CONFIG_SETTING_NAMES = ['repoRoot', 'aliasesBaseUrl', 'tsconfig', 'aliases'] as const;
+/**
+ * Имена настроек отчета в порядке печати и сериализации — единственный список этих полей. Порядок
+ * повторяет `docs/rules/settings.md`.
+ */
+export const CONFIG_SETTING_NAMES = ['aliases', 'aliasesBaseUrl', 'repoRoot', 'tsconfig'] as const;
 
 export type ConfigSettingName = (typeof CONFIG_SETTING_NAMES)[number];
 

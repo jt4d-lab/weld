@@ -79,11 +79,11 @@ describe('renderConfig: файл', () => {
                 'file:   /repo/src/feature/index.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
-                '  repoRoot:       /repo',
-                '  aliasesBaseUrl: .',
-                '  tsconfig:       tsconfig.json',
                 '  aliases:',
                 '    @/* → /src/*',
+                '  aliasesBaseUrl: .',
+                '  repoRoot:       /repo',
+                '  tsconfig:       tsconfig.json',
             ].join('\n'),
         );
     });
@@ -171,7 +171,7 @@ describe('renderConfig: файл', () => {
             { color: false },
         );
 
-        expect(output.split('\n').slice(-2)).toEqual([
+        expect(output.split('\n').filter((line) => line.startsWith('    '))).toEqual([
             '    @/config → /src/config',
             '    @/* → /src/*',
         ]);
@@ -195,7 +195,7 @@ describe('renderConfig: файл', () => {
             { color: false },
         );
 
-        expect(output.split('\n').slice(-2)).toEqual([
+        expect(output.split('\n').filter((line) => line.startsWith('    '))).toEqual([
             '    @/* → /src/*',
             '    @app/* → /src/app/*',
         ]);
@@ -219,7 +219,7 @@ describe('renderConfig: файл', () => {
             { color: false },
         );
 
-        expect(output.split('\n').slice(-2)).toEqual([
+        expect(output.split('\n').filter((line) => line.startsWith('    '))).toEqual([
             '    @/* → /src/*',
             '    @app/* → /src/app/*',
         ]);
@@ -240,7 +240,7 @@ describe('renderConfig: файл', () => {
             { color: false },
         );
 
-        expect(output.split('\n')[3]).toBe(
+        expect(output.split('\n')).toContain(
             '  repoRoot:       settings.weld.repoRoot must be a string, got number',
         );
     });

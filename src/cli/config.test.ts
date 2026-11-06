@@ -136,11 +136,11 @@ describe('weld config: файл', () => {
                 'file:   src/feature/internal.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
-                `  repoRoot:       ${root}`,
-                '  aliasesBaseUrl: .',
-                '  tsconfig:       tsconfig.json',
                 '  aliases:',
                 '    @/* → /src/*',
+                '  aliasesBaseUrl: .',
+                `  repoRoot:       ${root}`,
+                '  tsconfig:       tsconfig.json',
             ].join('\n') + '\n',
         );
         expect(err).toEqual([]);
@@ -164,11 +164,11 @@ describe('weld config: файл', () => {
                 'file:   src/feature/internal.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
-                `  repoRoot:       ${root}`,
-                '  aliasesBaseUrl: .',
-                '  tsconfig:       tsconfig.json',
                 '  aliases:',
                 '    @/* → /src/*',
+                '  aliasesBaseUrl: .',
+                `  repoRoot:       ${root}`,
+                '  tsconfig:       tsconfig.json',
             ].join('\n') + '\n',
         );
         expect(codes).toEqual([]);
@@ -188,11 +188,11 @@ describe('weld config: файл', () => {
                 'file:   src/feature/internal.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
-                `  repoRoot:       ${root}`,
-                '  aliasesBaseUrl: .',
-                '  tsconfig:       tsconfig.custom.json',
                 '  aliases:',
                 '    @/* → /src/*',
+                '  aliasesBaseUrl: .',
+                `  repoRoot:       ${root}`,
+                '  tsconfig:       tsconfig.custom.json',
             ].join('\n') + '\n',
         );
         expect(codes).toEqual([]);
@@ -271,10 +271,10 @@ describe('weld config: диагностический отчет', () => {
                 `file:   ${root}/src/feature/internal.ts`,
                 `config: ${root}/eslint.config.mjs`,
                 'settings.weld:',
-                '  repoRoot:       settings.weld.repoRoot must be a string, got number',
-                '  aliasesBaseUrl: .',
-                '  tsconfig:       tsconfig.json',
                 '  aliases:        (unresolved: repoRoot)',
+                '  aliasesBaseUrl: .',
+                '  repoRoot:       settings.weld.repoRoot must be a string, got number',
+                '  tsconfig:       tsconfig.json',
             ].join('\n') + '\n',
         );
         expect(err).toEqual([]);
@@ -323,10 +323,10 @@ describe('weld config: диагностический отчет', () => {
                 `file:   ${root}/src/feature/internal.ts`,
                 `config: ${root}/eslint.config.mjs`,
                 'settings.weld: settings.weld must be an object',
-                '  repoRoot:       (unresolved: settings.weld)',
-                '  aliasesBaseUrl: (unresolved: settings.weld)',
-                '  tsconfig:       (unresolved: settings.weld)',
                 '  aliases:        (unresolved: settings.weld)',
+                '  aliasesBaseUrl: (unresolved: settings.weld)',
+                '  repoRoot:       (unresolved: settings.weld)',
+                '  tsconfig:       (unresolved: settings.weld)',
             ].join('\n') + '\n',
         );
         expect(err).toEqual([]);
@@ -368,10 +368,10 @@ describe('weld config: диагностический отчет', () => {
                 `file:   ${root}/src/feature/internal.ts`,
                 `config: ${root}/eslint.config.mjs`,
                 'settings.weld:',
-                '  repoRoot:       settings.weld.repoRoot must be a string, got number',
-                '  aliasesBaseUrl: .',
-                '  tsconfig:       settings.weld.tsconfig must be a string, got number',
                 "  aliases:        settings.weld.aliases['@a'] must be a string or an array of strings",
+                '  aliasesBaseUrl: .',
+                '  repoRoot:       settings.weld.repoRoot must be a string, got number',
+                '  tsconfig:       settings.weld.tsconfig must be a string, got number',
             ].join('\n') + '\n',
         );
         expect(codes).toEqual([1]);
