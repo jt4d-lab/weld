@@ -54,10 +54,16 @@ export function inspectFile(lint: LintSettings, cwd: string, shownPath: string):
         cwd,
         options: lint.options,
     });
-    const fromFile = virtualPathOf(readConfig(target.getFromFile), shownPath);
+    const fromFile = virtualPathOf(
+        readConfig(() => target.getFromFile()),
+        shownPath,
+    );
 
     const virtualPath = collapseEntryPoint(fromFile);
-    const rendered = renderAliasPath(virtualPath, readConfig(target.getAliases));
+    const rendered = renderAliasPath(
+        virtualPath,
+        readConfig(() => target.getAliases()),
+    );
 
     return {
         file: repoPath(
