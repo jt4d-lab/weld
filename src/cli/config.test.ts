@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { rules } from '@/rules/index.js';
-import type { SettingState } from '@/settings/index.js';
+import type { Alias, SettingState } from '@/settings/index.js';
 import { cleanupTmpProjects } from '@/testing/index.js';
 
 import { hasOwnError } from './config.js';
@@ -385,7 +385,7 @@ describe('weld config: диагностический отчет', () => {
         );
         expect(codes).toEqual([1]);
 
-        const { program: jprogram, out: jout } = capture(root, {});
+        const { program: jprogram, out: jout } = capture(root);
         await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
             from: 'user',
         });
@@ -461,20 +461,19 @@ describe('weld config: диагностический отчет', () => {
 });
 
 describe('hasOwnError: код 1 только при собственной ошибке', () => {
-    const value = (
-        v: string | string[] | boolean | { prefix: string; anchor: string; star: boolean }[],
-    ): SettingState<never> => ({ status: 'value', value: v }) as SettingState<never>;
+    const text = (value: string): SettingState<string> => ({ status: 'value', value });
+    const aliasList = (value: Alias[]): SettingState<Alias[]> => ({ status: 'value', value });
 
     const base = (over: Partial<ConfigData['settings']> = {}): ConfigData => ({
         file: 'src/a.ts',
         configFile: 'eslint.config.mjs',
         settings: {
-            repoRoot: value('/repo'),
-            aliasesBaseUrl: value('.'),
-            tsconfig: value('tsconfig.json'),
-            aliases: value([]),
+            repoRoot: text('/repo'),
+            aliasesBaseUrl: text('.'),
+            tsconfig: text('tsconfig.json'),
+            aliases: aliasList([]),
             ...over,
-        } as ConfigData['settings'],
+        },
         sectionError: null,
     });
 
@@ -489,7 +488,7 @@ describe('hasOwnError: код 1 только при собственной ош�
                     aliases: {
                         status: 'unresolved',
                         dependency: 'aliasesBaseUrl',
-                    } as SettingState<never>,
+                    },
                 }),
             ),
         ).toBe(false);
@@ -499,11 +498,11 @@ describe('hasOwnError: код 1 только при собственной ош�
         expect(
             hasOwnError(
                 base({
-                    repoRoot: { status: 'invalid', message: 'bad root' } as SettingState<never>,
+                    repoRoot: { status: 'invalid', message: 'bad root' },
                     aliases: {
                         status: 'unresolved',
                         dependency: 'repoRoot',
-                    } as SettingState<never>,
+                    },
                 }),
             ),
         ).toBe(true);
@@ -511,10 +510,11 @@ describe('hasOwnError: код 1 только при собственной ош�
 
     it('ошибка секции — true (код 1), даже если все поля unresolved', () => {
         const data = base({
-            repoRoot: { status: 'unresolved', dependency: 'settings.weld' } as SettingState<never>,
+            repoRoot: { status: 'unresolved', dependency: 'settings.weld' },
         });
-        data.sectionError = 'settings.weld must be an object';
-        expect(hasOwnError(data)).toBe(true);
+        expect(hasOwnError({ ...data, sectionError: 'settings.weld must be an object' })).toBe(
+            true,
+        );
     });
 });
 
