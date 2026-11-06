@@ -10,11 +10,6 @@ flowchart TD
         cli
     end
 
-    subgraph vfs["виртуальная файловая система"]
-        host
-        path
-    end
-
     tsconfig
     imports
     config
@@ -23,20 +18,15 @@ flowchart TD
     input --> config
     input --> settings
     input --> imports
-    input --> vfs
+    input --> host
 
     config --> settings
     config --> tsconfig
-    config --> vfs
+    config --> host
 
-    host -. getRepoRoot .-> settings
-    host --> path
+    host --> settings
 
     tsconfig --> settings
-    tsconfig --> vfs
 
     imports --> settings
-    imports --> vfs
-
-    settings --> vfs
 ```
