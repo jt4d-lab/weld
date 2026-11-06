@@ -181,6 +181,31 @@ grep -qxF 'config: eslint.config.js' <<<"$TOOL" || { echo "    неверная 
 grep -qxF '    @tool/* → /src/*' <<<"$TOOL" || { echo "    настройки не из конфига проекта: $TOOL" >&2; exit 1; }
 echo "$TOOL" | sed 's/^/    /'
 
+echo "==> Проверяю подсказку при ошибке конфигурации"
+mkdir -p "$TMP/invalid/src"
+ln -s "$TMP/project/node_modules" "$TMP/invalid/node_modules"
+echo '{ "name": "weld-smoke-invalid", "private": true, "type": "module" }' > "$TMP/invalid/package.json"
+cat > "$TMP/invalid/eslint.config.js" <<'CONFIG'
+import weld from 'eslint-plugin-weld';
+
+export default [
+  weld.configs.recommended,
+  {
+    files: ['src/**/*.js'],
+    settings: { weld: { aliases: 42 } },
+  },
+];
+CONFIG
+touch "$TMP/invalid/src/a.js"
+set +e
+INVALID="$(cd "$TMP/invalid" && "$TMP/project/node_modules/.bin/weld" inspect --no-color src/a.js 2>&1 >/dev/null)"
+INVALID_CODE=$?
+set -e
+[ "$INVALID_CODE" -ne 0 ] || { echo "    кривой конфиг не вернул код ошибки" >&2; exit 1; }
+grep -qxF 'error: settings.weld.aliases must be an object' <<<"$INVALID" || { echo "    неверное сообщение: $INVALID" >&2; exit 1; }
+grep -qxF 'hint: Check configuration: weld config src/a.js' <<<"$INVALID" || { echo "    нет подсказки: $INVALID" >&2; exit 1; }
+echo "$INVALID" | sed 's/^/    /'
+
 echo "==> Проверяю отрицательные случаи: код 1 и сообщение об ошибке"
 set +e
 TEXT_ERROR="$($CLI inspect src/missing.js 2>&1 >/dev/null)"
