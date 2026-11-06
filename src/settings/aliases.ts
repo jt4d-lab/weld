@@ -1,6 +1,6 @@
 import { createLogger } from '@/debug.js';
 import { isEntryFileName } from '@/extensions.js';
-import { basename, resolvePath, splitExtension } from '@/path/index.js';
+import { basename, resolvePath, splitExtension } from '@/utils/path/index.js';
 
 const debug = createLogger('aliases');
 

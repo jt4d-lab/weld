@@ -12,7 +12,7 @@ import {
     joinSegments,
     segments,
     splitExtension,
-} from '@/path/index.js';
+} from '@/utils/path/index.js';
 
 function isIndexFile(targetPath: string): boolean {
     return isEntryBasename(splitExtension(basename(targetPath)).name);

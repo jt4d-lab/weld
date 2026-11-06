@@ -5,7 +5,7 @@
 import type { FsHost } from '@/host/index.js';
 import type { SpecifierSkip } from '@/imports/index.js';
 import { parseSpecifier, renderSpecifier } from '@/imports/index.js';
-import { dirname } from '@/path/index.js';
+import { dirname } from '@/utils/path/index.js';
 import type { Alias } from '@/settings/index.js';
 
 import { findBarrier } from '@/rules/no-barrel-bypass/core/barrier.js';

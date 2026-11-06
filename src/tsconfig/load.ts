@@ -16,7 +16,7 @@ import { getTsconfig } from 'get-tsconfig';
 import type { TsConfigResult } from 'get-tsconfig';
 
 import { createLogger } from '@/debug.js';
-import { segments, toPosix } from '@/path/index.js';
+import { segments, toPosix } from '@/utils/path/index.js';
 import { hasValidStarShape, stripStarSuffix } from '@/settings/index.js';
 
 const debug = createLogger('tsconfig');

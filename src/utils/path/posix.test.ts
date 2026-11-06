@@ -7,7 +7,7 @@ import {
     resolvePath,
     splitExtension,
     toPosix,
-} from '@/path/posix.js';
+} from '@/utils/path/posix.js';
 
 describe('toPosix', () => {
     it('заменяет обратные слэши на прямые', () => {

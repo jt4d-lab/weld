@@ -1,5 +1,5 @@
 import { createLogger } from '@/debug.js';
-import { toPosix } from '@/path/index.js';
+import { toPosix } from '@/utils/path/index.js';
 
 import { joinReal, parentOf } from '@/host/real-path.js';
 
