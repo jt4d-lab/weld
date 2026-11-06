@@ -25,6 +25,15 @@ const SETTINGS_INDENT = '  ';
 /** Список алиасов — ступень вложенности внутри того же блока. */
 const ALIAS_INDENT = `${SETTINGS_INDENT}${SETTINGS_INDENT}`;
 
+/**
+ * Очистка управляющих символов: все символы < ' ' и DEL (0x7F) заменяются на `?`.
+ * Используется и для сообщений об ошибках CLI, и для значений вывода, которые могут нести
+ * управляющие символы из аргументов.
+ */
+export function sanitizeText(text: string): string {
+    return [...text].map((char) => (char < ' ' || char === '\u007f' ? '?' : char)).join('');
+}
+
 function paddedLabel(c: Colors, text: string, width: number): string {
     return c.dim(text) + ' '.repeat(Math.max(0, width - text.length));
 }
@@ -40,13 +49,14 @@ function widthOf(rows: readonly { label: string }[]): number {
 
 /**
  * `weld inspect`: путь файла и путь импорта. Значение `alias` печатается как есть — команда уже
- * подставила виртуальный путь, если алиаса нет.
+ * подставила виртуальный путь, если алиаса нет. Печатается очищенный текст: путь из аргумента
+ * может нести управляющие символы.
  */
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
     const rows = [
-        { label: 'file:', value: data.file },
-        { label: 'alias:', value: c.cyan(data.alias) },
+        { label: 'file:', value: sanitizeText(data.file) },
+        { label: 'alias:', value: c.cyan(sanitizeText(data.alias)) },
     ];
     const width = widthOf(rows);
 
@@ -55,12 +65,13 @@ export function renderInspect(data: InspectData, options: RenderOptions): string
 
 /**
  * `weld config`: файл (или сэмпл директории), примененный ESLint-конфиг и разобранные настройки.
+ * Печатается очищенный текст: пути и разобранные значения могут нести управляющие символы.
  */
 export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
     const rows = [
         { label: 'file:', value: withSample(data, c) },
-        { label: 'config:', value: data.configFile },
+        { label: 'config:', value: sanitizeText(data.configFile) },
     ];
     const width = widthOf(rows);
 
@@ -74,9 +85,9 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
 
 function settingsRows(c: Colors, settings: ConfigData['settings']): string[] {
     const rows = [
-        { label: 'repoRoot:', value: settings.repoRoot },
-        { label: 'aliasesBaseUrl:', value: settings.aliasesBaseUrl },
-        { label: 'tsconfig:', value: settings.tsconfig },
+        { label: 'repoRoot:', value: sanitizeText(settings.repoRoot) },
+        { label: 'aliasesBaseUrl:', value: sanitizeText(settings.aliasesBaseUrl) },
+        { label: 'tsconfig:', value: sanitizeText(settings.tsconfig) },
     ];
     const width = widthOf(rows);
 
@@ -85,10 +96,10 @@ function settingsRows(c: Colors, settings: ConfigData['settings']): string[] {
 
 function withSample(data: ConfigData, c: Colors): string {
     if (data.sampleOf === undefined) {
-        return data.file;
+        return sanitizeText(data.file);
     }
 
-    return `${data.file} ${c.dim(`(sample of ${data.sampleOf})`)}`;
+    return `${sanitizeText(data.file)} ${c.dim(`(sample of ${sanitizeText(data.sampleOf)})`)}`;
 }
 
 /**
@@ -110,12 +121,13 @@ function renderAliases(aliases: Alias[], c: Colors): string[] {
 /**
  * `star` — признак хвоста в ключе записи: звездная запись печатается с `/*` с обеих сторон, точная —
  * как есть. `anchor` — всегда директория виртуального пути, поэтому звезде хвост дописывается, если
- * его нет.
+ * его нет. Управляющие символы в имени алиаса заменяются на `?`.
  */
 function formatAlias(alias: Alias): string {
-    return alias.star
-        ? `${withStar(alias.prefix)} → ${withStar(alias.anchor)}`
-        : `${alias.prefix} → ${alias.anchor}`;
+    const prefix = sanitizeText(alias.prefix);
+    const anchor = sanitizeText(alias.anchor);
+
+    return alias.star ? `${withStar(prefix)} → ${withStar(anchor)}` : `${prefix} → ${anchor}`;
 }
 
 function withStar(value: string): string {

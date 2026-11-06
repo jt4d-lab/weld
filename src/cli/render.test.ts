@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConfigData } from './config.js';
 import type { InspectData } from './inspect.js';
 import { plain } from './program.testing.js';
-import { renderConfig, renderInspect, renderJson } from './render.js';
+import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
 
 const INSPECT: InspectData = {
     file: '/repo/src/feature/internal.ts',
@@ -20,6 +20,12 @@ const CONFIG: ConfigData = {
         aliases: [{ prefix: '@', anchor: '/src', star: true }],
     },
 };
+
+describe('sanitizeText', () => {
+    it('заменяет управляющие символы на `?`, включая DEL', () => {
+        expect(sanitizeText('ab\x01cd\x1b[31mef\u007f')).toBe('ab?cd?[31mef?');
+    });
+});
 
 describe('renderInspect', () => {
     it('печатает путь файла и путь импорта, выровненные по подписям', () => {
@@ -48,6 +54,19 @@ describe('renderInspect', () => {
 
         expect(plain(colored)).not.toBe(colored);
         expect(plain(colored)).toBe(renderInspect(INSPECT, { color: false }));
+    });
+
+    it('значения путей с управляющими символами очищаются', () => {
+        const output = renderInspect(
+            {
+                file: '/repo/src/feature/int\x01ernal.ts',
+                alias: '@/feature/int\u007fernal.ts',
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('file:  /repo/src/feature/int?ernal.ts');
+        expect(output).toContain('alias: @/feature/int?ernal.ts');
     });
 });
 
@@ -82,6 +101,36 @@ describe('renderConfig: файл', () => {
         );
 
         expect(output.split('\n')[1]).toBe('config: /elsewhere/eslint.config.mjs');
+    });
+
+    it('путь конфига и значения настроек с управляющими символами очищаются', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                configFile: 'eslint.con\x01fig.mjs',
+                settings: { ...CONFIG.settings, repoRoot: '/rep\u007fo' },
+            },
+            { color: false },
+        );
+
+        expect(output.split('\n')[1]).toBe('config: eslint.con?fig.mjs');
+        expect(output).toContain('  repoRoot:       /rep?o');
+    });
+
+    it('имя алиаса с управляющим символом очищается в текстовом выводе', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    aliases: [{ prefix: '@a\u0007b', anchor: '/ab', star: false }],
+                },
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('@a?b → /ab');
+        expect(output).not.toContain('\u0007');
     });
 
     it('пустые алиасы — явное (none) в строке подписи', () => {
