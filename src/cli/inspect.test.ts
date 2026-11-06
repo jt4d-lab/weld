@@ -64,7 +64,6 @@ afterEach(async () => {
     vi.mocked(resolveForFile).mockImplementation(actual.resolveForFile);
 });
 
-/** Кривые значения настроек: геттеры бросают только в момент запроса. */
 const BAD_ALIASES_CONFIG = `export default [
     {
         files: ['**/*.ts'],

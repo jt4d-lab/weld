@@ -56,7 +56,6 @@ export default [{
 }];
 `;
 
-/** Кривой `repoRoot` в секции: корень не вычисляется, авто-алиасы не могут быть получены. */
 const BAD_REPO_ROOT_CONFIG = `export default [
     {
         files: ['**/*.ts'],
@@ -65,7 +64,6 @@ const BAD_REPO_ROOT_CONFIG = `export default [
 ];
 `;
 
-/** Невалидная секция `settings.weld` вовсе: одна проблема секции, все ее настройки — unresolved. */
 const BAD_SECTION_CONFIG = `export default [
     {
         files: ['**/*.ts'],
@@ -74,7 +72,6 @@ const BAD_SECTION_CONFIG = `export default [
 ];
 `;
 
-/** Несколько независимых собственных ошибок в одном отчете. */
 const MULTI_PROBLEM_CONFIG = `export default [
     {
         files: ['**/*.ts'],
@@ -398,7 +395,6 @@ describe('weld config: диагностический отчет', () => {
         expect(data.settings.repoRoot).toBeNull();
         expect(data.settings.tsconfig).toBeNull();
         expect(data.settings.aliases).toBeNull();
-        // Три собственные проблемы, без дублирующего `unresolved: repoRoot` для aliases.
         expect(Object.keys(data.problems).sort()).toEqual(['aliases', 'repoRoot', 'tsconfig']);
         expect(data.problems.aliases).toEqual({
             status: 'invalid',

@@ -10,7 +10,6 @@ import type { SettingState } from '@/settings/index.js';
 import type { LintSettings } from './eslint-config.js';
 import { assertInsideRoot, repoPath } from './target.js';
 
-/** Данные `weld config`: состояния эффективных настроек из отчета `src/config/` плюс пути. */
 export type ConfigData = {
     /** Путь файла от корня репозитория; абсолютный исходный путь, если корень не получен. */
     file: string;
@@ -18,7 +17,6 @@ export type ConfigData = {
     configFile: string;
     /** Аргумент директории в том виде, как его ввели; у файла отсутствует. */
     sampleOf?: string;
-    /** Состояния эффективных настроек из диагностического отчета. */
     settings: ConfigReport['settings'];
     /** Собственная проблема секции `settings.weld`, если она задана и невалидна. */
     sectionError: string | null;
@@ -62,7 +60,6 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
     return data;
 }
 
-/** Машинный вид отчета: недоступные значения — `null`, ошибки — в `problems`. */
 export function configJson(data: ConfigData): Record<string, unknown> {
     const valueOf = (state: SettingState<unknown>): unknown =>
         state.status === 'value' ? state.value : null;

@@ -195,7 +195,6 @@ A section error is recorded under settings.weld. A null setting without a proble
                         : renderConfig(data, { color: colorOption(options) });
 
                 deps.write(`${text}\n`);
-                // Собственная ошибка в отчете: код 1, но отчет уже напечатан, а не исключение.
                 if (hasOwnError(data)) {
                     deps.setExitCode(1);
                 }

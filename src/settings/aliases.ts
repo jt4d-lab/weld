@@ -7,7 +7,6 @@ const debug = createLogger('aliases');
 
 /**
  * Небросающая проверка собственного формата алиасов: объект, значения — строка или массив строк.
- * Значение не производится: у состояния `value` нет полезной нагрузки.
  */
 export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<undefined> {
     try {

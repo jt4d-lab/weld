@@ -1,6 +1,5 @@
 /**
- * Диагностический отчет эффективной конфигурации: что печатает `weld config`, когда часть
- * конфигурации не вычисляется.
+ * Диагностический отчет эффективной конфигурации: состояния настроек вместо броска.
  */
 
 import type { FsHost } from '@/host/index.js';
@@ -18,7 +17,6 @@ import {
 import type { WeldResolveInput, WeldResolveOptions, WeldTarget } from './resolve.js';
 import { resolveForFile } from './resolve.js';
 
-/** Состояние каждой эффективной настройки в отчете. */
 export type ConfigReport = {
     settings: {
         /** Эффективный корень: реальный путь, резолвнутый от `cwd`. */
@@ -100,10 +98,6 @@ export function reportForFile(
     };
 }
 
-/**
- * Собственное состояние строковой настройки: override проверяется независимо от секции, а
- * невалидная секция — не собственная ошибка настройки, а неразрешенная зависимость.
- */
 function ownStringSetting<T extends string | undefined>(
     read: () => T,
     sectionError: string | null,

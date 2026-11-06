@@ -205,10 +205,6 @@ export function hasAliases(settings: unknown, override?: unknown): boolean {
     return getWeldSettings(settings)?.aliases !== undefined;
 }
 
-/**
- * Диагностическая точка доступа: ошибка самой секции `settings.weld`, если секция задана,
- * но не является объектом. `null` — секции нет либо она валидна.
- */
 export function getSectionError(settings: unknown): string | null {
     try {
         getWeldSettings(settings);
@@ -218,10 +214,7 @@ export function getSectionError(settings: unknown): string | null {
     }
 }
 
-/**
- * Сырое значение `settings.weld.aliases` для небросающего отчета: `undefined` — ключа нет или
- * секции нет. Зовется только когда `getSectionError` вернул `null`.
- */
+/** Зовется только когда `getSectionError` вернул `null`. */
 export function getAliasesRaw(settings: unknown): unknown {
     return getWeldSettings(settings)?.aliases;
 }

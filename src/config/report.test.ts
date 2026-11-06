@@ -75,7 +75,6 @@ describe('reportForFile — ошибка секции', () => {
 
         expect(report.sectionError).toBe('settings.weld must be an object');
         expect(report.settings.repoRoot).toEqual({ status: 'value', value: '/some/root' });
-        // База читается только из секции: алиасы без нее не разбираются, фиктивной базы нет.
         expect(report.settings.aliasesBaseUrl).toEqual({
             status: 'unresolved',
             dependency: 'settings.weld',
@@ -93,7 +92,6 @@ describe('reportForFile — ошибка секции', () => {
     it('кривая секция + валидный options.repoRoot, но без options.aliases: корень — unresolved: settings.weld', () => {
         const { report } = reportForFile(input({ weld: 'nope' }, { repoRoot: '/some/root' }));
 
-        // Собственное значение корня прошло проверку, но явность алиасов требует чтения секции.
         expect(report.settings.repoRoot).toEqual({
             status: 'unresolved',
             dependency: 'settings.weld',
