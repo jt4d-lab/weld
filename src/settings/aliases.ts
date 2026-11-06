@@ -7,14 +7,14 @@ const debug = createLogger('aliases');
 
 /**
  * Небросающая проверка собственного формата алиасов: объект, значения — строка или массив строк.
- * Делегирует бросающему `parseAliases`: форматные ошибки — те же броски с теми же текстами, а
- * записи с некорректной формой ключа/якоря отбрасываются там же и не дают ошибки формата.
- * Разобранные значения не используются — важен только факт формата, поэтому `value` — пустая строка.
+ * Форматные ошибки — те же броски `parseAliases` с теми же текстами, а записи с некорректной формой
+ * ключа/якоря отбрасываются там же и не дают ошибки формата. Значение не производится: важен только
+ * результат проверки, поэтому у состояния `value` нет полезной нагрузки.
  */
-export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<string> {
+export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<undefined> {
     try {
         parseAliases(rawAliases, '.', source);
-        return { status: 'value', value: '' };
+        return { status: 'value', value: undefined };
     } catch (error) {
         return { status: 'invalid', message: (error as Error).message };
     }
