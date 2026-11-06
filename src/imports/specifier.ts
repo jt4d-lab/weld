@@ -9,7 +9,7 @@
 
 import { entryFileName, isAssetExtension, isModuleExtension } from '@/extensions.js';
 import { basename, relativePath, resolvePath, splitExtension } from '@/utils/path/index.js';
-import type { Alias } from '@/settings/index.js';
+import type { Alias } from '@/raw-settings/index.js';
 
 export type Form = { kind: 'relative' } | { kind: 'alias'; alias: Alias };
 

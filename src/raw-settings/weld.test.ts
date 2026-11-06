@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAliasesFromPaths, getTsconfigName } from '@/settings/index.js';
-import { getAliases, getAliasesBaseUrl, getRepoRoot, hasAliases } from '@/settings/weld.js';
+import { getAliasesFromPaths, getTsconfigName } from '@/raw-settings/index.js';
+import { getAliases, getAliasesBaseUrl, getRepoRoot, hasAliases } from '@/raw-settings/weld.js';
 
 describe('getRepoRoot', () => {
     it('repoRoot задан → возвращается как есть, без резолва', () => {

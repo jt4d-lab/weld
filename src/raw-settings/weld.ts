@@ -1,7 +1,7 @@
 /**
  * Единственная точка чтения `settings.weld`. Наружу слой отдает не сырую секцию, а геттер на каждую
  * настройку — `getRepoRoot` / `getAliasesBaseUrl` / `getAliases`; формат конфига за пределами
- * `src/settings/` не знает никто.
+ * `src/raw-settings/` не знает никто.
  *
  * Каждый геттер принимает необязательный `override` — значение этой настройки, подставляемое вместо
  * конфига. Оно тоже приходит из пользовательского конфига (опции правила), поэтому проверяется теми
@@ -13,8 +13,8 @@
  * должно быть одно на оба источника.
  */
 
-import type { Alias } from '@/settings/aliases.js';
-import { parseAliases } from '@/settings/aliases.js';
+import type { Alias } from '@/raw-settings/aliases.js';
+import { parseAliases } from '@/raw-settings/aliases.js';
 
 /** `aliasesBaseUrl` по умолчанию — сам корень репозитория. */
 const DEFAULT_ALIASES_BASE_URL = '.';

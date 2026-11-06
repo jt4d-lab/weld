@@ -1,8 +1,8 @@
 /** Команда `weld config`: эффективная конфигурация WELD для файла или директории. */
 
-import { resolveForFile } from '@/config/index.js';
-import type { Alias } from '@/settings/index.js';
-import { getAliasesBaseUrl, getTsconfigName } from '@/settings/index.js';
+import { resolveForFile } from '@/effective-config/index.js';
+import type { Alias } from '@/raw-settings/index.js';
+import { getAliasesBaseUrl, getTsconfigName } from '@/raw-settings/index.js';
 
 import type { LintSettings } from './eslint-config.js';
 import { assertInsideRoot, repoPath, repoRootOf } from './target.js';

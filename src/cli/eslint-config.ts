@@ -10,7 +10,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { ESLint, Linter } from 'eslint';
 
-import type { WeldResolveOptions } from '@/config/index.js';
+import type { WeldResolveOptions } from '@/effective-config/index.js';
 
 import { findConfigFile, isConfigFileName, resolveConfigFile } from './config-file.js';
 import type { Sample } from './sample.js';
@@ -19,7 +19,7 @@ import { isInside } from './target.js';
 
 /**
  * То, что CLI получает от ESLint-конфига. `settings` — сырая секция, ее формат знает
- * `src/settings/`; `options` — опции правила WELD из того же конфига, которые при линте перекрывают
+ * `src/raw-settings/`; `options` — опции правила WELD из того же конфига, которые при линте перекрывают
  * `settings.weld`; `sampleOf` — аргумент директории в том виде, как его ввели.
  */
 export type LintSettings = {

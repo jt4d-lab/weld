@@ -1,6 +1,6 @@
 /** Команда `weld inspect`: что за файл и как он записывается в импорте. */
 
-import { resolveForFile } from '@/config/index.js';
+import { resolveForFile } from '@/effective-config/index.js';
 import { isEntryFileName } from '@/extensions.js';
 import type { AliasPath } from '@/imports/index.js';
 import { renderAliasPath } from '@/imports/index.js';

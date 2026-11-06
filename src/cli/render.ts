@@ -6,7 +6,7 @@
 
 import pc from 'picocolors';
 
-import type { Alias } from '@/settings/index.js';
+import type { Alias } from '@/raw-settings/index.js';
 
 import type { ConfigData } from './config.js';
 import type { InspectData } from './inspect.js';

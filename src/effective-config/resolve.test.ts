@@ -193,7 +193,7 @@ describe('resolveForFile', () => {
 describe('resolveForFile: ленивость', () => {
     it('resolveForFile и части, которым алиасы не нужны, не бросают на кривых aliases', () => {
         const target = resolveForFile({
-            filename: `${repoRoot}/src/config/resolve.ts`,
+            filename: `${repoRoot}/src/effective-config/resolve.ts`,
             cwd: repoRoot,
             settings: { weld: { repoRoot, aliases: 'nope' } },
         });
@@ -239,7 +239,7 @@ describe('resolveForFile: ленивость', () => {
 
     it('при явных алиасах getRoot() не разбирает settings.weld.tsconfig', () => {
         const target = resolveForFile({
-            filename: `${repoRoot}/src/config/resolve.ts`,
+            filename: `${repoRoot}/src/effective-config/resolve.ts`,
             cwd: repoRoot,
             settings: {
                 weld: { repoRoot, tsconfig: 42, aliases: { '@a/*': ['src/a/*'] } },
@@ -254,7 +254,7 @@ describe('resolveForFile: ленивость', () => {
 
     it('без явных алиасов кривой тип settings.weld.tsconfig доходит исключением', () => {
         const target = resolveForFile({
-            filename: `${repoRoot}/src/config/resolve.ts`,
+            filename: `${repoRoot}/src/effective-config/resolve.ts`,
             cwd: repoRoot,
             settings: { weld: { repoRoot, tsconfig: 42 } },
         });

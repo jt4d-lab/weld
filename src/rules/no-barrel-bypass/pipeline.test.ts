@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createFakeRepoFs } from '@/repo-fs/index.js';
-import type { Alias } from '@/settings/index.js';
+import type { Alias } from '@/raw-settings/index.js';
 
 import type { CheckDecision } from '@/rules/no-barrel-bypass/pipeline.js';
 import { createChecker } from '@/rules/no-barrel-bypass/pipeline.js';

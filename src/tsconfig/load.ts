@@ -17,11 +17,11 @@ import type { TsConfigResult } from 'get-tsconfig';
 
 import { createLogger } from '@/debug.js';
 import { segments, toPosix } from '@/utils/path/index.js';
-import { hasValidStarShape, stripStarSuffix } from '@/settings/index.js';
+import { hasValidStarShape, stripStarSuffix } from '@/raw-settings/index.js';
 
 const debug = createLogger('tsconfig');
 
-/** Результат поиска: сырые `paths` (валидация — дело `src/settings/`) и реальные пути. */
+/** Результат поиска: сырые `paths` (валидация — дело `src/raw-settings/`) и реальные пути. */
 export type TsconfigPaths = {
     /** `compilerOptions.paths` как есть — формат значений проверяет вызывающая сторона. */
     paths: Record<string, unknown>;
@@ -221,7 +221,7 @@ function relativizePathsValues(
  * Реальные якоря записей `paths` — см. {@link TsconfigPaths.realAnchors}. Нестроковые значения
  * молча пропускаются: их отбраковка с сообщением — дело разбора алиасов, а не расчета root. Ключи
  * и значения, которые разбор алиасов отбросит по форме `*` (`hasValidStarShape` из
- * `src/settings/`), пропускаются по той же причине: поднимать root ради якоря записи, которую
+ * `src/raw-settings/`), пропускаются по той же причине: поднимать root ради якоря записи, которую
  * разбор потом отбросит, нельзя.
  */
 function collectRealAnchors(paths: Record<string, unknown>, realBaseDir: string): string[] {

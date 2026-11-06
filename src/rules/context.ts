@@ -3,15 +3,15 @@
  * правилу нужно до первого узла».
  *
  * Здесь только адаптер: вход резолва собирается из полей `Rule.RuleContext`, резолв живёт в
- * `src/config/`.
+ * `src/effective-config/`.
  */
 
 import type { Rule } from 'eslint';
 
-import { resolveForFile } from '@/config/index.js';
-import type { WeldResolveOptions } from '@/config/index.js';
+import { resolveForFile } from '@/effective-config/index.js';
+import type { WeldResolveOptions } from '@/effective-config/index.js';
 import type { RepoFs } from '@/repo-fs/index.js';
-import type { Alias } from '@/settings/index.js';
+import type { Alias } from '@/raw-settings/index.js';
 
 /**
  * Свойства `meta.schema`, общие для всех правил: те же настройки, что и в `settings.weld`, но
