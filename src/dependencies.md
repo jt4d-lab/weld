@@ -46,9 +46,9 @@ graph TD
     rules --> settings
     rules --> vfs
 
-    config --> vfs
     config --> settings
     config --> tsconfig
+    config --> vfs
 
     host --> settings
     host --> path
