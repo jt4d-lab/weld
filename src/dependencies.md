@@ -59,7 +59,7 @@ graph TD
     imports --> settings
     imports --> path
 
-    settings --> path
+    settings --> vfs
 ```
 
 Граф ациклический. Направление почти всюду «сверху вниз», единственная зависимость вверх —
