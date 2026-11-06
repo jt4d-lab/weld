@@ -8,7 +8,7 @@ import pc from 'picocolors';
 
 import type { Alias, SettingState } from '@/settings/index.js';
 
-import type { ConfigData, ConfigSettingName } from './config.js';
+import type { ConfigData } from './config.js';
 import { CONFIG_SETTING_NAMES } from './config.js';
 import type { InspectData } from './inspect.js';
 
@@ -81,7 +81,7 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
                   `${SETTINGS_INDENT}${row(
                       c,
                       `${name}:`,
-                      rowValue(name, data.settings[name], c),
+                      rowValue(data.settings[name], c),
                       settingsWidth,
                   )}`,
               ],
@@ -94,7 +94,7 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
     ].join('\n');
 }
 
-function rowValue(name: ConfigSettingName, state: SettingState<unknown>, c: Colors): string {
+function rowValue(state: SettingState<unknown>, c: Colors): string {
     if (state.status === 'invalid') {
         return c.red(sanitizeText(state.message));
     }

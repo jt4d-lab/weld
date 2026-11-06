@@ -25,8 +25,6 @@ export type ConfigData = {
 /** Имена настроек отчета в порядке печати и сериализации, как в `docs/rules/settings.md`. */
 export const CONFIG_SETTING_NAMES = ['aliases', 'aliasesBaseUrl', 'repoRoot', 'tsconfig'] as const;
 
-export type ConfigSettingName = (typeof CONFIG_SETTING_NAMES)[number];
-
 /**
  * Отчет для команды `weld config`.
  */
