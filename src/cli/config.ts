@@ -7,7 +7,6 @@ import type { ConfigReport } from '@/config/index.js';
 import { reportForFile } from '@/config/index.js';
 import type { SettingState } from '@/settings/index.js';
 
-import { sanitizeText } from './render.js';
 import type { LintSettings } from './eslint-config.js';
 import { assertInsideRoot, repoPath } from './target.js';
 
@@ -58,8 +57,8 @@ export function effectiveConfig(lint: LintSettings, cwd: string, shownPath: stri
         file: lint.filePath,
         configFile: lint.configFile,
         sampleOf: lint.sampleOf,
-        settings: cleanSettings(report.settings),
-        sectionError: report.sectionError === null ? null : sanitizeText(report.sectionError),
+        settings: report.settings,
+        sectionError: report.sectionError,
     };
 
     if (data.settings.repoRoot.status !== 'value') {
@@ -117,19 +116,4 @@ export function hasOwnError(data: ConfigData): boolean {
         return true;
     }
     return CONFIG_SETTING_NAMES.some((name) => data.settings[name].status === 'invalid');
-}
-
-/** Управляющие символы в сообщениях отчета заменяются на `?`, как у обычных ошибок CLI. */
-function cleanSettings(settings: ConfigReport['settings']): ConfigData['settings'] {
-    // Ключи `settings` — ровно `CONFIG_SETTING_NAMES`, поэтому цикл проходит все поля.
-    const result: Record<ConfigSettingName, SettingState<unknown>> = { ...settings };
-
-    for (const name of CONFIG_SETTING_NAMES) {
-        const state = result[name];
-        if (state.status === 'invalid') {
-            result[name] = { status: 'invalid', message: sanitizeText(state.message) };
-        }
-    }
-
-    return result as ConfigData['settings'];
 }

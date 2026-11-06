@@ -101,6 +101,15 @@ const CONTROL_ALIAS_CONFIG = `export default [
 ];
 `;
 
+/** Тот же управляющий символ в имени ключа, но ключ невалиден: символ попадает в текст ошибки. */
+const CONTROL_ERROR_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@a\\u0007': 42 } } },
+    },
+];
+`;
+
 afterEach(() => {
     cleanupTmpProjects();
 });
@@ -420,6 +429,34 @@ describe('weld config: диагностический отчет', () => {
             settings: { aliases: { prefix: string }[] };
         };
         expect(data.settings.aliases[0]!.prefix).toBe('@a\u0007');
+    });
+
+    it('сообщение об ошибке настройки: текст очищен, JSON сохраняет символ', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': CONTROL_ERROR_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toContain(
+            "  aliases:        settings.weld.aliases['@a?'] must be a string or an array of strings",
+        );
+        expect(out.join('')).not.toContain('\u0007');
+        expect(codes).toEqual([1]);
+
+        const { program: jprogram, out: jout } = capture(root);
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            problems: { aliases: { message: string } };
+        };
+        expect(data.problems.aliases.message).toBe(
+            "settings.weld.aliases['@a\u0007'] must be a string or an array of strings",
+        );
     });
 });
 
