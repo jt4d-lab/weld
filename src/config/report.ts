@@ -143,7 +143,7 @@ function effectiveRoot(args: {
         return { status: 'unresolved', dependency };
     }
 
-    // `getRoot()` не бросает; `null` бывает только при инъекции хоста — ветка сужает тип.
+    // `getRoot()` не падает; `null` бывает только при инъекции хоста — ветка сужает тип.
     const root = target.getRoot();
     if (root === null) {
         return { status: 'unresolved', dependency: 'fsHost' };

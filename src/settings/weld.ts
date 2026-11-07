@@ -183,8 +183,9 @@ export function getAliases(
  * Разбор внешних `paths` (формат `compilerOptions.paths` из tsconfig) в `Alias[]` — те же правила и
  * тот же кэш, что у `settings.weld.aliases`. Параметры: сами `paths`, виртуальная директория, от
  * которой отсчитываются записи, и `source` — имя источника значения в сообщениях об ошибках
- * (реальный путь tsconfig). На кривых значениях бросает так же, как разбор `settings.weld.aliases`,
- * — решение «глотать или падать» принадлежит вызывающему.
+ * (реальный путь tsconfig). На кривых значениях завершается ошибкой так же, как разбор
+ * `settings.weld.aliases`, — решение обрабатывать ошибку или прерывать выполнение принадлежит
+ * вызывающему.
  */
 export function getAliasesFromPaths(paths: unknown, virtualBase: string, source: string): Alias[] {
     return cachedAliases([paths, virtualBase, source], () =>

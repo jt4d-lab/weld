@@ -6,7 +6,8 @@ import type { SettingState } from './state.js';
 const debug = createLogger('aliases');
 
 /**
- * Небросающая проверка собственного формата алиасов: объект, значения — строка или массив строк.
+ * Проверка формата алиасов, возвращающая состояние ошибки вместо падения: объект, значения —
+ * строка или массив строк.
  */
 export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<undefined> {
     try {

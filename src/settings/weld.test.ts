@@ -155,7 +155,7 @@ describe('getAliases — кэш', () => {
         expect(getAliases(settings)).toEqual([{ prefix: '@src', anchor: '/src', star: true }]);
     });
 
-    it('сломанный конфиг бросает на каждом вызове, а не только на первом', () => {
+    it('сломанный конфиг падает на каждом вызове, а не только на первом', () => {
         const settings = { weld: { aliases: 'nope' } };
 
         expect(() => getAliases(settings)).toThrow('settings.weld.aliases must be an object');
@@ -191,7 +191,7 @@ describe('getAliasesFromPaths', () => {
         );
     });
 
-    it('кривое значение paths бросает так же, как settings.weld.aliases', () => {
+    it('ошибочное значение paths вызывает такую же ошибку, как settings.weld.aliases', () => {
         expect(() => getAliasesFromPaths('nope', '/', 'tsconfig.json')).toThrow(
             'tsconfig.json must be an object',
         );
