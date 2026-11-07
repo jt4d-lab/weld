@@ -1,8 +1,22 @@
 import { createLogger } from '@/debug.js';
 import { isEntryFileName } from '@/extensions.js';
 import { basename, resolvePath, splitExtension } from '@/path/index.js';
+import type { SettingState } from './state.js';
 
 const debug = createLogger('aliases');
+
+/**
+ * Проверка формата алиасов, возвращающая состояние ошибки вместо падения: объект, значения —
+ * строка или массив строк.
+ */
+export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<undefined> {
+    try {
+        parseAliases(rawAliases, '.', source);
+        return { status: 'value', value: undefined };
+    } catch (error) {
+        return { status: 'invalid', message: (error as Error).message };
+    }
+}
 
 /**
  * Одна разобранная запись `paths`: префикс специфаера, якорь-директория и форма ключа. `star`

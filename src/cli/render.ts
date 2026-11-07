@@ -6,9 +6,10 @@
 
 import pc from 'picocolors';
 
-import type { Alias } from '@/settings/index.js';
+import type { Alias, SettingState } from '@/settings/index.js';
 
 import type { ConfigData } from './config.js';
+import { CONFIG_SETTING_NAMES } from './config.js';
 import type { InspectData } from './inspect.js';
 
 /** Формат `picocolors`: `createColors(false)` — те же функции, но без escape-последовательностей. */
@@ -25,6 +26,10 @@ const SETTINGS_INDENT = '  ';
 /** Список алиасов — ступень вложенности внутри того же блока. */
 const ALIAS_INDENT = `${SETTINGS_INDENT}${SETTINGS_INDENT}`;
 
+export function sanitizeText(text: string): string {
+    return [...text].map((char) => (char < ' ' || char === '\u007f' ? '?' : char)).join('');
+}
+
 function paddedLabel(c: Colors, text: string, width: number): string {
     return c.dim(text) + ' '.repeat(Math.max(0, width - text.length));
 }
@@ -38,57 +43,67 @@ function widthOf(rows: readonly { label: string }[]): number {
     return Math.max(...rows.map((entry) => entry.label.length));
 }
 
-/**
- * `weld inspect`: путь файла и путь импорта. Значение `alias` печатается как есть — команда уже
- * подставила виртуальный путь, если алиаса нет.
- */
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
     const rows = [
-        { label: 'file:', value: data.file },
-        { label: 'alias:', value: c.cyan(data.alias) },
+        { label: 'file:', value: sanitizeText(data.file) },
+        { label: 'alias:', value: c.cyan(sanitizeText(data.alias)) },
     ];
     const width = widthOf(rows);
 
     return rows.map(({ label, value }) => row(c, label, value, width)).join('\n');
 }
 
-/**
- * `weld config`: файл (или сэмпл директории), примененный ESLint-конфиг и разобранные настройки.
- */
 export function renderConfig(data: ConfigData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
     const rows = [
         { label: 'file:', value: withSample(data, c) },
-        { label: 'config:', value: data.configFile },
+        { label: 'config:', value: sanitizeText(data.configFile) },
     ];
     const width = widthOf(rows);
+
+    // `aliases` печатается списком и в ширину колонки подписей не входит.
+    const settingsWidth = widthOf(
+        CONFIG_SETTING_NAMES.filter((name) => name !== 'aliases').map((name) => ({
+            label: `${name}:`,
+        })),
+    );
+
+    const sectionHeader =
+        data.sectionError !== null
+            ? `${c.dim('settings.weld:')} ${c.red(sanitizeText(data.sectionError))}`
+            : c.dim('settings.weld:');
+
+    const settingsLines = CONFIG_SETTING_NAMES.flatMap((name) =>
+        name === 'aliases'
+            ? renderAliases(data.settings.aliases, c, settingsWidth)
+            : [
+                  `${SETTINGS_INDENT}${row(
+                      c,
+                      `${name}:`,
+                      rowValue(data.settings[name], c),
+                      settingsWidth,
+                  )}`,
+              ],
+    );
 
     return [
         ...rows.map(({ label, value }) => row(c, label, value, width)),
-        c.dim('settings.weld:'),
-        ...settingsRows(c, data.settings).map((text) => `${SETTINGS_INDENT}${text}`),
-        ...renderAliases(data.settings.aliases, c),
+        sectionHeader,
+        ...settingsLines,
     ].join('\n');
 }
 
-function settingsRows(c: Colors, settings: ConfigData['settings']): string[] {
-    const rows = [
-        { label: 'repoRoot:', value: settings.repoRoot },
-        { label: 'aliasesBaseUrl:', value: settings.aliasesBaseUrl },
-        { label: 'tsconfig:', value: settings.tsconfig },
-    ];
-    const width = widthOf(rows);
-
-    return rows.map(({ label, value }) => row(c, label, value, width));
-}
-
-function withSample(data: ConfigData, c: Colors): string {
-    if (data.sampleOf === undefined) {
-        return data.file;
+function rowValue(state: SettingState<unknown>, c: Colors): string {
+    if (state.status === 'invalid') {
+        return c.red(sanitizeText(state.message));
     }
 
-    return `${data.file} ${c.dim(`(sample of ${data.sampleOf})`)}`;
+    if (state.status === 'unresolved') {
+        return c.yellow(`(unresolved: ${state.dependency})`);
+    }
+
+    return sanitizeText(state.value as string);
 }
 
 /**
@@ -96,15 +111,30 @@ function withSample(data: ConfigData, c: Colors): string {
  * Запись печатается в той форме, в которой объявляется в `paths`: `<prefix>/* → <anchor>/*`, а у
  * точного ключа хвоста `/*` нет ни с одной стороны.
  */
-function renderAliases(aliases: Alias[], c: Colors): string[] {
-    if (aliases.length === 0) {
-        return [`${SETTINGS_INDENT}${c.dim('aliases:')} ${c.dim('(none)')}`];
+function renderAliases(state: SettingState<Alias[]>, c: Colors, width: number): string[] {
+    if (state.status === 'value') {
+        if (state.value.length === 0) {
+            return [`${SETTINGS_INDENT}${row(c, 'aliases:', c.dim('(none)'), width)}`];
+        }
+        return [
+            `${SETTINGS_INDENT}${c.dim('aliases:')}`,
+            ...state.value.map((alias) => `${ALIAS_INDENT}${c.cyan(formatAlias(alias))}`),
+        ];
     }
 
-    return [
-        `${SETTINGS_INDENT}${c.dim('aliases:')}`,
-        ...aliases.map((alias) => `${ALIAS_INDENT}${c.cyan(formatAlias(alias))}`),
-    ];
+    const marker =
+        state.status === 'invalid'
+            ? c.red(sanitizeText(state.message))
+            : c.yellow(`(unresolved: ${state.dependency})`);
+    return [`${SETTINGS_INDENT}${row(c, 'aliases:', marker, width)}`];
+}
+
+function withSample(data: ConfigData, c: Colors): string {
+    if (data.sampleOf === undefined) {
+        return sanitizeText(data.file);
+    }
+
+    return `${sanitizeText(data.file)} ${c.dim(`(sample of ${sanitizeText(data.sampleOf)})`)}`;
 }
 
 /**
@@ -113,9 +143,10 @@ function renderAliases(aliases: Alias[], c: Colors): string[] {
  * его нет.
  */
 function formatAlias(alias: Alias): string {
-    return alias.star
-        ? `${withStar(alias.prefix)} → ${withStar(alias.anchor)}`
-        : `${alias.prefix} → ${alias.anchor}`;
+    const prefix = sanitizeText(alias.prefix);
+    const anchor = sanitizeText(alias.anchor);
+
+    return alias.star ? `${withStar(prefix)} → ${withStar(anchor)}` : `${prefix} → ${anchor}`;
 }
 
 function withStar(value: string): string {

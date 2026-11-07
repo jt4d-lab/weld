@@ -9,11 +9,11 @@ $ weld config src/feature/internal.ts
 file:   src/feature/internal.ts
 config: eslint.config.js
 settings.weld:
-  repoRoot:       /home/user/project
-  aliasesBaseUrl: .
-  tsconfig:       tsconfig.json
   aliases:
     @/* → /src/*
+  aliasesBaseUrl: .
+  repoRoot:       /home/user/project
+  tsconfig:       tsconfig.json
 ```
 
 - `file` — путь к файлу от корня репозитория. Для директории указывается выбранный файл с пометкой
@@ -25,7 +25,7 @@ settings.weld:
 
 В `settings.weld` показаны вычисленные [настройки WELD](../rules/settings.md).
 
-## Настройки для директории
+## Директория вместо файла
 
-Вместо пути к файлу можно указать путь к директории. Тогда команда покажет настройки для barrel
-файла в этой директории.
+Команда выбирает подходящий файл в директории и предпочитает файл с настройками WELD. Если таких
+файлов нет, используется другой файл, к которому применяется выбранный ESLint-конфиг.

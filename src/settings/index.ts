@@ -17,12 +17,16 @@ export type { Alias } from './aliases.js';
  * которым нужно предсказать решение разбора, не запуская его, — например, расчету root в
  * `src/tsconfig/` нельзя поднимать root ради якоря записи, которую разбор потом отбросит.
  */
-export { hasValidStarShape, stripStarSuffix } from './aliases.js';
+export { checkAliasesFormat, hasValidStarShape, stripStarSuffix } from './aliases.js';
 export {
     getAliases,
     getAliasesBaseUrl,
     getAliasesFromPaths,
+    getAliasesRaw,
     getRepoRoot,
+    getSectionError,
     getTsconfigName,
     hasAliases,
+    resetSettingsCaches,
 } from './weld.js';
+export type { SettingState } from './state.js';

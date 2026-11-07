@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConfigData } from './config.js';
 import type { InspectData } from './inspect.js';
 import { plain } from './program.testing.js';
-import { renderConfig, renderInspect, renderJson } from './render.js';
+import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
 
 const INSPECT: InspectData = {
     file: '/repo/src/feature/internal.ts',
@@ -14,12 +14,19 @@ const CONFIG: ConfigData = {
     file: '/repo/src/feature/index.ts',
     configFile: 'eslint.config.mjs',
     settings: {
-        repoRoot: '/repo',
-        aliasesBaseUrl: '.',
-        tsconfig: 'tsconfig.json',
-        aliases: [{ prefix: '@', anchor: '/src', star: true }],
+        repoRoot: { status: 'value', value: '/repo' },
+        aliasesBaseUrl: { status: 'value', value: '.' },
+        tsconfig: { status: 'value', value: 'tsconfig.json' },
+        aliases: { status: 'value', value: [{ prefix: '@', anchor: '/src', star: true }] },
     },
+    sectionError: null,
 };
+
+describe('sanitizeText', () => {
+    it('заменяет управляющие символы на `?`, включая DEL', () => {
+        expect(sanitizeText('ab\x01cd\x1b[31mef\u007f')).toBe('ab?cd?[31mef?');
+    });
+});
 
 describe('renderInspect', () => {
     it('печатает путь файла и путь импорта, выровненные по подписям', () => {
@@ -49,6 +56,19 @@ describe('renderInspect', () => {
         expect(plain(colored)).not.toBe(colored);
         expect(plain(colored)).toBe(renderInspect(INSPECT, { color: false }));
     });
+
+    it('значения путей с управляющими символами очищаются', () => {
+        const output = renderInspect(
+            {
+                file: '/repo/src/feature/int\x01ernal.ts',
+                alias: '@/feature/int\u007fernal.ts',
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('file:  /repo/src/feature/int?ernal.ts');
+        expect(output).toContain('alias: @/feature/int?ernal.ts');
+    });
 });
 
 describe('renderConfig: файл', () => {
@@ -58,11 +78,11 @@ describe('renderConfig: файл', () => {
                 'file:   /repo/src/feature/index.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
-                '  repoRoot:       /repo',
-                '  aliasesBaseUrl: .',
-                '  tsconfig:       tsconfig.json',
                 '  aliases:',
                 '    @/* → /src/*',
+                '  aliasesBaseUrl: .',
+                '  repoRoot:       /repo',
+                '  tsconfig:       tsconfig.json',
             ].join('\n'),
         );
     });
@@ -84,13 +104,52 @@ describe('renderConfig: файл', () => {
         expect(output.split('\n')[1]).toBe('config: /elsewhere/eslint.config.mjs');
     });
 
-    it('пустые алиасы — явное (none) в строке подписи', () => {
+    it('путь конфига и значения настроек с управляющими символами очищаются', () => {
         const output = renderConfig(
-            { ...CONFIG, settings: { ...CONFIG.settings, aliases: [] } },
+            {
+                ...CONFIG,
+                configFile: 'eslint.con\x01fig.mjs',
+                settings: {
+                    ...CONFIG.settings,
+                    repoRoot: { status: 'value', value: '/rep\u007fo' },
+                },
+            },
             { color: false },
         );
 
-        expect(output).toContain('\n  aliases: (none)');
+        expect(output.split('\n')[1]).toBe('config: eslint.con?fig.mjs');
+        expect(output).toContain('  repoRoot:       /rep?o');
+    });
+
+    it('имя алиаса с управляющим символом очищается в текстовом выводе', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    aliases: {
+                        status: 'value',
+                        value: [{ prefix: '@a\u0007b', anchor: '/ab', star: false }],
+                    },
+                },
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('@a?b → /ab');
+        expect(output).not.toContain('\u0007');
+    });
+
+    it('пустые алиасы — явное (none) в строке подписи', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: { ...CONFIG.settings, aliases: { status: 'value', value: [] } },
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('\n  aliases:        (none)');
     });
 
     it('точный ключ печатается без хвоста /* с обеих сторон', () => {
@@ -99,16 +158,19 @@ describe('renderConfig: файл', () => {
                 ...CONFIG,
                 settings: {
                     ...CONFIG.settings,
-                    aliases: [
-                        { prefix: '@/config', anchor: '/src/config', star: false },
-                        { prefix: '@', anchor: '/src', star: true },
-                    ],
+                    aliases: {
+                        status: 'value',
+                        value: [
+                            { prefix: '@/config', anchor: '/src/config', star: false },
+                            { prefix: '@', anchor: '/src', star: true },
+                        ],
+                    },
                 },
             },
             { color: false },
         );
 
-        expect(output.split('\n').slice(-2)).toEqual([
+        expect(output.split('\n').filter((line) => line.startsWith('    '))).toEqual([
             '    @/config → /src/config',
             '    @/* → /src/*',
         ]);
@@ -120,16 +182,19 @@ describe('renderConfig: файл', () => {
                 ...CONFIG,
                 settings: {
                     ...CONFIG.settings,
-                    aliases: [
-                        { prefix: '@', anchor: '/src', star: true },
-                        { prefix: '@app', anchor: '/src/app', star: true },
-                    ],
+                    aliases: {
+                        status: 'value',
+                        value: [
+                            { prefix: '@', anchor: '/src', star: true },
+                            { prefix: '@app', anchor: '/src/app', star: true },
+                        ],
+                    },
                 },
             },
             { color: false },
         );
 
-        expect(output.split('\n').slice(-2)).toEqual([
+        expect(output.split('\n').filter((line) => line.startsWith('    '))).toEqual([
             '    @/* → /src/*',
             '    @app/* → /src/app/*',
         ]);
@@ -141,25 +206,97 @@ describe('renderConfig: файл', () => {
                 ...CONFIG,
                 settings: {
                     ...CONFIG.settings,
-                    aliases: [
-                        { prefix: '@/', anchor: '/src/', star: true },
-                        { prefix: '@app', anchor: '/src/app', star: true },
-                    ],
+                    aliases: {
+                        status: 'value',
+                        value: [
+                            { prefix: '@/', anchor: '/src/', star: true },
+                            { prefix: '@app', anchor: '/src/app', star: true },
+                        ],
+                    },
                 },
             },
             { color: false },
         );
 
-        expect(output.split('\n').slice(-2)).toEqual([
+        expect(output.split('\n').filter((line) => line.startsWith('    '))).toEqual([
             '    @/* → /src/*',
             '    @app/* → /src/app/*',
         ]);
+    });
+
+    it('invalid печатается сообщением на месте настройки', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    repoRoot: {
+                        status: 'invalid',
+                        message: 'settings.weld.repoRoot must be a string, got number',
+                    },
+                },
+            },
+            { color: false },
+        );
+
+        expect(output.split('\n')).toContain(
+            '  repoRoot:       settings.weld.repoRoot must be a string, got number',
+        );
+    });
+
+    it('unresolved печатается как (unresolved: <зависимость>)', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    aliases: { status: 'unresolved', dependency: 'repoRoot' },
+                },
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('  aliases:        (unresolved: repoRoot)');
+    });
+
+    it('ошибка секции печатается один раз на строке settings.weld', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                sectionError: 'settings.weld must be an object',
+                settings: {
+                    ...CONFIG.settings,
+                    repoRoot: { status: 'unresolved', dependency: 'settings.weld' },
+                },
+            },
+            { color: false },
+        );
+
+        const sectionLines = output.split('\n').filter((line) => line.includes('settings.weld:'));
+        expect(sectionLines).toEqual(['settings.weld: settings.weld must be an object']);
     });
 
     it('color: false дает текст без escape-последовательностей', () => {
         const output = renderConfig(CONFIG, { color: false });
 
         expect(plain(output)).toBe(output);
+    });
+
+    it('цвет: invalid — красный, unresolved — желтый, не меняя текст', () => {
+        const data: ConfigData = {
+            ...CONFIG,
+            settings: {
+                ...CONFIG.settings,
+                repoRoot: { status: 'invalid', message: 'broken root' },
+                aliases: { status: 'unresolved', dependency: 'repoRoot' },
+            },
+        };
+        const colored = renderConfig(data, { color: true });
+
+        expect(plain(colored)).not.toBe(colored);
+        expect(plain(colored)).toBe(renderConfig(data, { color: false }));
+        expect(colored).toContain('broken root');
+        expect(colored).toContain('(unresolved: repoRoot)');
     });
 });
 
@@ -193,36 +330,5 @@ describe('renderJson', () => {
         expect(renderJson({ file: '/repo/src/a.ts', alias: null })).toBe(
             `{\n  "file": "/repo/src/a.ts",\n  "alias": null\n}`,
         );
-    });
-
-    it('config для файла без sampleOf', () => {
-        const value = {
-            file: CONFIG.file,
-            configFile: CONFIG.configFile,
-            settings: CONFIG.settings,
-        };
-
-        expect(Object.keys(JSON.parse(renderJson(value)) as object)).toEqual([
-            'file',
-            'configFile',
-            'settings',
-        ]);
-        expect(renderJson(value)).not.toContain('sampleOf');
-    });
-
-    it('config для директории: sampleOf, configFile и алиасы парами prefix/anchor', () => {
-        const output = renderJson({ ...CONFIG, sampleOf: 'src/feature' });
-
-        expect(JSON.parse(output)).toEqual({
-            file: '/repo/src/feature/index.ts',
-            configFile: 'eslint.config.mjs',
-            sampleOf: 'src/feature',
-            settings: {
-                repoRoot: '/repo',
-                aliasesBaseUrl: '.',
-                tsconfig: 'tsconfig.json',
-                aliases: [{ prefix: '@', anchor: '/src', star: true }],
-            },
-        });
     });
 });

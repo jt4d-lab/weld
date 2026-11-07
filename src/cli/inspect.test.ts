@@ -64,6 +64,22 @@ afterEach(async () => {
     vi.mocked(resolveForFile).mockImplementation(actual.resolveForFile);
 });
 
+const BAD_ALIASES_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@a': 42 } } },
+    },
+];
+`;
+
+const BAD_REPO_ROOT_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { repoRoot: 42 } },
+    },
+];
+`;
+
 describe('weld inspect', () => {
     it('печатает путь файла от корня репозитория и путь импорта по алиасу', async () => {
         const root = makeCliProject({
@@ -315,6 +331,75 @@ describe('weld inspect', () => {
         expect(printed(err)).toBe(
             'error: src/feature/internal.ts is outside the repository root\n',
         );
+        expect(codes).toEqual([1]);
+    });
+});
+
+describe('weld inspect: подсказка при ошибке конфигурации', () => {
+    it('кривой конфиг: ошибка и подсказка проверить настройки', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BAD_ALIASES_CONFIG,
+            'src/a.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/a.ts'], { from: 'user' });
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe(
+            "error: settings.weld.aliases['@a'] must be a string or an array of strings\n" +
+                'hint: Check configuration: weld config src/a.ts\n',
+        );
+        expect(codes).toEqual([1]);
+    });
+
+    it('кривой конфиг в --json: подсказка отдельным полем', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BAD_REPO_ROOT_CONFIG,
+            'src/a.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['--json', 'inspect', 'src/a.ts'], { from: 'user' });
+
+        expect(JSON.parse(printed(out))).toEqual({
+            error: 'settings.weld.repoRoot must be a string, got number',
+            hint: 'Check configuration: weld config src/a.ts',
+        });
+        expect(err).toEqual([]);
+        expect(codes).toEqual([1]);
+    });
+
+    it('ошибка конфигурации сохраняет --config и экранирует аргументы в подсказке', async () => {
+        const root = makeCliProject({
+            'configs/my config.mjs': `export default [{ files: ['**/*.ts'], settings: { weld: { aliases: 42 } } }];`,
+            "src/it's here.ts": '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(
+            ['inspect', '--config', 'configs/my config.mjs', "src/it's here.ts"],
+            { from: 'user' },
+        );
+
+        expect(out).toEqual([]);
+        expect(printed(err)).toBe(
+            'error: settings.weld.aliases must be an object\n' +
+                "hint: Check configuration: weld config --config 'configs/my config.mjs' 'src/it'\\''s here.ts'\n",
+        );
+        expect(codes).toEqual([1]);
+    });
+
+    it('ошибка, не связанная с конфигурацией, подсказки не получает', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': ALIAS_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/missing.ts'], { from: 'user' });
+
+        expect(printed(err)).toBe('error: path does not exist: src/missing.ts\n');
         expect(codes).toEqual([1]);
     });
 });
