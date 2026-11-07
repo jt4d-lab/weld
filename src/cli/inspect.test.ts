@@ -46,6 +46,21 @@ const NO_UNKNOWN_MARKER_CONFIG = `export default [
 ];
 `;
 
+/** Схема без модулей: контейнер `modules` — обычная директория. */
+const NO_MODULES_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: {
+            weld: {
+                aliasesBaseUrl: '.',
+                aliases: { '@/*': ['src/*'] },
+                layers: ['app', 'common'],
+            },
+        },
+    },
+];
+`;
+
 /** Схема без алиасов: и алиасы, и якоря для подъема корня приходят из tsconfig. */
 const TSCONFIG_CONFIG = `export default [
     {
@@ -650,6 +665,28 @@ describe('weld inspect: метаданные файла', () => {
                 module: '@root',
                 layer: '@unknown',
                 innerPath: 'utils/format.ts',
+            }),
+        );
+        expect(err).toEqual([]);
+        expect(codes).toEqual([]);
+    });
+
+    it('схемы модулей нет — контейнер modules не распознается', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': NO_MODULES_CONFIG,
+            'src/modules/billing/a.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['inspect', 'src/modules/billing/a.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            inspectOutput({
+                file: 'src/modules/billing/a.ts',
+                alias: '@/modules/billing/a.ts',
+                module: '@root',
+                layer: '@unknown',
+                innerPath: 'modules/billing/a.ts',
             }),
         );
         expect(err).toEqual([]);

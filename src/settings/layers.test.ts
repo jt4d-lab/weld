@@ -23,6 +23,64 @@ function parse(
     return parseScheme({ ...validScheme, ...raw }, sourceOf);
 }
 
+describe('layers и moduleLayers', () => {
+    it.each([
+        { marker: false, moduleLayers: undefined, error: null, field: null },
+        { marker: true, moduleLayers: ['features'], error: null, field: null },
+        {
+            marker: false,
+            moduleLayers: ['features'],
+            field: 'layers',
+            error: 'settings.weld.layers must contain the "@modules" marker',
+        },
+        {
+            marker: true,
+            moduleLayers: undefined,
+            field: 'moduleLayers',
+            error: 'settings.weld.moduleLayers is required when settings.weld.layers contains the "@modules" marker',
+        },
+        ...[false, true].flatMap((marker) => [
+            {
+                marker,
+                moduleLayers: [],
+                field: 'moduleLayers',
+                error: 'settings.weld.moduleLayers must not be empty',
+            },
+            {
+                marker,
+                moduleLayers: null,
+                field: 'moduleLayers',
+                error: 'settings.weld.moduleLayers must be an array of strings, got object',
+            },
+        ]),
+    ])('маркер: $marker, moduleLayers: $moduleLayers', ({ marker, moduleLayers, field, error }) => {
+        const layers = marker ? ['app', '@modules'] : ['app'];
+        const raw = { ...validScheme, layers, moduleLayers };
+        const report = parseSchemeReport(raw, settingsSource);
+
+        if (error !== null) {
+            expect(() => parseScheme(raw, settingsSource)).toThrow(error);
+            expect(field === 'layers' ? report.layers : report.moduleLayers).toEqual({
+                status: 'invalid',
+                message: error,
+            });
+        } else {
+            expect(parseScheme(raw, settingsSource).moduleLayers).toEqual(moduleLayers ?? []);
+        }
+
+        if (field !== 'layers') {
+            expect(report.layers).toEqual({ status: 'value', value: layers });
+        }
+        if (field !== 'moduleLayers') {
+            expect(report.moduleLayers).toEqual(
+                moduleLayers === undefined
+                    ? { status: 'not-set' }
+                    : { status: 'value', value: moduleLayers },
+            );
+        }
+    });
+});
+
 describe('parseScheme — значения', () => {
     it('srcDir нормализуется в виртуальный путь', () => {
         expect(parse({ srcDir: './source/./code/' }).srcDir).toBe('/source/code');
@@ -117,12 +175,6 @@ describe('parseScheme — modulesDir', () => {
 describe('parseScheme — обязательность списков', () => {
     it('нет layers → исключение', () => {
         expect(() => parse({ layers: undefined })).toThrow('settings.weld.layers is required');
-    });
-
-    it('нет moduleLayers → исключение', () => {
-        expect(() => parse({ moduleLayers: undefined })).toThrow(
-            'settings.weld.moduleLayers is required',
-        );
     });
 
     it('пустой layers → исключение', () => {
@@ -300,20 +352,6 @@ describe('parseSchemeReport — состояния', () => {
         expect(result.moduleLayers.status).toBe('value');
     });
 
-    it('нет moduleLayers → not set, остальные поля не ломаются', () => {
-        const result = report({ moduleLayers: undefined });
-
-        expect(result.moduleLayers).toEqual({ status: 'not-set' });
-        expect(result.layers.status).toBe('value');
-    });
-
-    it('отсутствие одного списка не делает другим ошибкой: layers без @modules и нет moduleLayers — value', () => {
-        const result = report({ layers: ['app'], moduleLayers: undefined });
-
-        expect(result.layers).toEqual({ status: 'value', value: ['app'] });
-        expect(result.moduleLayers).toEqual({ status: 'not-set' });
-    });
-
     it('обратная сторона: moduleLayers без пары layers — value, layers — not set', () => {
         const result = report({ layers: undefined, moduleLayers: ['features'] });
 
@@ -392,6 +430,17 @@ describe('parseSchemeReport — состояния', () => {
 
         expect(result.modulesDir.status).toBe('invalid');
         expect(result.layers).toEqual({ status: 'unresolved', dependency: 'modulesDir' });
+    });
+
+    it('проверка пары пропускается, когда layers не разрешился', () => {
+        const result = report({
+            modulesDir: 42,
+            layers: ['app', '@modules'],
+            moduleLayers: undefined,
+        });
+
+        expect(result.layers).toEqual({ status: 'unresolved', dependency: 'modulesDir' });
+        expect(result.moduleLayers).toEqual({ status: 'not-set' });
     });
 
     it('корректное поле, зависящее от кривого modulesDir, получает unresolved даже при невалидном srcDir', () => {

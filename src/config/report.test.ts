@@ -483,6 +483,55 @@ describe('reportForFile — схема', () => {
         expect(report.settings.moduleLayers).toEqual({ status: 'value', value: ['ui'] });
     });
 
+    it('схема без модулей: layers валиден, moduleLayers не задан', () => {
+        const { report } = reportForFile(
+            input({ weld: { repoRoot: '/r', layers: ['app', 'common'] } }),
+        );
+
+        expect(report.settings.layers).toEqual({ status: 'value', value: ['app', 'common'] });
+        expect(report.settings.moduleLayers).toEqual({ status: 'not-set' });
+    });
+
+    it('@modules без moduleLayers: ошибка в moduleLayers, layers валиден', () => {
+        const { report } = reportForFile(
+            input({ weld: { repoRoot: '/r', layers: ['app', '@modules'] } }),
+        );
+
+        expect(report.settings.layers).toEqual({ status: 'value', value: ['app', '@modules'] });
+        expect(report.settings.moduleLayers).toEqual({
+            status: 'invalid',
+            message:
+                'settings.weld.moduleLayers is required when settings.weld.layers contains the "@modules" marker',
+        });
+    });
+
+    it.each([
+        {
+            settings: { weld: { layers: ['app', '@modules'], moduleLayers: ['ui'] } },
+            options: { layers: ['app'] },
+            field: 'layers' as const,
+            message: 'options.layers must contain the "@modules" marker',
+        },
+        {
+            settings: { weld: { layers: ['app'] } },
+            options: { layers: ['app', '@modules'] },
+            field: 'moduleLayers' as const,
+            message:
+                'settings.weld.moduleLayers is required when options.layers contains the "@modules" marker',
+        },
+        {
+            settings: { weld: { layers: ['app'] } },
+            options: { moduleLayers: ['ui'] },
+            field: 'layers' as const,
+            message: 'settings.weld.layers must contain the "@modules" marker',
+        },
+    ])('ошибка пары с переопределением $options', ({ settings, options, field, message }) => {
+        const { report, target } = reportForFile(input(settings, options));
+
+        expect(report.settings[field]).toEqual({ status: 'invalid', message });
+        expect(() => target.getScheme()).toThrow(message);
+    });
+
     it('опция перекрывает секцию: сообщение называет options.*', () => {
         const { report } = reportForFile(
             input(

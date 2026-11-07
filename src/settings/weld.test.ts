@@ -299,6 +299,16 @@ describe('getScheme', () => {
         expect(() => getScheme({})).toThrow('settings.weld.layers is required');
     });
 
+    it('схема без модулей — пустой moduleLayers и flatModules как задан', () => {
+        expect(getScheme({ weld: { layers: ['app', 'common'], flatModules: true } })).toEqual({
+            srcDir: '/src',
+            modulesDir: 'modules',
+            layers: ['app', 'common'],
+            moduleLayers: [],
+            flatModules: true,
+        });
+    });
+
     it('кривая схема в опциях → исключение называет options.<поле>', () => {
         expect(() => getScheme({}, { layers: [], moduleLayers: ['features'] })).toThrow(
             'options.layers must not be empty',

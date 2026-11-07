@@ -2,11 +2,11 @@
  * Схема слоев проекта: разбор `srcDir`, `modulesDir`, `layers`, `moduleLayers` и `flatModules` и
  * проверка их совместности.
  *
- * Схема — не набор независимых настроек, а один объект: `layers` и `moduleLayers` осмысленны только
- * вместе (метка `@modules` связывает списки, имена не повторяются между ними), поэтому проверяются
- * они вместе, а наружу слой отдает разобранную схему целиком. Чтение значений из `settings.weld` /
- * опций и кэш успешного разбора живут в `src/settings/weld.ts` — здесь чистый разбор уже добытых
- * значений.
+ * Схема — не набор независимых настроек, а один объект: `layers` и `moduleLayers` связаны меткой
+ * `@modules` и общими именами, поэтому проверяются они вместе, а наружу слой отдает разобранную
+ * схему целиком. Модули необязательны: проект без них задает только `layers`, и тогда
+ * `moduleLayers` — пустой список. Чтение значений из `settings.weld` / опций и кэш успешного
+ * разбора живут в `src/settings/weld.ts` — здесь чистый разбор уже добытых значений.
  */
 
 import { resolvePath } from '@/path/index.js';
@@ -75,12 +75,7 @@ type ParsedLayerList =
 type ParsedLayerItem =
     { ok: true; name: string; marker: LayerMarker | null } | { ok: false; message: string };
 
-/**
- * Разбирает схему из уже добытых значений. `sourceOf` называет место значения в конфиге
- * (`settings.weld.layers` или `options.layers`) — источники полей могут быть разными, поэтому имя
- * спрашивается на каждое поле отдельно. Значения по умолчанию подставляет вызывающий: у `srcDir` и
- * `modulesDir` они есть, у списков — нет, и отсутствие списка здесь ошибка.
- */
+/** Разбор схемы с указанием источника каждого значения для сообщений об ошибках. */
 export function parseScheme(raw: RawScheme, sourceOf: (field: SchemeField) => string): Scheme {
     const srcDirSource = sourceOf('srcDir');
     const modulesDirSource = sourceOf('modulesDir');
@@ -94,11 +89,14 @@ export function parseScheme(raw: RawScheme, sourceOf: (field: SchemeField) => st
     const moduleLayers = readLayerList(raw.moduleLayers, moduleLayersSource, modulesDir, false);
     const flatModules = parseFlatModules(raw.flatModules, flatModulesSource);
 
-    // Сводные проверки — только когда оба списка разобрались: отсутствие одного
-    // не делает другой ошибкой.
-    const markerProblem = checkModulesMarker(layers, layersSource);
-    if (markerProblem !== null) {
-        throw new Error(markerProblem);
+    const pairProblem = checkModulesPair(
+        layers,
+        layersSource,
+        moduleLayers.length > 0,
+        moduleLayersSource,
+    );
+    if (pairProblem !== null) {
+        throw new Error(pairProblem.message);
     }
 
     const sharedProblem = checkSharedNames(layers, layersSource, moduleLayers, moduleLayersSource);
@@ -262,8 +260,6 @@ function markerError(
     return null;
 }
 
-/** Читатель списка, завершающийся ошибкой: отсутствие — «is required», обход — исключение с тем же
- * текстом. */
 function readLayerList(
     value: unknown,
     source: string,
@@ -273,7 +269,10 @@ function readLayerList(
     const parsed = parseLayerList(value, source, modulesDir, isProjectLayers);
 
     if (parsed.kind === 'not-set') {
-        throw new Error(`${source} is required`);
+        if (isProjectLayers) {
+            throw new Error(`${source} is required`);
+        }
+        return [];
     }
 
     if (parsed.kind === 'error') {
@@ -283,10 +282,26 @@ function readLayerList(
     return parsed.names;
 }
 
-/** Слоям модулей нужна позиция в схеме проекта: без `@modules` их некуда поставить. */
-function checkModulesMarker(layers: readonly string[], source: string): string | null {
-    if (!layers.includes(MODULES_MARKER)) {
-        return `${source} must contain the "${MODULES_MARKER}" marker`;
+function checkModulesPair(
+    layers: readonly string[],
+    layersSource: string,
+    moduleLayersSet: boolean,
+    moduleLayersSource: string,
+): { field: 'layers' | 'moduleLayers'; message: string } | null {
+    const hasMarker = layers.includes(MODULES_MARKER);
+
+    if (moduleLayersSet && !hasMarker) {
+        return {
+            field: 'layers',
+            message: `${layersSource} must contain the "${MODULES_MARKER}" marker`,
+        };
+    }
+
+    if (!moduleLayersSet && hasMarker) {
+        return {
+            field: 'moduleLayers',
+            message: `${moduleLayersSource} is required when ${layersSource} contains the "${MODULES_MARKER}" marker`,
+        };
     }
 
     return null;
@@ -316,8 +331,7 @@ function checkSharedNames(
  * прерывают разбор.
  *
  * Порядок проверок на элемент: собственный формат (тип, имя, метки), затем зависимость от
- * `modulesDir`. Совместные проверки (`@modules`, общие имена) выполняются, только когда оба
- * списка разрешились в `value`.
+ * `modulesDir`. Совместные проверки выполняются после разбора списков.
  */
 export function parseSchemeReport(
     raw: RawScheme,
@@ -343,13 +357,22 @@ export function parseSchemeReport(
         false,
     );
 
-    // Совместные проверки — только когда оба списка в состоянии value; те же хелперы
-    // и тот же порядок, что и в `parseScheme`.
-    if (layersState.status === 'value' && moduleLayersState.status === 'value') {
-        const markerProblem = checkModulesMarker(layersState.value, layersSource);
-        if (markerProblem !== null) {
-            layersState = { status: 'invalid', message: markerProblem };
-        } else {
+    if (
+        layersState.status === 'value' &&
+        (moduleLayersState.status === 'value' || moduleLayersState.status === 'not-set')
+    ) {
+        const pairProblem = checkModulesPair(
+            layersState.value,
+            layersSource,
+            moduleLayersState.status === 'value',
+            moduleLayersSource,
+        );
+
+        if (pairProblem?.field === 'layers') {
+            layersState = { status: 'invalid', message: pairProblem.message };
+        } else if (pairProblem?.field === 'moduleLayers') {
+            moduleLayersState = { status: 'invalid', message: pairProblem.message };
+        } else if (moduleLayersState.status === 'value') {
             const sharedProblem = checkSharedNames(
                 layersState.value,
                 layersSource,

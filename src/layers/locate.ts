@@ -85,11 +85,17 @@ function insideSrcDir(path: string, srcDir: string): string[] | null {
  * `billing::subscription`. `root` — виртуальный корень последнего найденного модуля, пока модулей
  * нет — `srcDir`; `rest` — сегменты ниже него. Контейнер — на каждом уровне вложенного режима; в
  * `flatModules` — только внутри модулей, в корне корневой модуль лежит прямо в `srcDir`.
+ *
+ * Без слоев модулей модулей в схеме нет: контейнер `modulesDir` — обычная директория.
  */
 function descendModules(
     inner: string[],
     scheme: Scheme,
 ): { module: string[]; rest: string[]; root: string } {
+    if (scheme.moduleLayers.length === 0) {
+        return { module: [], rest: inner, root: scheme.srcDir };
+    }
+
     const flat = scheme.flatModules;
     const module: string[] = [];
     let root = scheme.srcDir;

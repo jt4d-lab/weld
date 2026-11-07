@@ -396,6 +396,31 @@ describe('locateFile — flatModules', () => {
     });
 });
 
+describe('locateFile — схема без модулей', () => {
+    const noModules: Partial<Scheme> = { layers: ['app', 'common'], moduleLayers: [] };
+
+    it.each<MetaRow>([
+        { path: '/src/app/x.ts', module: [], layer: 'app', innerPath: 'x.ts' },
+        { path: '/src/common/y.ts', module: [], layer: 'common', innerPath: 'y.ts' },
+        {
+            path: '/src/modules/billing/features/panel.ts',
+            module: [],
+            layer: '@unknown',
+            innerPath: 'modules/billing/features/panel.ts',
+        },
+    ])('$path → $layer без модуля', ({ path, module, layer, innerPath }) => {
+        expect(locate(path, noModules)).toEqual({ module, layer, innerPath });
+    });
+
+    it('flatModules без слоев модулей ничего не распознает в корне', () => {
+        expect(locate('/src/order/entities/a.ts', { ...noModules, flatModules: true })).toEqual({
+            module: [],
+            layer: '@unknown',
+            innerPath: 'order/entities/a.ts',
+        });
+    });
+});
+
 describe('renderModuleName', () => {
     it('пустая цепочка → @root', () => {
         expect(renderModuleName([])).toBe('@root');
