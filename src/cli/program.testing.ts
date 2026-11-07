@@ -6,13 +6,35 @@ import type { ProgramDeps } from './program.js';
 import { createProgram, runCli } from './program.js';
 
 /**
+ * Схема слоев тестов CLI: проект `app`, модули `features` — как в таблице примеров
+ * `docs/cli/inspect.md`. `weld inspect` без нее не работает, а `weld config` печатает ее поля в
+ * отчете.
+ */
+export const SCHEME_SETTINGS = {
+    layers: ['app', '@modules', '@unknown'],
+    moduleLayers: ['features'],
+};
+
+/** Та же схема строкой — для конфигов, которые тесты пишут на диск. */
+export const SCHEME_SETTINGS_TEXT = Object.entries(SCHEME_SETTINGS)
+    .map(([field, names]) => `${field}: ${renderNames(names)}`)
+    .join(', ');
+
+/** Список в форме исходника конфига: JSON дал бы двойные кавычки. */
+function renderNames(names: readonly string[]): string {
+    return `[${names.map((name) => `'${name}'`).join(', ')}]`;
+}
+
+/**
  * ESLint-конфиг тестов CLI на реальном диске. `files` объявлен, потому что без совпадающей записи
  * flat config считает файл игнорируемым, а `settings.weld.aliases` — то, что показывают команды.
  */
 export const ALIAS_CONFIG = `export default [
     {
         files: ['**/*.ts'],
-        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@/*': ['src/*'] } } },
+        settings: {
+            weld: { aliasesBaseUrl: '.', aliases: { '@/*': ['src/*'] }, ${SCHEME_SETTINGS_TEXT} },
+        },
     },
 ];
 `;
@@ -35,7 +57,9 @@ export const OTHER_CONFIG_PATH = 'configs/other.config.mjs';
 export const OTHER_CONFIG = `export default [
     {
         files: ['**/*.ts', '**/*.js'],
-        settings: { weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] } } },
+        settings: {
+            weld: { aliasesBaseUrl: '.', aliases: { '@other/*': ['src/*'] }, ${SCHEME_SETTINGS_TEXT} },
+        },
     },
 ];
 `;
