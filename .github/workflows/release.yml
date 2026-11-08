@@ -59,7 +59,7 @@ jobs:
 
             - run: yarn install --immutable
 
-            - run: yarn checks
+            - run: yarn verify
 
             - name: Determine release version
               id: version
