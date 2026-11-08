@@ -33,7 +33,7 @@ export type Alias = { prefix: string; anchor: string; star: boolean };
  * Разбирает значение формата `paths` из tsconfig — `settings.weld.aliases` или сами `paths` — в
  * список алиасов, готовых для `parseSpecifier`/`renderSpecifier`.
  *
- * Значение и база приходят уже добытыми: их находит и кэширует `src/settings/weld.ts`
+ * Значение и база приходят уже добытыми: их находит и кэширует `src/raw-settings/weld.ts`
  * (`getAliases` / `getAliasesFromPaths`), он же решает, что делать с отсутствующей настройкой,
  * поэтому `undefined` сюда не доходит.
  *

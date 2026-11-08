@@ -11,7 +11,7 @@ import type { Rule } from 'eslint';
 import { resolveForFile } from '@/config/index.js';
 import type { WeldResolveOptions } from '@/config/index.js';
 import type { RepoFs } from '@/repo-fs/index.js';
-import type { Alias, Scheme } from '@/settings/index.js';
+import type { Alias, Scheme } from '@/raw-settings/index.js';
 
 /**
  * Свойства `meta.schema`, общие для всех правил.

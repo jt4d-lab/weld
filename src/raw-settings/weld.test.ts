@@ -5,14 +5,14 @@ import {
     getSectionError,
     getScheme,
     getTsconfigName,
-} from '@/settings/index.js';
+} from '@/raw-settings/index.js';
 import {
     getAliases,
     getAliasesBaseUrl,
     getRepoRoot,
     hasAliases,
     resetSettingsCaches,
-} from '@/settings/weld.js';
+} from '@/raw-settings/weld.js';
 
 afterEach(() => {
     resetSettingsCaches();

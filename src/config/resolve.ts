@@ -16,7 +16,7 @@
 import { createLogger } from '@/debug.js';
 import type { RepoFs } from '@/repo-fs/index.js';
 import { getRepoFs, resolveRoot } from '@/repo-fs/index.js';
-import type { Alias, Scheme, SchemeOverrides } from '@/settings/index.js';
+import type { Alias, Scheme, SchemeOverrides } from '@/raw-settings/index.js';
 import {
     getAliases,
     getAliasesFromPaths,
@@ -24,7 +24,7 @@ import {
     getScheme,
     getTsconfigName,
     hasAliases,
-} from '@/settings/index.js';
+} from '@/raw-settings/index.js';
 import type { TsconfigPaths } from '@/tsconfig/index.js';
 import { loadTsconfigPaths } from '@/tsconfig/index.js';
 

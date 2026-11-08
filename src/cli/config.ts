@@ -5,7 +5,7 @@
 
 import type { ConfigReport } from '@/config/index.js';
 import { reportForFile } from '@/config/index.js';
-import type { SettingState } from '@/settings/index.js';
+import type { SettingState } from '@/raw-settings/index.js';
 
 import type { LintSettings } from './eslint-config.js';
 import { assertInsideRoot, repoPath } from './target.js';

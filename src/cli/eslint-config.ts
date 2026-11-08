@@ -20,7 +20,7 @@ import { isInside } from './target.js';
 /**
  * То, что CLI получает от ESLint-конфига.
  *
- * `settings` — сырая секция, ее формат знает `src/settings/`; `options` — опции правила WELD из
+ * `settings` — сырая секция, ее формат знает `src/raw-settings/`; `options` — опции правила WELD из
  * того же конфига, которые при линте перекрывают `settings.weld`; `sampleOf` — аргумент директории
  * в том виде, как его ввели.
  */

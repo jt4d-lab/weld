@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseAliases, checkAliasesFormat } from '@/settings/aliases.js';
+import { parseAliases, checkAliasesFormat } from '@/raw-settings/aliases.js';
 
 const SOURCE = 'settings.weld.aliases';
 

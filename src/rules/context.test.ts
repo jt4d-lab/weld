@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFakeRepoFs, resetRepoFsCaches } from '@/repo-fs/index.js';
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
-import { resetSettingsCaches } from '@/settings/index.js';
+import { resetSettingsCaches } from '@/raw-settings/index.js';
 import {
     cleanupTmpProjects,
     makeTmpProject,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawScheme, SchemeField } from '@/settings/layers.js';
-import { parseScheme, parseSchemeReport } from '@/settings/layers.js';
+import type { RawScheme, SchemeField } from '@/raw-settings/layers.js';
+import { parseScheme, parseSchemeReport } from '@/raw-settings/layers.js';
 
 /** Схема, которую разбирает каждый тест, если он не переопределил поле. */
 const validScheme: RawScheme = {

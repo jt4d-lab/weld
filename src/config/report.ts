@@ -9,7 +9,7 @@ import type {
     SchemeField,
     SchemeReport,
     SettingState,
-} from '@/settings/index.js';
+} from '@/raw-settings/index.js';
 import {
     SCHEME_FIELDS,
     checkAliasesFormat,
@@ -22,7 +22,7 @@ import {
     hasAliases,
     parseSchemeReport,
     schemeSourceOf,
-} from '@/settings/index.js';
+} from '@/raw-settings/index.js';
 
 import type { WeldResolveInput, WeldResolveOptions, WeldTarget } from './resolve.js';
 import { resolveForFile } from './resolve.js';

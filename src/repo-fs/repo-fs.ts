@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { createLogger } from '@/debug.js';
 import { ENTRY_FILE_NAMES, MODULE_EXTENSIONS } from '@/extensions.js';
 import { dirname, joinPath, joinSegments, segments, toPosix } from '@/utils/path/index.js';
-import { getRepoRoot } from '@/settings/index.js';
+import { getRepoRoot } from '@/raw-settings/index.js';
 
 import {
     commonRealDirectory,

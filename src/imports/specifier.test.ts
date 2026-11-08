@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Alias } from '@/settings/index.js';
+import type { Alias } from '@/raw-settings/index.js';
 import { parseSpecifier, renderAliasPath, renderSpecifier } from '@/imports/specifier.js';
 
 const resolve = (path: string): string | null =>

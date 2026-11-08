@@ -15,25 +15,25 @@ flowchart TD
     tsconfig
     layers
     imports
-    settings
+    rawSettings["raw-settings"]
 
     input --> config
     input --> imports
     input --> layers
-    input -.-> settings
+    input -.-> rawSettings
     input -.-> repoFs
 
-    layers -.-> settings
+    layers -.-> rawSettings
 
-    config --> settings
+    config --> rawSettings
     config --> tsconfig
     config --> repoFs
 
-    repoFs --> settings
+    repoFs --> rawSettings
 
-    tsconfig --> settings
+    tsconfig --> rawSettings
 
-    imports -.-> settings
+    imports -.-> rawSettings
 ```
 
 Схема рисуется вручную, генератора нет. Правила, по которым она строится:

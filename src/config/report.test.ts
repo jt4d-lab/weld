@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeRepoFs, resetRepoFsCaches } from '@/repo-fs/index.js';
-import { resetSettingsCaches } from '@/settings/index.js';
+import { resetSettingsCaches } from '@/raw-settings/index.js';
 import { cleanupTmpProjects, makeTmpProject, tsconfigBasicFixture } from '@/testing/index.js';
 import type * as TsconfigLayer from '@/tsconfig/index.js';
 import { loadTsconfigPaths, resetTsconfigCache } from '@/tsconfig/index.js';
