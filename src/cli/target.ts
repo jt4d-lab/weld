@@ -30,7 +30,7 @@ function outsideRoot(shownPath: string): Error {
 /**
  * Реальный корень репозитория.
  *
- * `null` резолв отдает только поддельному `FsHost` — шов, которым CLI не пользуется; проверка
+ * `null` резолв отдает только поддельному `RepoFs` — шов, которым CLI не пользуется; проверка
  * нужна, чтобы сузить тип.
  */
 export function repoRootOf(target: WeldTarget, shownPath: string): string {

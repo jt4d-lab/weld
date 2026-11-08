@@ -1,7 +1,7 @@
 /**
  * Интеграционные тесты: единственное место с настоящим диском.
  *
- * Проверяют реальные `createFsHost` / `getFsHost` / `findRepoRoot` поверх фикстуры
+ * Проверяют реальные `createRepoFs` / `getRepoFs` / `findRepoRoot` поверх фикстуры
  * `src/testing/fixtures/project`, а не их фейки.
  */
 
@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { findRepoRoot, getFsHost, resetFsHostCaches } from '@/repo-fs/index.js';
+import { findRepoRoot, getRepoFs, resetRepoFsCaches } from '@/repo-fs/index.js';
 
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
 import {
@@ -25,11 +25,11 @@ const ruleTester = createRuleTester();
 
 describe('weld/no-barrel-bypass: интеграционные тесты на реальной фикстуре', () => {
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
         resetTsconfigCache();
     });
 
-    it('настоящий createFsHost (root фикстуры через settings.weld.repoRoot) находит нарушение по относительному импорту', () => {
+    it('настоящий createRepoFs (root фикстуры через settings.weld.repoRoot) находит нарушение по относительному импорту', () => {
         const rule = createRule();
 
         ruleTester.run('no-barrel-bypass integration relative', rule, {
@@ -55,7 +55,7 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
         });
     });
 
-    it('settings.weld.aliases на настоящем FsHost → правка приходит в форме алиаса', () => {
+    it('settings.weld.aliases на настоящем RepoFs → правка приходит в форме алиаса', () => {
         const rule = createRule();
 
         ruleTester.run('no-barrel-bypass integration alias', rule, {
@@ -113,7 +113,7 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
         });
     });
 
-    it('повторный прогон на том же входе стабилен и переиспользует инстанс/кэш FsHost в пределах TTL', () => {
+    it('повторный прогон на том же входе стабилен и переиспользует инстанс/кэш RepoFs в пределах TTL', () => {
         const rule = createRule();
         const settings = { weld: { repoRoot: fixtureRoot } };
 
@@ -140,12 +140,12 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
                 ],
             });
 
-        const fsHostBefore = getFsHost(settings, fixtureRoot);
+        const repoFsBefore = getRepoFs(settings, fixtureRoot);
         runOnce();
         runOnce();
-        const fsHostAfter = getFsHost(settings, fixtureRoot);
+        const repoFsAfter = getRepoFs(settings, fixtureRoot);
 
-        expect(fsHostAfter).toBe(fsHostBefore);
+        expect(repoFsAfter).toBe(repoFsBefore);
     });
 
     it('настоящий findRepoRoot от директории фикстуры находит корень этого репозитория', () => {
@@ -154,9 +154,9 @@ describe('weld/no-barrel-bypass: интеграционные тесты на р
         expect(foundRoot).toBe(repoRoot);
     });
 
-    it('getFsHost без явного settings.weld.repoRoot авто-находит корень репозитория и резолвит виртуальные пути от него', () => {
-        const fsHost = getFsHost(undefined, fixtureRoot);
+    it('getRepoFs без явного settings.weld.repoRoot авто-находит корень репозитория и резолвит виртуальные пути от него', () => {
+        const repoFs = getRepoFs(undefined, fixtureRoot);
 
-        expect(fsHost.toVirtual(`${repoRoot}/package.json`)).toBe('/package.json');
+        expect(repoFs.toVirtual(`${repoRoot}/package.json`)).toBe('/package.json');
     });
 });

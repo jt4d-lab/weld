@@ -2,7 +2,7 @@
  * Диагностический отчет эффективной конфигурации: состояния настроек вместо исключения.
  */
 
-import type { FsHost } from '@/repo-fs/index.js';
+import type { RepoFs } from '@/repo-fs/index.js';
 import type {
     Alias,
     RawScheme,
@@ -55,16 +55,16 @@ export type ConfigReportResult = {
  * Спекулятивных подстановок нет: заблокированная настройка остается `unresolved` с именем
  * зависимости.
  *
- * @param fsHostOverride Шов для тестов: подменяет `FsHost` целиком.
+ * @param repoFsOverride Шов для тестов: подменяет `RepoFs` целиком.
  */
 export function reportForFile(
     input: WeldResolveInput,
-    fsHostOverride?: FsHost,
+    repoFsOverride?: RepoFs,
 ): ConfigReportResult {
     const settings = input.settings;
     const options = input.options ?? {};
     const sectionError = getSectionError(settings);
-    const target = resolveForFile(input, fsHostOverride);
+    const target = resolveForFile(input, repoFsOverride);
 
     // Собственные значения проверяются до вычисления эффективных: даже при одновременной
     // невалидности двух настроек каждая получает собственную ошибку.
@@ -89,7 +89,7 @@ export function reportForFile(
         options.aliases !== undefined || (sectionError === null && hasAliases(settings));
 
     const repoRoot = effectiveRoot({
-        fsHostOverride,
+        repoFsOverride,
         own: repoRootOwn,
         sectionError,
         aliasesExplicit,
@@ -110,7 +110,7 @@ export function reportForFile(
                     aliasesBaseUrl,
                     tsconfig,
                     repoRoot,
-                    fsHostOverride,
+                    repoFsOverride,
                     options,
                     target,
                 }),
@@ -139,17 +139,17 @@ function ownStringSetting<T extends string | undefined>(
 }
 
 function effectiveRoot(args: {
-    fsHostOverride: FsHost | undefined;
+    repoFsOverride: RepoFs | undefined;
     own: SettingState<string | undefined>;
     sectionError: string | null;
     aliasesExplicit: boolean;
     tsconfig: SettingState<string>;
     target: WeldTarget;
 }): SettingState<string> {
-    const { fsHostOverride, own, sectionError, aliasesExplicit, tsconfig, target } = args;
+    const { repoFsOverride, own, sectionError, aliasesExplicit, tsconfig, target } = args;
 
-    if (fsHostOverride !== undefined) {
-        return { status: 'unresolved', dependency: 'fsHost' };
+    if (repoFsOverride !== undefined) {
+        return { status: 'unresolved', dependency: 'repoFs' };
     }
 
     if (own.status === 'invalid' || own.status === 'unresolved') {
@@ -170,7 +170,7 @@ function effectiveRoot(args: {
     // `getRoot()` не падает; `null` бывает только при инъекции хоста — ветка сужает тип.
     const root = target.getRoot();
     if (root === null) {
-        return { status: 'unresolved', dependency: 'fsHost' };
+        return { status: 'unresolved', dependency: 'repoFs' };
     }
 
     return { status: 'value', value: root };
@@ -183,7 +183,7 @@ function effectiveAliases(args: {
     aliasesBaseUrl: SettingState<string>;
     tsconfig: SettingState<string>;
     repoRoot: SettingState<string>;
-    fsHostOverride: FsHost | undefined;
+    repoFsOverride: RepoFs | undefined;
     options: WeldResolveOptions;
     target: WeldTarget;
 }): SettingState<Alias[]> {
@@ -194,7 +194,7 @@ function effectiveAliases(args: {
         aliasesBaseUrl,
         tsconfig,
         repoRoot,
-        fsHostOverride,
+        repoFsOverride,
         options,
         target,
     } = args;
@@ -216,7 +216,7 @@ function effectiveAliases(args: {
         );
     }
 
-    if (fsHostOverride !== undefined) {
+    if (repoFsOverride !== undefined) {
         return { status: 'value', value: [] };
     }
 

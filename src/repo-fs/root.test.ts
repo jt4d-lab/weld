@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createFakeExists } from '@/repo-fs/fs.testing.js';
+import { createFakeExists } from '@/repo-fs/repo-fs.testing.js';
 import { findRepoRoot } from '@/repo-fs/root.js';
 
 describe('findRepoRoot', () => {

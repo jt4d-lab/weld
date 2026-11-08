@@ -8,10 +8,10 @@
  * - слияние источников настроек: опции перекрывают `settings.weld` по полю;
  * - выбор источника алиасов: `options.aliases` → `settings.weld.aliases` → tsconfig;
  * - подъем корня репозитория до общей директории с якорями алиасов из tsconfig;
- * - ленивый резолв частей `WeldTarget` (`getFromFile` / `getRoot` / `getFsHost` / `getAliases`) с
+ * - ленивый резолв частей `WeldTarget` (`getFromFile` / `getRoot` / `getRepoFs` / `getAliases`) с
  *   мемоизацией в пределах одного вызова;
  * - кривой tsconfig не валит резолв: логируется и дает пустые алиасы;
- * - шов `fsHostOverride` для тестов, без ESLint на входе и выходе.
+ * - шов `repoFsOverride` для тестов, без ESLint на входе и выходе.
  */
 
 export type { WeldResolveInput, WeldResolveOptions, WeldTarget } from './resolve.js';

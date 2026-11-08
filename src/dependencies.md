@@ -11,7 +11,7 @@ flowchart TD
     end
 
     config
-    host
+    repoFs["repo-fs"]
     tsconfig
     layers
     imports
@@ -21,15 +21,15 @@ flowchart TD
     input --> imports
     input --> layers
     input -.-> settings
-    input -.-> host
+    input -.-> repoFs
 
     layers -.-> settings
 
     config --> settings
     config --> tsconfig
-    config --> host
+    config --> repoFs
 
-    host --> settings
+    repoFs --> settings
 
     tsconfig --> settings
 

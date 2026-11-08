@@ -1,7 +1,7 @@
 import type { Rule } from 'eslint';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createFakeFsHost, resetFsHostCaches } from '@/repo-fs/index.js';
+import { createFakeRepoFs, resetRepoFsCaches } from '@/repo-fs/index.js';
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 import { resetSettingsCaches } from '@/settings/index.js';
 import {
@@ -46,13 +46,13 @@ describe('WELD_OPTION_PROPERTIES', () => {
 
 describe('resolveWeldContext', () => {
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
         resetSettingsCaches();
         resetTsconfigCache();
     });
 
     it('файл внутри корня репозитория → виртуальный путь, алиасы и та же файловая система', () => {
-        const fsHost = createFakeFsHost(['/src/other/index.ts']);
+        const repoFs = createFakeRepoFs(['/src/other/index.ts']);
 
         const weld = resolveWeldContext(
             fakeContext({
@@ -61,19 +61,19 @@ describe('resolveWeldContext', () => {
                     weld: { aliasesBaseUrl: '/', aliases: { '@other/*': ['src/other/*'] } },
                 },
             }),
-            fsHost,
+            repoFs,
         );
 
         expect(weld).not.toBeNull();
         expect(weld?.fromFile).toBe('/src/feature/file.ts');
         expect(weld?.aliases).toEqual([{ prefix: '@other', anchor: '/src/other', star: true }]);
-        expect(weld?.fsHost).toBe(fsHost);
+        expect(weld?.repoFs).toBe(repoFs);
     });
 
     it('файл вне корня репозитория → null', () => {
         const weld = resolveWeldContext(
             fakeContext({ filename: 'relative/file.ts' }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld).toBeNull();
@@ -82,7 +82,7 @@ describe('resolveWeldContext', () => {
     it('нет settings.weld → алиасов нет', () => {
         const weld = resolveWeldContext(
             fakeContext({ filename: '/src/feature/file.ts' }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.aliases).toEqual([]);
@@ -97,7 +97,7 @@ describe('resolveWeldContext', () => {
                 },
                 options: [{ aliasesBaseUrl: '/', aliases: { '@a/*': ['src/a/*'] } }],
             }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.aliases).toEqual([{ prefix: '@a', anchor: '/src/a', star: true }]);
@@ -110,7 +110,7 @@ describe('resolveWeldContext', () => {
                 settings: { weld: { tsconfig: 'tsconfig.app.json' } },
                 options: [{ tsconfig: 'tsconfig.test.json' }],
             }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.options.tsconfig).toBe('tsconfig.test.json');
@@ -139,13 +139,13 @@ describe('resolveWeldContext', () => {
         expect(weld?.fromFile).toBe('/src/feature/file.ts');
     });
 
-    it('при инъекции fsHost опция repoRoot ни на что не влияет', () => {
+    it('при инъекции repoFs опция repoRoot ни на что не влияет', () => {
         const weld = resolveWeldContext(
             fakeContext({
                 filename: '/src/feature/file.ts',
                 options: [{ repoRoot: '/nowhere' }],
             }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.fromFile).toBe('/src/feature/file.ts');
@@ -158,7 +158,7 @@ describe('resolveWeldContext', () => {
                 settings: { weld: { aliases: { '@a/*': ['src/a/*'] } } },
                 options: [{ aliases: {} }],
             }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.aliases).toEqual([]);
@@ -170,17 +170,17 @@ describe('resolveWeldContext', () => {
                 filename: '/src/feature/file.ts',
                 settings: { weld: { aliases: {} } },
             }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.aliases).toEqual([]);
     });
 
-    it('при fsHostOverride без явных алиасов tsconfig не читается: алиасов нет', () => {
+    it('при repoFsOverride без явных алиасов tsconfig не читается: алиасов нет', () => {
         // Файл лежит внутри реальной фикстуры с tsconfig, но фейковая ФС выключает автопоиск.
         // Регресс здесь дал бы непустые алиасы из `${tsconfigBasicFixture}/tsconfig.json`.
         const file = `${tsconfigBasicFixture}/src/consumer.ts`;
-        const weld = resolveWeldContext(fakeContext({ filename: file }), createFakeFsHost([file]));
+        const weld = resolveWeldContext(fakeContext({ filename: file }), createFakeRepoFs([file]));
 
         expect(weld?.aliases).toEqual([]);
     });
@@ -191,7 +191,7 @@ describe('resolveWeldContext', () => {
                 filename: '/src/feature/file.ts',
                 settings: { weld: { aliasesBaseUrl: '/src' } },
             }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.aliases).toEqual([]);
@@ -217,7 +217,7 @@ describe('resolveWeldContext', () => {
                     filename: '/src/feature/file.ts',
                     settings: { weld: { aliases: 'nope' } },
                 }),
-                createFakeFsHost([]),
+                createFakeRepoFs([]),
             ),
         ).toThrow('settings.weld.aliases must be an object');
     });
@@ -232,14 +232,14 @@ describe('resolveWeldContext: схема слоев', () => {
     const schemeSettings = { weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } };
 
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
         resetTsconfigCache();
     });
 
     it('схема доступна правилу и разбирается из settings.weld', () => {
         const weld = resolveWeldContext(
             fakeContext({ filename: '/src/feature/file.ts', settings: schemeSettings }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.getScheme()).toEqual({
@@ -258,14 +258,14 @@ describe('resolveWeldContext: схема слоев', () => {
                 settings: schemeSettings,
                 options: [{ srcDir: 'app' }],
             }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.getScheme().srcDir).toBe('/app');
     });
 
     it('создание контекста схему не разбирает: кривая схема не мешает обычной работе', () => {
-        const fsHost = createFakeFsHost(['/src/other/index.ts']);
+        const repoFs = createFakeRepoFs(['/src/other/index.ts']);
 
         const weld = resolveWeldContext(
             fakeContext({
@@ -273,12 +273,12 @@ describe('resolveWeldContext: схема слоев', () => {
                 settings: { weld: { layers: 'nope', aliases: { '@other/*': ['src/other/*'] } } },
                 options: [{ layers: 'also-nope' }],
             }),
-            fsHost,
+            repoFs,
         );
 
         expect(weld?.fromFile).toBe('/src/feature/file.ts');
         expect(weld?.aliases).toEqual([{ prefix: '@other', anchor: '/src/other', star: true }]);
-        expect(weld?.fsHost).toBe(fsHost);
+        expect(weld?.repoFs).toBe(repoFs);
         expect(() => weld?.getScheme()).toThrow(
             'options.layers must be an array of strings, got string',
         );
@@ -287,7 +287,7 @@ describe('resolveWeldContext: схема слоев', () => {
     it('успешный разбор мемоизируется: возвращается тот же объект', () => {
         const weld = resolveWeldContext(
             fakeContext({ filename: '/src/feature/file.ts', settings: schemeSettings }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(weld?.getScheme()).toBe(weld?.getScheme());
@@ -296,7 +296,7 @@ describe('resolveWeldContext: схема слоев', () => {
     it('исключение не запоминается: кривая схема падает на каждом обращении', () => {
         const weld = resolveWeldContext(
             fakeContext({ filename: '/src/feature/file.ts', settings: { weld: { layers: [] } } }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
         expect(() => weld?.getScheme()).toThrow('settings.weld.layers must not be empty');
@@ -306,7 +306,7 @@ describe('resolveWeldContext: схема слоев', () => {
 
 describe('resolveWeldContext: автопоиск tsconfig', () => {
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
         resetTsconfigCache();
         cleanupTmpProjects();
     });
@@ -434,7 +434,7 @@ describe('resolveWeldContext: автопоиск tsconfig', () => {
 
         expect(app?.aliases).toEqual(lib?.aliases);
         // Один и тот же итоговый root → один инстанс файловой системы.
-        expect(app?.fsHost).toBe(lib?.fsHost);
+        expect(app?.repoFs).toBe(lib?.repoFs);
     });
 
     it('якоря extends-базы поднимают авто-root выше директории запуска', () => {

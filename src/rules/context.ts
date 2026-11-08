@@ -10,7 +10,7 @@ import type { Rule } from 'eslint';
 
 import { resolveForFile } from '@/config/index.js';
 import type { WeldResolveOptions } from '@/config/index.js';
-import type { FsHost } from '@/repo-fs/index.js';
+import type { RepoFs } from '@/repo-fs/index.js';
 import type { Alias, Scheme } from '@/settings/index.js';
 
 /**
@@ -40,7 +40,7 @@ export type WeldContext<TOwnOptions = unknown> = {
     /** Файл, который сейчас линтуется, — виртуальный путь от корня репозитория. */
     fromFile: string;
     aliases: Alias[];
-    fsHost: FsHost;
+    repoFs: RepoFs;
     /**
      * Опции правила, уже разобранные: собственные опции правила плюс общие (`WeldResolveOptions` —
      * свойства те же, что у `WELD_OPTION_PROPERTIES`).
@@ -58,14 +58,14 @@ export type WeldContext<TOwnOptions = unknown> = {
  *
  * @typeParam TOwnOptions Только собственные опции правила: общие известны здесь и подмешиваются
  * сами.
- * @param fsHostOverride Шов для тестов, общий на все правила: подменяет файловую систему целиком,
+ * @param repoFsOverride Шов для тестов, общий на все правила: подменяет файловую систему целиком,
  * и тогда опция `repoRoot` ни на что не влияет.
  * @returns `null`, если линтуемый файл вне корня репозитория: виртуального пути у него нет, и
  * правилу нечего проверять.
  */
 export function resolveWeldContext<TOwnOptions = unknown>(
     context: Rule.RuleContext,
-    fsHostOverride?: FsHost,
+    repoFsOverride?: RepoFs,
 ): WeldContext<TOwnOptions> | null {
     const options = (context.options[0] ?? {}) as TOwnOptions & WeldResolveOptions;
     const target = resolveForFile(
@@ -75,7 +75,7 @@ export function resolveWeldContext<TOwnOptions = unknown>(
             cwd: context.cwd,
             options,
         },
-        fsHostOverride,
+        repoFsOverride,
     );
 
     const fromFile = target.getFromFile();
@@ -86,7 +86,7 @@ export function resolveWeldContext<TOwnOptions = unknown>(
     return {
         fromFile,
         aliases: target.getAliases(),
-        fsHost: target.getFsHost(),
+        repoFs: target.getRepoFs(),
         options,
         getScheme: target.getScheme,
     };
