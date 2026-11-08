@@ -1,6 +1,8 @@
 /**
- * Правило `weld/no-barrel-bypass`: ловит импорты, входящие внутрь модуля мимо его точки входа
- * (`index.<ext>`), и предлагает исправленный путь через `checkImport`.
+ * Правило `weld/no-barrel-bypass`.
+ *
+ * Ловит импорты, входящие внутрь модуля мимо его точки входа (`index.<ext>`), и предлагает
+ * исправленный путь через `checkImport`.
  *
  * Всё, что не про баррели, — общее: настройки и `FsHost` дает `resolveWeldContext`, обход и правку
  * специфаеров — `src/imports/nodes.ts`. Здесь остается вердикт и текст сообщения.
@@ -38,9 +40,11 @@ const messages = {
 type RuleOptions = { fix?: boolean };
 
 /**
- * `fsHost` — для инъекции в тестах; без него файловую систему собирает `resolveWeldContext` из
- * `context.settings`/`context.cwd` и опции `repoRoot`. При инъекции опция `repoRoot` ни на что не
- * влияет.
+ * Создает модуль правила.
+ *
+ * @param fsHost Шов для тестов: подменяет `FsHost` целиком, и тогда опция `repoRoot` ни на что не
+ * влияет. Без него файловую систему собирает `resolveWeldContext` из `context.settings` /
+ * `context.cwd` и опции `repoRoot`.
  */
 export function createRule(fsHost?: FsHost): Rule.RuleModule {
     return {

@@ -6,11 +6,16 @@ import { joinReal, parentOf } from '@/host/real-path.js';
 const debug = createLogger('root');
 
 /**
- * Подъем от `startDir` вверх, запоминает последнюю (самую верхнюю) директорию с `package.json`.
- * Останавливается на первой директории с `.git` (включительно — ее `package.json` еще учитывается)
- * или, если `.git` не встретился, на корне файловой системы. Ничего не нашли → `null`.
+ * Ищет корень репозитория подъемом от `startDir` вверх.
+ *
+ * Запоминает последнюю (самую верхнюю) директорию с `package.json`. Останавливается на первой
+ * директории с `.git` (включительно — ее `package.json` еще учитывается) или, если `.git` не
+ * встретился, на корне файловой системы.
  *
  * Принимает реальный путь и реальный `exists` — работает до создания `FsHost`.
+ *
+ * @param exists Существует ли реальный путь.
+ * @returns Директория с последним `package.json` либо `null`, если ничего не нашли.
  */
 export function findRepoRoot(startDir: string, exists: (path: string) => boolean): string | null {
     let current = toPosix(startDir);

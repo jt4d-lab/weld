@@ -18,14 +18,20 @@ export function assertInsideRoot(target: WeldTarget, shownPath: string): void {
     }
 }
 
-/** `shownPath` — аргумент в том виде, как его ввели: по нему пользователь и находит файл. */
+/**
+ * Ошибка «файл вне корня репозитория».
+ *
+ * @param shownPath Аргумент в том виде, как его ввели: по нему пользователь и находит файл.
+ */
 function outsideRoot(shownPath: string): Error {
     return new Error(`${shownPath} is outside the repository root`);
 }
 
 /**
- * Реальный корень репозитория. `null` резолв отдает только поддельному `FsHost` — шов, которым CLI не
- * пользуется; проверка нужна, чтобы сузить тип.
+ * Реальный корень репозитория.
+ *
+ * `null` резолв отдает только поддельному `FsHost` — шов, которым CLI не пользуется; проверка
+ * нужна, чтобы сузить тип.
  */
 export function repoRootOf(target: WeldTarget, shownPath: string): string {
     const root = target.getRoot();

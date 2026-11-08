@@ -6,8 +6,11 @@ import type { SettingState } from './state.js';
 const debug = createLogger('aliases');
 
 /**
- * Проверка формата алиасов, возвращающая состояние ошибки вместо падения: объект, значения —
- * строка или массив строк.
+ * Проверка формата алиасов, возвращающая состояние ошибки вместо падения.
+ *
+ * Значение — объект, его значения — строка или массив строк.
+ *
+ * @param source Имя источника значения в сообщении об ошибке.
  */
 export function checkAliasesFormat(rawAliases: unknown, source: string): SettingState<undefined> {
     try {
@@ -19,19 +22,23 @@ export function checkAliasesFormat(rawAliases: unknown, source: string): Setting
 }
 
 /**
- * Одна разобранная запись `paths`: префикс специфаера, якорь-директория и форма ключа. `star`
- * сохраняет то, что теряет `stripStarSuffix`: ключ покрывает поддерево (`@/feature/*`) или совпадает
- * целиком (`@/config`).
+ * Одна разобранная запись `paths`: префикс специфаера, якорь-директория и форма ключа.
+ *
+ * `star` сохраняет то, что теряет `stripStarSuffix`: ключ покрывает поддерево (`@/feature/*`) или
+ * совпадает целиком (`@/config`).
  */
 export type Alias = { prefix: string; anchor: string; star: boolean };
 
 /**
  * Разбирает значение формата `paths` из tsconfig — `settings.weld.aliases` или сами `paths` — в
- * список алиасов, готовых для `parseSpecifier`/`renderSpecifier`. Значение и база приходят уже
- * добытыми: их находит и кэширует `src/settings/weld.ts` (`getAliases` / `getAliasesFromPaths`), он
- * же решает, что делать с отсутствующей настройкой, поэтому `undefined` сюда не доходит.
- * `aliasesBaseUrl` — виртуальный путь от корня репозитория, не от `cwd`. `source` называет место
- * значения в сообщениях об ошибках.
+ * список алиасов, готовых для `parseSpecifier`/`renderSpecifier`.
+ *
+ * Значение и база приходят уже добытыми: их находит и кэширует `src/settings/weld.ts`
+ * (`getAliases` / `getAliasesFromPaths`), он же решает, что делать с отсутствующей настройкой,
+ * поэтому `undefined` сюда не доходит.
+ *
+ * @param aliasesBaseUrl Виртуальный путь от корня репозитория, не от `cwd`.
+ * @param source Место значения в сообщениях об ошибках.
  */
 export function parseAliases(rawAliases: unknown, aliasesBaseUrl: string, source: string): Alias[] {
     if (typeof rawAliases !== 'object' || rawAliases === null || Array.isArray(rawAliases)) {
@@ -121,9 +128,11 @@ function toAnchorList(key: string, value: unknown, source: string): string[] {
 
 /**
  * Принимаются только записи без `*` или оканчивающиеся на `/*`; звездочка в середине —
- * отбрасывается. `/*` тоже отбрасывается: `stripStarSuffix` дал бы пустой префикс/якорь, а пустая
- * строка — префикс любого абсолютного специфайера (`''` + `/` — начало любого `/foo`), из-за чего
- * запись стала бы вести себя как алиас на абсолютные пути, которые правило не обрабатывает.
+ * отбрасывается.
+ *
+ * `/*` тоже отбрасывается: `stripStarSuffix` дал бы пустой префикс/якорь, а пустая строка — префикс
+ * любого абсолютного специфайера (`''` + `/` — начало любого `/foo`), из-за чего запись стала бы
+ * вести себя как алиас на абсолютные пути, которые правило не обрабатывает.
  */
 export function hasValidStarShape(value: string): boolean {
     const starCount = value.split('*').length - 1;
@@ -139,9 +148,10 @@ export function stripStarSuffix(value: string): string {
 }
 
 /**
- * Директория, которую обозначает запись `paths`. `null`, если запись — обычный файл
- * (не `index.<известное расширение>`) и директорией не выражается, либо якорь уходит `..`-подъемом
- * выше виртуального корня.
+ * Директория, которую обозначает запись `paths`.
+ *
+ * @returns `null`, если запись — обычный файл (не `index.<известное расширение>`) и директорией не
+ * выражается, либо якорь уходит `..`-подъемом выше виртуального корня.
  */
 function normalizeAnchor(anchorRaw: string, base: string): string | null {
     if (anchorRaw.endsWith('/*')) {

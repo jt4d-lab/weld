@@ -15,8 +15,10 @@ type CheckerInput = { fromFile: string; aliases: Alias[] };
 export type Host = Pick<FsHost, 'findModuleTarget' | 'hasEntryPoint'>;
 
 /**
- * Итог проверки специфаера: `replace` — нарушение с исправленным специфаером, `intact` — нарушения
- * нет, `skip` — специфаер пропущен с причиной.
+ * Итог проверки специфаера.
+ *
+ * `replace` — нарушение с исправленным специфаером, `intact` — нарушения нет, `skip` — специфаер
+ * пропущен с причиной.
  */
 export type CheckDecision =
     | { kind: 'replace'; target: string; barrier: string; suggestion: string }
@@ -24,8 +26,9 @@ export type CheckDecision =
     | { kind: 'skip'; reason: SpecifierSkip };
 
 /**
- * Проверка собирается на файл, а не на импорт: `fromDir` от линтуемого файла не зависит от того,
- * какой специфаер сейчас разбирается.
+ * Фабрика проверки для одного файла: `fromDir` считается один раз, а не на каждый импорт.
+ *
+ * @returns `checkImport` — вердикт по одному специфаеру.
  */
 export function createChecker(
     { fromFile, aliases }: CheckerInput,

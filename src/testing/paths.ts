@@ -26,9 +26,10 @@ export const consumerFile = `${fixtureRoot}/src/consumer.ts`;
 export const consumerJsFile = `${fixtureRoot}/src/consumer.js`;
 
 /**
- * Мини-проекты для автопоиска tsconfig (`fixtures/tsconfig/*`). Каждая константа — корень одного
- * сценария; внутри каждого лежит `tsconfig.json` (или его отсутствие — сам сценарий) и файл-якорь
- * `src/consumer.ts`, от которого тесты стартуют поиск.
+ * Мини-проекты для автопоиска tsconfig (`fixtures/tsconfig/*`).
+ *
+ * Каждая константа — корень одного сценария; внутри каждого лежит `tsconfig.json` (или его
+ * отсутствие — сам сценарий) и файл-якорь `src/consumer.ts`, от которого тесты стартуют поиск.
  */
 export const tsconfigFixturesRoot = dirFromUrl('./fixtures/tsconfig');
 
