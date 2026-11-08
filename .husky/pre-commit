@@ -1,1 +1,2 @@
+yarn build --silent
 yarn lint-staged
