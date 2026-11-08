@@ -70,13 +70,14 @@ describe('runCli: версия и справка', () => {
         expect(codes).toEqual([]);
     });
 
-    it('config --help описывает условия использования', async () => {
+    it.each([
+        ['inspect', 'Requires layers and moduleLayers in the effective WELD settings.'],
+        ['config', 'For a directory, a representative file is selected and shown in the output.'],
+    ])('%s --help описывает условия использования', async (command, detail) => {
         const root = makeCliProject();
-        const { out, err, codes } = await runCliCapture(['config', '--help'], root);
+        const { out, err, codes } = await runCliCapture([command, '--help'], root);
 
-        expect(printed(out)).toContain(
-            'For a directory, a representative file is selected and shown in the output.',
-        );
+        expect(printed(out)).toContain(detail);
         expect(err).toEqual([]);
         expect(codes).toEqual([]);
     });
@@ -86,7 +87,9 @@ describe('runCli: версия и справка', () => {
         const { out, err, codes } = await runCliCapture(['help', 'config'], root);
         const help = printed(out);
 
+        expect(help).toContain('ESLint configuration or rule option errors can prevent the report');
         expect(help).toContain('(unresolved: <dependency>)');
+        expect(help).toContain('(not set)');
         expect(help).toContain('The exit code is 1');
         expect(help).toContain('{"status":"invalid","message":"..."}');
         expect(help).toContain('{"status":"unresolved","dependency":"..."}');
@@ -186,13 +189,27 @@ describe('createProgram: шов loadLintSettings', () => {
             loadLintSettings: async (path) => ({
                 filePath: `${root}/${path}`,
                 configFile: `${root}/eslint.config.mjs`,
-                settings: { weld: { aliases: { '@/*': ['src/*'] } } },
+                settings: {
+                    weld: {
+                        aliases: { '@/*': ['src/*'] },
+                        layers: ['app', '@modules'],
+                        moduleLayers: ['features'],
+                    },
+                },
             }),
         });
 
         await program.parseAsync(['inspect', 'src/a.ts'], { from: 'user' });
 
-        expect(printed(out)).toBe(['file:  src/a.ts', 'alias: @/a.ts'].join('\n') + '\n');
+        expect(printed(out)).toBe(
+            [
+                'file:      src/a.ts',
+                'alias:     @/a.ts',
+                'module:    @root',
+                'layer:     @unknown',
+                'innerPath: a.ts',
+            ].join('\n') + '\n',
+        );
     });
 });
 
@@ -225,6 +242,9 @@ describe('runCli: глобальная опция --config', () => {
         expect(JSON.parse(printed(out))).toEqual({
             file: 'src/a.ts',
             alias: '@other/a.ts',
+            module: '@root',
+            layer: '@unknown',
+            innerPath: 'a.ts',
         });
         expect(codes).toEqual([]);
     });

@@ -8,17 +8,19 @@
  * Резолв ленивый: каждая часть считается по первому обращению и запоминается, поэтому кривая
  * неиспользуемая часть не валит потребителя, который ее не спрашивал. Порядок зависимостей:
  * tsconfig (нужны `realAnchors` для корня и `paths` для алиасов) → `getRoot`/`getFsHost` →
- * `getAliases`.
+ * `getAliases`. Схема слоев (`getScheme`) ни от чего из этого не зависит и тоже читается только
+ * по первому обращению.
  */
 
 import { createLogger } from '@/debug.js';
 import type { FsHost } from '@/host/index.js';
 import { getFsHost, resolveRoot } from '@/host/index.js';
-import type { Alias } from '@/settings/index.js';
+import type { Alias, Scheme, SchemeOverrides } from '@/settings/index.js';
 import {
     getAliases,
     getAliasesFromPaths,
     getRepoRoot,
+    getScheme,
     getTsconfigName,
     hasAliases,
 } from '@/settings/index.js';
@@ -27,13 +29,18 @@ import { loadTsconfigPaths } from '@/tsconfig/index.js';
 
 const debug = createLogger('config');
 
-/** Общие настройки WELD, подставленные вместо `settings.weld` — опции правила или флаги CLI. */
+/**
+ * Общие настройки WELD, подставленные вместо `settings.weld` — опции правила или флаги CLI.
+ *
+ * Поля схемы (`SchemeOverrides`) не сужаются: схема ESLint разрешает для них любые значения, а
+ * проверяются они только при запросе `getScheme()`.
+ */
 export type WeldResolveOptions = {
     repoRoot?: string;
     aliasesBaseUrl?: string;
     aliases?: Record<string, unknown>;
     tsconfig?: string;
-};
+} & SchemeOverrides;
 
 /** Вход резолва — всё, что нужно знать о файле, без единого типа ESLint. */
 export type WeldResolveInput = {
@@ -52,6 +59,11 @@ export type WeldTarget = {
     getRoot(): string | null;
     getFsHost(): FsHost;
     getAliases(): Alias[];
+    /**
+     * Схема слоев; отсутствующая или кривая — исключение. Спрашивающий схему без нее работать не
+     * может, а потребители, которым она не нужна, ее не читают.
+     */
+    getScheme(): Scheme;
 };
 
 function lazy<T>(compute: () => T): () => T {
@@ -64,8 +76,12 @@ function lazy<T>(compute: () => T): () => T {
 }
 
 /**
- * `fsHostOverride` — шов для тестов, общий на все правила и CLI: подменяет файловую систему целиком,
- * и тогда ни опция `repoRoot`, ни tsconfig ни на что не влияют.
+ * Эффективная конфигурация файла набором ленивых частей.
+ *
+ * Неиспользуемая часть не считается, а ошибка конфигурации приходит исключением из того геттера,
+ * который ее затребовал.
+ *
+ * @param fsHostOverride Шов для тестов: подменяет `FsHost` целиком, и реального корня тогда нет.
  */
 export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost): WeldTarget {
     const options = input.options ?? {};
@@ -119,11 +135,14 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
         );
     });
 
+    const scheme = lazy(() => getScheme(settings, options));
+
     return {
         getFromFile: fromFile,
         getRoot: root,
         getFsHost: fsHost,
         getAliases: aliases,
+        getScheme: scheme,
     };
 }
 

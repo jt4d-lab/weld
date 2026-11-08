@@ -9,6 +9,11 @@ $ weld config src/feature/internal.ts
 file:   src/feature/internal.ts
 config: eslint.config.js
 settings.weld:
+  layers:         app, @modules, @unknown
+  moduleLayers:   features
+  flatModules:    false
+  modulesDir:     modules
+  srcDir:         /src
   aliases:
     @/* → /src/*
   aliasesBaseUrl: .

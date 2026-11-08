@@ -69,6 +69,13 @@ export default [
     {
         settings: {
             weld: {
+                // Конфигурация слоев
+                layers: ['app', 'pages', '@modules', 'common'],
+                moduleLayers: ['widgets', 'features', 'entities'],
+                // Конфигурация директорий
+                flatModules: false,
+                modulesDir: 'modules',
+                srcDir: 'src',
                 // Конфигурация репозитория
                 aliases: { '@/*': ['src/*'] },
                 aliasesBaseUrl: '.',
@@ -94,11 +101,11 @@ DEBUG=eslint-plugin-weld:* npx eslint .
 ## CLI
 
 Тот же пакет устанавливает команду `weld`. Она читает ESLint-конфиг проекта и показывает настройки
-WELD для файла или директории. Текущая директория влияет на разрешение путей и поиск ESLint, поэтому
-запускать команду лучше из корня проекта.
+WELD или положение файла в схеме слоев. Текущая директория влияет на разрешение путей и поиск
+ESLint, поэтому запускать команду лучше из корня проекта.
 
 ```sh
-npx weld inspect src/feature/internal.ts   # путь файла и путь импорта по алиасу
+npx weld inspect src/feature/internal.ts   # путь, импорт и положение в схеме слоев
 npx weld config src/feature                # действующие настройки WELD для пути
 ```
 

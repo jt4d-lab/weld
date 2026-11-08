@@ -13,7 +13,7 @@ import { packageVersion } from '@/package.js';
 import { configJson, effectiveConfig, hasOwnError } from './config.js';
 import type { LintSettings } from './eslint-config.js';
 import { loadLintSettings } from './eslint-config.js';
-import { InspectConfigError, inspectFile } from './inspect.js';
+import { InspectConfigError, inspectFile, inspectJson } from './inspect.js';
 import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
 
 /**
@@ -145,19 +145,22 @@ function buildProgram(deps: ProgramDeps): Command {
 
     program
         .command('inspect')
-        .description('print the file path and the import path written with an alias')
+        .description(
+            'print the file path, the import path written with an alias and the module info',
+        )
         .argument('<file>', 'file to inspect')
+        .addHelpText(
+            'after',
+            '\nRequires layers and moduleLayers in the effective WELD settings.\n',
+        )
         .action(
             action(async (path, options) => {
                 const lint = await deps.loadLintSettings(path, deps.cwd, options.config);
-                const { file, virtualPath, alias } = inspectFile(lint, deps.cwd, path);
+                const data = inspectFile(lint, deps.cwd, path);
                 const text =
                     options.json === true
-                        ? renderJson({ file, alias })
-                        : renderInspect(
-                              { file, alias: alias ?? virtualPath },
-                              { color: colorOption(options) },
-                          );
+                        ? renderJson(inspectJson(data))
+                        : renderInspect(data, { color: colorOption(options) });
 
                 deps.write(`${text}\n`);
             }),
@@ -175,6 +178,7 @@ For a directory, a representative file is selected and shown in the output.
 WELD settings are reported alongside their validation errors.
 ESLint configuration or rule option errors can prevent the report from being generated.
 (unresolved: <dependency>) means a dependency could not be resolved.
+(not set) means an optional setting was not provided.
 The exit code is 1 for an invalid setting or command error, and 0 otherwise.
 Command errors are written to stderr, or to stdout as JSON with --json.
 

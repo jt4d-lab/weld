@@ -43,6 +43,30 @@ export default [
 ];
 `;
 
+/**
+ * Опции правила с кривой схемой: `weld config` больше не игнорирует схему, а показывает
+ * собственные ошибки полей в отчете и возвращает код 1.
+ */
+const BROKEN_SCHEME_OPTIONS_CONFIG = `const weld = {
+    rules: {
+        'no-barrel-bypass': { meta: { schema: [{ type: 'object' }] }, create: () => ({}) },
+    },
+};
+
+export default [
+    {
+        files: ['**/*.ts'],
+        plugins: { weld },
+        rules: {
+            'weld/no-barrel-bypass': [
+                'error',
+                { aliases: { '@/*': ['src/*'] }, layers: 'nope', srcDir: 42 },
+            ],
+        },
+    },
+];
+`;
+
 const INVALID_RULE_OPTION_CONFIG = `const weld = {
     rules: {
         'no-barrel-bypass': { meta: { schema: ${JSON.stringify(rules['no-barrel-bypass'].meta?.schema)} }, create: () => ({}) },
@@ -52,7 +76,7 @@ export default [{
     files: ['**/*.ts'],
     plugins: { weld },
     rules: { 'weld/no-barrel-bypass': ['error', { repoRoot: 42 }] },
-    settings: { weld: { aliases: 42 } },
+    settings: { weld: { layers: 'nope' } },
 }];
 `;
 
@@ -80,15 +104,25 @@ const MULTI_PROBLEM_CONFIG = `export default [
                 repoRoot: 42,
                 tsconfig: 42,
                 aliases: { '@a': 42 },
+                layers: 'nope',
             },
         },
     },
 ];
 `;
 
+/** Валидная секция без схемы: `weld config` печатает `(not set)` и дает код 0. */
+const NO_SCHEME_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@/*': ['src/*'] } } },
+    },
+];
+`;
+
 /**
  * Имя алиаса с управляющим символом: в файле конфига — JS-экранирование, после загрузки —
- * реальный символ `\u0007` внутри ключа.
+ * реальный символ `\\u0007` внутри ключа.
  */
 const CONTROL_ALIAS_CONFIG = `export default [
     {
@@ -103,6 +137,24 @@ const CONTROL_ERROR_CONFIG = `export default [
     {
         files: ['**/*.ts'],
         settings: { weld: { aliases: { '@a\\u0007': 42 } } },
+    },
+];
+`;
+
+/** Валидная секция с `flatModules`: отчет печатает значение и дает код 0. */
+const FLAT_MODULES_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@/*': ['src/*'] }, flatModules: true } },
+    },
+];
+`;
+
+/** Кривой `flatModules`: собственная ошибка поля, код 1. */
+const BAD_FLAT_MODULES_CONFIG = `export default [
+    {
+        files: ['**/*.ts'],
+        settings: { weld: { aliases: { '@/*': ['src/*'] }, flatModules: 'nope' } },
     },
 ];
 `;
@@ -128,7 +180,7 @@ describe('weld config: файл', () => {
         expect(codes).toEqual([1]);
     });
 
-    it('печатает корень, базу алиасов, имя tsconfig и алиасы, код 0', async () => {
+    it('печатает корень, базу алиасов, имя tsconfig, алиасы и схему, код 0', async () => {
         const root = makeCliProject({
             'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
@@ -142,6 +194,11 @@ describe('weld config: файл', () => {
                 'file:   src/feature/internal.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
+                '  layers:         app, @modules, @unknown',
+                '  moduleLayers:   features',
+                '  flatModules:    false',
+                '  modulesDir:     modules',
+                '  srcDir:         /src',
                 '  aliases:',
                 '    @/* → /src/*',
                 '  aliasesBaseUrl: .',
@@ -170,6 +227,11 @@ describe('weld config: файл', () => {
                 'file:   src/feature/internal.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
+                '  layers:         (not set)',
+                '  moduleLayers:   (not set)',
+                '  flatModules:    false',
+                '  modulesDir:     modules',
+                '  srcDir:         /src',
                 '  aliases:',
                 '    @/* → /src/*',
                 '  aliasesBaseUrl: .',
@@ -194,6 +256,11 @@ describe('weld config: файл', () => {
                 'file:   src/feature/internal.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
+                '  layers:         (not set)',
+                '  moduleLayers:   (not set)',
+                '  flatModules:    false',
+                '  modulesDir:     modules',
+                '  srcDir:         /src',
                 '  aliases:',
                 '    @/* → /src/*',
                 '  aliasesBaseUrl: .',
@@ -202,6 +269,112 @@ describe('weld config: файл', () => {
             ].join('\n') + '\n',
         );
         expect(codes).toEqual([]);
+    });
+});
+
+describe('weld config: схема в отчете', () => {
+    it('кривые опции схемы: собственные ошибки полей, код 1, алиасы при этом валидны', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BROKEN_SCHEME_OPTIONS_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                'file:   src/feature/internal.ts',
+                'config: eslint.config.mjs',
+                'settings.weld:',
+                '  layers:         options.layers must be an array of strings, got string',
+                '  moduleLayers:   (not set)',
+                '  flatModules:    false',
+                '  modulesDir:     modules',
+                '  srcDir:         options.srcDir must be a string, got number',
+                '  aliases:',
+                '    @/* → /src/*',
+                '  aliasesBaseUrl: .',
+                `  repoRoot:       ${root}`,
+                '  tsconfig:       tsconfig.json',
+            ].join('\n') + '\n',
+        );
+        expect(codes).toEqual([1]);
+    });
+
+    it('flatModules: значение в тексте и JSON, без problems, код 0', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': FLAT_MODULES_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toBe(
+            [
+                'file:   src/feature/internal.ts',
+                'config: eslint.config.mjs',
+                'settings.weld:',
+                '  layers:         (not set)',
+                '  moduleLayers:   (not set)',
+                '  flatModules:    true',
+                '  modulesDir:     modules',
+                '  srcDir:         /src',
+                '  aliases:',
+                '    @/* → /src/*',
+                '  aliasesBaseUrl: .',
+                `  repoRoot:       ${root}`,
+                '  tsconfig:       tsconfig.json',
+            ].join('\n') + '\n',
+        );
+        expect(codes).toEqual([]);
+
+        const { program: jprogram, out: jout } = capture(root);
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            settings: Record<string, unknown>;
+            problems: Record<string, unknown>;
+        };
+
+        expect(data.settings.flatModules).toBe(true);
+        expect(data.problems).toEqual({});
+    });
+
+    it('кривой flatModules: ошибка поля в тексте и JSON, код 1', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': BAD_FLAT_MODULES_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, codes } = capture(root);
+
+        await program.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+
+        expect(printed(out)).toContain(
+            '  flatModules:    settings.weld.flatModules must be a boolean, got string',
+        );
+        expect(codes).toEqual([1]);
+
+        const { program: jprogram, out: jout } = capture(root);
+        await jprogram.parseAsync(['--json', 'config', 'src/feature/internal.ts'], {
+            from: 'user',
+        });
+
+        const data = JSON.parse(printed(jout)) as {
+            settings: Record<string, unknown>;
+            problems: Record<string, unknown>;
+        };
+
+        expect(data.settings.flatModules).toBeNull();
+        expect(data.problems).toEqual({
+            flatModules: {
+                status: 'invalid',
+                message: 'settings.weld.flatModules must be a boolean, got string',
+            },
+        });
     });
 });
 
@@ -220,7 +393,7 @@ describe('weld config: директория', () => {
         expect(codes).toEqual([]);
     });
 
-    it('--json отдает sampleOf, настройки и пустые problems', async () => {
+    it('--json отдает sampleOf, настройки, схему и пустые problems', async () => {
         const root = makeCliProject({
             'eslint.config.mjs': ALIAS_CONFIG,
             'src/feature/internal.ts': '',
@@ -239,6 +412,11 @@ describe('weld config: директория', () => {
                 aliasesBaseUrl: '.',
                 tsconfig: 'tsconfig.json',
                 aliases: [{ prefix: '@', anchor: '/src', star: true }],
+                srcDir: '/src',
+                modulesDir: 'modules',
+                layers: ['app', '@modules', '@unknown'],
+                moduleLayers: ['features'],
+                flatModules: false,
             },
             problems: {},
         });
@@ -277,6 +455,11 @@ describe('weld config: диагностический отчет', () => {
                 `file:   ${root}/src/feature/internal.ts`,
                 `config: ${root}/eslint.config.mjs`,
                 'settings.weld:',
+                '  layers:         (not set)',
+                '  moduleLayers:   (not set)',
+                '  flatModules:    false',
+                '  modulesDir:     modules',
+                '  srcDir:         /src',
                 '  aliases:        (unresolved: repoRoot)',
                 '  aliasesBaseUrl: .',
                 '  repoRoot:       settings.weld.repoRoot must be a string, got number',
@@ -306,6 +489,7 @@ describe('weld config: диагностический отчет', () => {
         expect(data.settings.repoRoot).toBeNull();
         expect(data.settings.aliases).toBeNull();
         expect(data.settings.tsconfig).toBe('tsconfig.json');
+        expect(data.settings.srcDir).toBe('/src');
         expect(data.problems).toEqual({
             repoRoot: {
                 status: 'invalid',
@@ -315,7 +499,7 @@ describe('weld config: диагностический отчет', () => {
         });
     });
 
-    it('кривая секция: все настройки unresolved, код 1', async () => {
+    it('кривая секция: файл через ранний выход repoRoot, все настройки unresolved, код 1', async () => {
         const root = makeCliProject({
             'eslint.config.mjs': BAD_SECTION_CONFIG,
             'src/feature/internal.ts': '',
@@ -329,6 +513,11 @@ describe('weld config: диагностический отчет', () => {
                 `file:   ${root}/src/feature/internal.ts`,
                 `config: ${root}/eslint.config.mjs`,
                 'settings.weld: settings.weld must be an object',
+                '  layers:         (unresolved: settings.weld)',
+                '  moduleLayers:   (unresolved: settings.weld)',
+                '  flatModules:    (unresolved: settings.weld)',
+                '  modulesDir:     (unresolved: settings.weld)',
+                '  srcDir:         (unresolved: settings.weld)',
                 '  aliases:        (unresolved: settings.weld)',
                 '  aliasesBaseUrl: (unresolved: settings.weld)',
                 '  repoRoot:       (unresolved: settings.weld)',
@@ -350,12 +539,17 @@ describe('weld config: диагностический отчет', () => {
         };
 
         expect(data.file).toBe(`${root}/src/feature/internal.ts`);
-        expect(Object.values(data.settings)).toEqual(Array(4).fill(null));
+        expect(Object.values(data.settings)).toEqual(Array(9).fill(null));
         expect(data.problems).toEqual({
             repoRoot: { status: 'unresolved', dependency: 'settings.weld' },
             aliasesBaseUrl: { status: 'unresolved', dependency: 'settings.weld' },
             tsconfig: { status: 'unresolved', dependency: 'settings.weld' },
             aliases: { status: 'unresolved', dependency: 'settings.weld' },
+            srcDir: { status: 'unresolved', dependency: 'settings.weld' },
+            modulesDir: { status: 'unresolved', dependency: 'settings.weld' },
+            layers: { status: 'unresolved', dependency: 'settings.weld' },
+            moduleLayers: { status: 'unresolved', dependency: 'settings.weld' },
+            flatModules: { status: 'unresolved', dependency: 'settings.weld' },
             'settings.weld': { status: 'invalid', message: 'settings.weld must be an object' },
         });
     });
@@ -374,6 +568,11 @@ describe('weld config: диагностический отчет', () => {
                 `file:   ${root}/src/feature/internal.ts`,
                 `config: ${root}/eslint.config.mjs`,
                 'settings.weld:',
+                '  layers:         settings.weld.layers must be an array of strings, got string',
+                '  moduleLayers:   (not set)',
+                '  flatModules:    false',
+                '  modulesDir:     modules',
+                '  srcDir:         /src',
                 "  aliases:        settings.weld.aliases['@a'] must be a string or an array of strings",
                 '  aliasesBaseUrl: .',
                 '  repoRoot:       settings.weld.repoRoot must be a string, got number',
@@ -395,11 +594,49 @@ describe('weld config: диагностический отчет', () => {
         expect(data.settings.repoRoot).toBeNull();
         expect(data.settings.tsconfig).toBeNull();
         expect(data.settings.aliases).toBeNull();
-        expect(Object.keys(data.problems).sort()).toEqual(['aliases', 'repoRoot', 'tsconfig']);
+        expect(data.settings.layers).toBeNull();
+        expect(data.settings.srcDir).toBe('/src');
+        expect(Object.keys(data.problems).sort()).toEqual([
+            'aliases',
+            'layers',
+            'repoRoot',
+            'tsconfig',
+        ]);
         expect(data.problems.aliases).toEqual({
             status: 'invalid',
             message: "settings.weld.aliases['@a'] must be a string or an array of strings",
         });
+    });
+
+    it('отсутствующая схема: (not set), problems пуст, код 0', async () => {
+        const root = makeCliProject({
+            'eslint.config.mjs': NO_SCHEME_CONFIG,
+            'src/feature/internal.ts': '',
+        });
+        const { program, out, err, codes } = capture(root);
+
+        await program.parseAsync(['--json', 'config', 'src/feature/internal.ts'], { from: 'user' });
+
+        const data = JSON.parse(printed(out)) as {
+            settings: Record<string, unknown>;
+            problems: Record<string, unknown>;
+        };
+
+        expect(data.settings.layers).toBeNull();
+        expect(data.settings.moduleLayers).toBeNull();
+        expect(data.settings.aliases).toEqual([{ prefix: '@', anchor: '/src', star: true }]);
+        expect(data.problems).toEqual({});
+        expect(codes).toEqual([]);
+        expect(err).toEqual([]);
+
+        const text = await (async () => {
+            const { program: tprogram, out: tout } = capture(root);
+            await tprogram.parseAsync(['config', 'src/feature/internal.ts'], { from: 'user' });
+            return printed(tout);
+        })();
+
+        expect(text).toContain('  layers:         (not set)');
+        expect(text).toContain('  moduleLayers:   (not set)');
     });
 
     it('имя алиаса с управляющим символом: текст очищен, JSON сохраняет значение', async () => {
@@ -465,6 +702,11 @@ describe('configJson: машинная форма отчета', () => {
             aliasesBaseUrl: { status: 'value', value: '.' },
             tsconfig: { status: 'value', value: 'tsconfig.json' },
             aliases: { status: 'value', value: [{ prefix: '@', anchor: '/src', star: true }] },
+            srcDir: { status: 'value', value: '/src' },
+            modulesDir: { status: 'value', value: 'modules' },
+            layers: { status: 'value', value: ['app', '@modules', '@unknown'] },
+            moduleLayers: { status: 'value', value: ['features'] },
+            flatModules: { status: 'value', value: false },
         },
         sectionError: null,
     };
@@ -488,6 +730,11 @@ describe('configJson: машинная форма отчета', () => {
                 aliasesBaseUrl: '.',
                 tsconfig: 'tsconfig.json',
                 aliases: [{ prefix: '@', anchor: '/src', star: true }],
+                srcDir: '/src',
+                modulesDir: 'modules',
+                layers: ['app', '@modules', '@unknown'],
+                moduleLayers: ['features'],
+                flatModules: false,
             },
             problems: {},
         });
@@ -505,6 +752,7 @@ describe('configJson: машинная форма отчета', () => {
                     message: 'settings.weld.repoRoot must be a string, got number',
                 },
                 aliases: { status: 'unresolved', dependency: 'repoRoot' },
+                layers: { status: 'not-set' },
             },
         }) as {
             settings: Record<string, unknown>;
@@ -513,6 +761,7 @@ describe('configJson: машинная форма отчета', () => {
 
         expect(value.settings.repoRoot).toBeNull();
         expect(value.settings.aliases).toBeNull();
+        expect(value.settings.layers).toBeNull();
         expect(value.settings.tsconfig).toBe('tsconfig.json');
         expect(value.problems).toEqual({
             repoRoot: {
@@ -537,6 +786,20 @@ describe('configJson: машинная форма отчета', () => {
         });
     });
 
+    it('not set — null в settings и без записи в problems', () => {
+        const value = configJson({
+            ...CONFIG,
+            settings: { ...CONFIG.settings, layers: { status: 'not-set' } },
+        }) as {
+            settings: Record<string, unknown>;
+            problems: Record<string, unknown>;
+        };
+
+        expect(value.settings.layers).toBeNull();
+        expect('layers' in value.problems).toBe(false);
+        expect(Object.keys(value.problems)).toEqual([]);
+    });
+
     it('имя алиаса с управляющим символом сохраняется как есть', () => {
         const value = configJson({
             ...CONFIG,
@@ -558,6 +821,11 @@ describe('configJson: машинная форма отчета', () => {
 describe('hasOwnError: код 1 только при собственной ошибке', () => {
     const text = (value: string): SettingState<string> => ({ status: 'value', value });
     const aliasList = (value: Alias[]): SettingState<Alias[]> => ({ status: 'value', value });
+    const layerList = (value: readonly string[]): SettingState<readonly string[]> => ({
+        status: 'value',
+        value,
+    });
+    const flag = (value: boolean): SettingState<boolean> => ({ status: 'value', value });
 
     const base = (over: Partial<ConfigData['settings']> = {}): ConfigData => ({
         file: 'src/a.ts',
@@ -567,6 +835,11 @@ describe('hasOwnError: код 1 только при собственной ош�
             aliasesBaseUrl: text('.'),
             tsconfig: text('tsconfig.json'),
             aliases: aliasList([]),
+            srcDir: text('/src'),
+            modulesDir: text('modules'),
+            layers: layerList([]),
+            moduleLayers: layerList([]),
+            flatModules: flag(false),
             ...over,
         },
         sectionError: null,
@@ -574,6 +847,17 @@ describe('hasOwnError: код 1 только при собственной ош�
 
     it('валидная конфигурация — false (код 0)', () => {
         expect(hasOwnError(base())).toBe(false);
+    });
+
+    it('отсутствующая схема — false (код 0)', () => {
+        expect(
+            hasOwnError(
+                base({
+                    layers: { status: 'not-set' },
+                    moduleLayers: { status: 'not-set' },
+                }),
+            ),
+        ).toBe(false);
     });
 
     it('только unresolved, без invalid и ошибки секции — false (код 0)', () => {
