@@ -27,8 +27,10 @@ function renderNames(names: readonly string[]): string {
 }
 
 /**
- * ESLint-конфиг тестов CLI на реальном диске. `files` объявлен, потому что без совпадающей записи
- * flat config считает файл игнорируемым, а `settings.weld.aliases` — то, что показывают команды.
+ * ESLint-конфиг тестов CLI на реальном диске.
+ *
+ * `files` объявлен, потому что без совпадающей записи flat config считает файл игнорируемым, а
+ * `settings.weld.aliases` — то, что показывают команды.
  */
 export const ALIAS_CONFIG = `export default [
     {

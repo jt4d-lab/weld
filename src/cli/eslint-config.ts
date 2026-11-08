@@ -18,9 +18,11 @@ import { findSample, messageOf, statOf } from './sample.js';
 import { isInside } from './target.js';
 
 /**
- * То, что CLI получает от ESLint-конфига. `settings` — сырая секция, ее формат знает
- * `src/settings/`; `options` — опции правила WELD из того же конфига, которые при линте перекрывают
- * `settings.weld`; `sampleOf` — аргумент директории в том виде, как его ввели.
+ * То, что CLI получает от ESLint-конфига.
+ *
+ * `settings` — сырая секция, ее формат знает `src/settings/`; `options` — опции правила WELD из
+ * того же конфига, которые при линте перекрывают `settings.weld`; `sampleOf` — аргумент директории
+ * в том виде, как его ввели.
  */
 export type LintSettings = {
     filePath: string;
@@ -239,10 +241,15 @@ function createSampleLookup(options: SampleLookupOptions): SampleLookup {
 }
 
 /**
- * Настройки ESLint для файла или директории. Путь резолвится от `cwd`, конфиг ищется вверх от
- * директории цели, для директории читаются настройки сэмпла. `cwd` инстанса — директория конфига,
- * поэтому `basePath` шаблонов `files`/`ignores` тот же, что вычислил бы ESLint. `config` (флаг
- * `--config`) отменяет поиск и ведет себя как `eslint --config`.
+ * Настройки ESLint для файла или директории.
+ *
+ * Путь резолвится от `cwd`, конфиг ищется вверх от директории цели, для директории читаются
+ * настройки сэмпла. `cwd` инстанса — директория конфига, поэтому `basePath` шаблонов
+ * `files`/`ignores` тот же, что вычислил бы ESLint.
+ *
+ * @param path Файл или директория в том виде, как их ввели в CLI.
+ * @param cwd База для относительных аргументов.
+ * @param config Путь из `--config`: отменяет поиск и ведет себя как `eslint --config`.
  */
 export async function loadLintSettings(
     path: string,

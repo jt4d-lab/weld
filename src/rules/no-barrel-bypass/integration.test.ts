@@ -1,6 +1,8 @@
 /**
- * Интеграционные тесты: единственное место с настоящим диском. Проверяют реальные `createFsHost` /
- * `getFsHost` / `findRepoRoot` поверх фикстуры `src/testing/fixtures/project`, а не их фейки.
+ * Интеграционные тесты: единственное место с настоящим диском.
+ *
+ * Проверяют реальные `createFsHost` / `getFsHost` / `findRepoRoot` поверх фикстуры
+ * `src/testing/fixtures/project`, а не их фейки.
  */
 
 import { existsSync } from 'node:fs';

@@ -62,9 +62,11 @@ function requireString(value: unknown, source: string): string {
 }
 
 /**
- * `settings.weld.repoRoot` как он записан в конфиге — реальный путь, не виртуальный. Резолв
- * относительного значения и всё прочее знание о реальной ФС — за границей `src/host/`.
- * `undefined` — корень не задан, вызывающий ищет его сам.
+ * `settings.weld.repoRoot` как он записан в конфиге — реальный путь, не виртуальный.
+ *
+ * Резолв относительного значения и всё прочее знание о реальной ФС — за границей `src/host/`.
+ *
+ * @returns `undefined`, если корень не задан: вызывающий ищет его сам.
  */
 export function getRepoRoot(settings: unknown, override?: unknown): string | undefined {
     if (override !== undefined) {
@@ -183,9 +185,9 @@ export function resetSettingsCaches(): void {
 }
 
 /**
- * Алиасы из `settings.weld`. Нет `aliases` — `[]`.
+ * Алиасы из `settings.weld`.
  *
- * `baseUrlOverride` — override той настройки, от которой отсчитываются якоря: алиасы без
+ * @param baseUrlOverride Override той настройки, от которой отсчитываются якоря: алиасы без
  * `aliasesBaseUrl` переопределить нельзя, эти два значения имеют смысл только в паре.
  * @returns `[]`, если `aliases` не заданы. Результат берется из кэша
  * (см. {@link createParseCache}), поэтому при попадании возвращается тот же массив, что и в
@@ -203,11 +205,14 @@ export function getAliases(
 
 /**
  * Разбор внешних `paths` (формат `compilerOptions.paths` из tsconfig) в `Alias[]` — те же правила и
- * тот же кэш, что у `settings.weld.aliases`. Параметры: сами `paths`, виртуальная директория, от
- * которой отсчитываются записи, и `source` — имя источника значения в сообщениях об ошибках
- * (реальный путь tsconfig). На кривых значениях завершается ошибкой так же, как разбор
- * `settings.weld.aliases`, — решение обрабатывать ошибку или прерывать выполнение принадлежит
- * вызывающему.
+ * тот же кэш, что у `settings.weld.aliases`.
+ *
+ * На кривых значениях завершается ошибкой так же, как разбор `settings.weld.aliases`, — решение
+ * обрабатывать ошибку или прерывать выполнение принадлежит вызывающему.
+ *
+ * @param paths Сами записи `paths`.
+ * @param virtualBase Виртуальная директория, от которой отсчитываются записи.
+ * @param source Имя источника значения в сообщениях об ошибках (реальный путь tsconfig).
  */
 export function getAliasesFromPaths(paths: unknown, virtualBase: string, source: string): Alias[] {
     return cachedAliases([paths, virtualBase, source], () =>
@@ -217,6 +222,7 @@ export function getAliasesFromPaths(paths: unknown, virtualBase: string, source:
 
 /**
  * Заданы ли алиасы явно — в `options.aliases` (`override`) или в `settings.weld.aliases`.
+ *
  * «Заданы» — это присутствие ключа: пустой `{}` тоже считается (и выключает автопоиск tsconfig).
  * При заданном `override` секция `settings` не читается — как в геттерах.
  */

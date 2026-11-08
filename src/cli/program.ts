@@ -56,6 +56,8 @@ type GlobalOptions = { json?: boolean; color?: boolean; config?: string };
  * Цвет по умолчанию не навязывается: `--no-color` объявлен отрицательной опцией, поэтому commander
  * отдает `true`, даже когда флаг не передан. `undefined` оставляет решение за `picocolors` —
  * `NO_COLOR`/`FORCE_COLOR`/TTY тогда работают штатно.
+ *
+ * @returns `false` при `--no-color`, иначе `undefined`.
  */
 function colorOption(options: GlobalOptions): boolean | undefined {
     return options.color === false ? false : undefined;
@@ -209,7 +211,11 @@ A section error is recorded under settings.weld. A null setting without a proble
 }
 
 /**
- * Разбор аргументов и запуск команды. Ошибки действий сюда не доходят — их печатает действие.
+ * Разбор аргументов и запуск команды.
+ *
+ * Ошибки действий сюда не доходят — их печатает действие.
+ *
+ * @param overrides Швы CLI, не подставленные тестами.
  */
 export async function runCli(
     argv: readonly string[],
