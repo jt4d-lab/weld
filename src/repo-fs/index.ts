@@ -1,0 +1,15 @@
+/**
+ * Каркас доступа к файловой системе.
+ *
+ * Единственное место в пакете, знающее реальные пути (буквы дисков, `\`, относительность к `cwd`) и
+ * корень репозитория. Наружу отдает `RepoFs` — работу только с виртуальными posix-путями от корня
+ * (`/src/feature/x.ts`).
+ *
+ * `createFakeRepoFs` в барреле намеренно: подделка нужна тестам других слоев. В бандл она не
+ * попадает — `src/index.ts` ее не импортирует.
+ */
+
+export type { RepoFs } from './repo-fs.js';
+export { createRepoFs, getRepoFs, resetRepoFsCaches, resolveRoot } from './repo-fs.js';
+export { createFakeRepoFs } from './repo-fs.testing.js';
+export { findRepoRoot } from './root.js';

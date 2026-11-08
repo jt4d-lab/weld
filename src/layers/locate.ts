@@ -10,9 +10,9 @@
  * бывает.
  */
 
-import { joinPath, relativePath, segments } from '@/path/index.js';
-import type { Scheme } from '@/settings/index.js';
-import { UNKNOWN_MARKER } from '@/settings/index.js';
+import { joinPath, relativePath, segments } from '@/utils/path/index.js';
+import type { Scheme } from '@/raw-settings/index.js';
+import { UNKNOWN_MARKER } from '@/raw-settings/index.js';
 
 /** Разделитель имен в цепочке модулей при выводе. */
 const MODULE_SEPARATOR = '::';

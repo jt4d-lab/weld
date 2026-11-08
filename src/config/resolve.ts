@@ -8,15 +8,15 @@
  *
  * Резолв ленивый: каждая часть считается по первому обращению и запоминается, поэтому кривая
  * неиспользуемая часть не валит потребителя, который ее не спрашивал. Порядок зависимостей:
- * tsconfig (нужны `realAnchors` для корня и `paths` для алиасов) → `getRoot`/`getFsHost` →
+ * tsconfig (нужны `realAnchors` для корня и `paths` для алиасов) → `getRoot`/`getRepoFs` →
  * `getAliases`. Схема слоев (`getScheme`) ни от чего из этого не зависит и тоже читается только
  * по первому обращению.
  */
 
 import { createLogger } from '@/debug.js';
-import type { FsHost } from '@/host/index.js';
-import { getFsHost, resolveRoot } from '@/host/index.js';
-import type { Alias, Scheme, SchemeOverrides } from '@/settings/index.js';
+import type { RepoFs } from '@/repo-fs/index.js';
+import { getRepoFs, resolveRoot } from '@/repo-fs/index.js';
+import type { Alias, Scheme, SchemeOverrides } from '@/raw-settings/index.js';
 import {
     getAliases,
     getAliasesFromPaths,
@@ -24,7 +24,7 @@ import {
     getScheme,
     getTsconfigName,
     hasAliases,
-} from '@/settings/index.js';
+} from '@/raw-settings/index.js';
 import type { TsconfigPaths } from '@/tsconfig/index.js';
 import { loadTsconfigPaths } from '@/tsconfig/index.js';
 
@@ -56,9 +56,9 @@ export type WeldResolveInput = {
 export type WeldTarget = {
     /** Виртуальный путь от корня репозитория; `null` — файл вне корня. */
     getFromFile(): string | null;
-    /** Реальный корень; `null` только при инъекции `fsHostOverride` — у поддельного хоста его нет. */
+    /** Реальный корень; `null` только при инъекции `repoFsOverride` — у поддельного хоста его нет. */
     getRoot(): string | null;
-    getFsHost(): FsHost;
+    getRepoFs(): RepoFs;
     getAliases(): Alias[];
     /**
      * Схема слоев; отсутствующая или кривая — исключение. Спрашивающий схему без нее работать не
@@ -82,9 +82,9 @@ function lazy<T>(compute: () => T): () => T {
  * Неиспользуемая часть не считается, а ошибка конфигурации приходит исключением из того геттера,
  * который ее затребовал.
  *
- * @param fsHostOverride Шов для тестов: подменяет `FsHost` целиком, и реального корня тогда нет.
+ * @param repoFsOverride Шов для тестов: подменяет `RepoFs` целиком, и реального корня тогда нет.
  */
-export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost): WeldTarget {
+export function resolveForFile(input: WeldResolveInput, repoFsOverride?: RepoFs): WeldTarget {
     const options = input.options ?? {};
     const { settings, cwd, filename } = input;
 
@@ -98,7 +98,7 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
     );
 
     const coverDirs = (): string[] => {
-        if (fsHostOverride !== undefined || explicitAliases()) {
+        if (repoFsOverride !== undefined || explicitAliases()) {
             return [];
         }
 
@@ -106,18 +106,18 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
     };
 
     const root = lazy((): string | null => {
-        if (fsHostOverride !== undefined) {
+        if (repoFsOverride !== undefined) {
             return null;
         }
 
         return resolveRoot(settings, cwd, options.repoRoot, coverDirs());
     });
 
-    const fsHost = lazy(
-        (): FsHost => fsHostOverride ?? getFsHost(settings, cwd, options.repoRoot, coverDirs()),
+    const repoFs = lazy(
+        (): RepoFs => repoFsOverride ?? getRepoFs(settings, cwd, options.repoRoot, coverDirs()),
     );
 
-    const fromFile = lazy(() => fsHost().toVirtual(filename));
+    const fromFile = lazy(() => repoFs().toVirtual(filename));
 
     const aliases = lazy((): Alias[] => {
         // Приоритет источников: `options.aliases` → `settings.weld.aliases` → автопоиск tsconfig.
@@ -125,13 +125,13 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
             return getAliases(settings, options.aliases, options.aliasesBaseUrl);
         }
 
-        if (fsHostOverride !== undefined) {
+        if (repoFsOverride !== undefined) {
             return [];
         }
 
         return aliasesFromTsconfig(
             tsconfig(),
-            fsHost(),
+            repoFs(),
             getRepoRoot(settings, options.repoRoot) !== undefined,
         );
     });
@@ -141,7 +141,7 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
     return {
         getFromFile: fromFile,
         getRoot: root,
-        getFsHost: fsHost,
+        getRepoFs: repoFs,
         getAliases: aliases,
         getScheme: scheme,
     };
@@ -149,7 +149,7 @@ export function resolveForFile(input: WeldResolveInput, fsHostOverride?: FsHost)
 
 function aliasesFromTsconfig(
     found: TsconfigPaths | null,
-    fsHost: FsHost,
+    repoFs: RepoFs,
     hasExplicitRoot: boolean,
 ): Alias[] {
     if (found === null) {
@@ -157,12 +157,12 @@ function aliasesFromTsconfig(
     }
 
     // tsconfig вне явного root отбрасывается целиком: иначе поведение зависело бы от директорий над ним.
-    if (hasExplicitRoot && fsHost.toVirtual(found.configPath) === null) {
+    if (hasExplicitRoot && repoFs.toVirtual(found.configPath) === null) {
         debug('discarding tsconfig %s: it is outside the explicit root', found.configPath);
         return [];
     }
 
-    const virtualBase = fsHost.toVirtual(found.realBaseDir);
+    const virtualBase = repoFs.toVirtual(found.realBaseDir);
     if (virtualBase === null) {
         debug(
             'discarding tsconfig %s: base dir %s is outside the root',

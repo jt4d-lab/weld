@@ -11,29 +11,29 @@ flowchart TD
     end
 
     config
-    host
+    repoFs["repo-fs"]
     tsconfig
     layers
     imports
-    settings
+    rawSettings["raw-settings"]
 
     input --> config
     input --> imports
     input --> layers
-    input -.-> settings
-    input -.-> host
+    input -.-> rawSettings
+    input -.-> repoFs
 
-    layers -.-> settings
+    layers -.-> rawSettings
 
-    config --> settings
+    config --> rawSettings
     config --> tsconfig
-    config --> host
+    config --> repoFs
 
-    host --> settings
+    repoFs --> rawSettings
 
-    tsconfig --> settings
+    tsconfig --> rawSettings
 
-    imports -.-> settings
+    imports -.-> rawSettings
 ```
 
 Схема рисуется вручную, генератора нет. Правила, по которым она строится:
@@ -45,7 +45,7 @@ flowchart TD
 - Только продакшен-импорты: тесты, `*.testing.ts`, фикстуры и внешние пакеты исключены.
 - Сплошное ребро — у зависимости берут поведение (функции, классы). Пунктирное — только типы или
   константы.
-- Общий словарь (`src/path/`, `src/extensions.ts`, `src/debug.ts`, `src/package.ts`), `src/testing/`
-  и входные файлы не рисуются: это не слои.
+- Общий словарь (`src/utils/path/`, `src/extensions.ts`, `src/debug.ts`, `src/package.ts`),
+  `src/testing/` и входные файлы не рисуются: это не слои.
 - Порядок объявления узлов задает раскладку, иерархия — сверху вниз. Ребро, направленное вверх,
   означает нарушение слоев, а не новую строку схемы.

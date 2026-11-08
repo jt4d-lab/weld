@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Scheme } from '@/settings/index.js';
+import type { Scheme } from '@/raw-settings/index.js';
 
 import type { FileMeta } from './locate.js';
 import { locateFile, renderModuleName } from './locate.js';

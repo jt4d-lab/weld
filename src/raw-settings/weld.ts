@@ -3,7 +3,7 @@
  *
  * Наружу слой отдает не сырую секцию, а геттер на каждую настройку — `getRepoRoot` /
  * `getAliasesBaseUrl` / `getAliases` / `getTsconfigName` / `getScheme`; формат конфига за пределами
- * `src/settings/` не знает никто.
+ * `src/raw-settings/` не знает никто.
  *
  * Схема слоев — исключение из правила «геттер на настройку»: поля проверяются вместе (метка
  * `@modules` и `moduleLayers` задаются парой, имена не повторяются между списками), поэтому она
@@ -19,10 +19,10 @@
  * должно быть одно на оба источника.
  */
 
-import type { Alias } from '@/settings/aliases.js';
-import { parseAliases } from '@/settings/aliases.js';
-import type { RawScheme, Scheme, SchemeField } from '@/settings/layers.js';
-import { SCHEME_FIELDS, parseScheme } from '@/settings/layers.js';
+import type { Alias } from '@/raw-settings/aliases.js';
+import { parseAliases } from '@/raw-settings/aliases.js';
+import type { RawScheme, Scheme, SchemeField } from '@/raw-settings/layers.js';
+import { SCHEME_FIELDS, parseScheme } from '@/raw-settings/layers.js';
 
 /** `aliasesBaseUrl` по умолчанию — сам корень репозитория. */
 const DEFAULT_ALIASES_BASE_URL = '.';
@@ -64,7 +64,7 @@ function requireString(value: unknown, source: string): string {
 /**
  * `settings.weld.repoRoot` как он записан в конфиге — реальный путь, не виртуальный.
  *
- * Резолв относительного значения и всё прочее знание о реальной ФС — за границей `src/host/`.
+ * Резолв относительного значения и всё прочее знание о реальной ФС — за границей `src/repo-fs/`.
  *
  * @returns `undefined`, если корень не задан: вызывающий ищет его сам.
  */

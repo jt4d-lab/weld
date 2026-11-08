@@ -9,7 +9,7 @@
 import type { Rule } from 'eslint';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
+import { createFakeRepoFs, resetRepoFsCaches } from '@/repo-fs/index.js';
 
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
@@ -17,7 +17,7 @@ import { consumerFile, createRuleTester, fixtureRoot } from '@/testing/index.js'
 
 const ruleTester = createRuleTester();
 
-const rule = createRule(createFakeFsHost(['/repo/src/other/index.ts']));
+const rule = createRule(createFakeRepoFs(['/repo/src/other/index.ts']));
 
 const aliasError = {
     messageId: 'bypass',
@@ -118,7 +118,7 @@ function createSchemeProbe(): Rule.RuleModule {
             schema: [{ type: 'object', properties: WELD_OPTION_PROPERTIES }],
         },
         create(context) {
-            resolveWeldContext(context, createFakeFsHost([]))?.getScheme();
+            resolveWeldContext(context, createFakeRepoFs([]))?.getScheme();
             return {};
         },
     };
@@ -183,7 +183,7 @@ describe('схема слоев в опциях: настоящий ESLint', () 
 
 describe('опция repoRoot на настоящем диске', () => {
     afterEach(() => {
-        resetFsHostCaches();
+        resetRepoFsCaches();
     });
 
     it('options.repoRoot выигрывает у settings.weld.repoRoot', () => {

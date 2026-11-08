@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { rules } from '@/rules/index.js';
-import type { Alias, SettingState } from '@/settings/index.js';
+import type { Alias, SettingState } from '@/raw-settings/index.js';
 import { cleanupTmpProjects } from '@/testing/index.js';
 
 import type { ConfigData } from './config.js';

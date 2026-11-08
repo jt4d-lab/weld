@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveForFile } from '@/config/index.js';
 import type * as ConfigLayer from '@/config/index.js';
-import { createFakeFsHost } from '@/host/index.js';
+import { createFakeRepoFs } from '@/repo-fs/index.js';
 import { cleanupTmpProjects, linkRepoNodeModules, makeTmpProject } from '@/testing/index.js';
 
 import { inspectFile } from './inspect.js';
@@ -1007,7 +1007,7 @@ describe('inspectFile: имя файла в алиасе', () => {
         vi.mocked(resolveForFile).mockReturnValueOnce({
             getFromFile: () => '/src/index.ts',
             getRoot: () => 'C:\\repo',
-            getFsHost: () => createFakeFsHost([]),
+            getRepoFs: () => createFakeRepoFs([]),
             getAliases: () => [{ prefix: '@', anchor: '/src', star: true }],
             getScheme: () => ({
                 srcDir: '/src',

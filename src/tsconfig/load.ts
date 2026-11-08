@@ -2,7 +2,7 @@
  * Автопоиск ближайшего файла с заданным именем tsconfig (по умолчанию `tsconfig.json`) и извлечение
  * `compilerOptions.paths`.
  *
- * Второй «пограничный» модуль наряду с `src/host/`: знает формат tsconfig **и** читает диск (через
+ * Второй «пограничный» модуль наряду с `src/repo-fs/`: знает формат tsconfig **и** читает диск (через
  * `get-tsconfig`). Наружу отдает **реальные** пути: виртуализация возможна только после фиксации
  * root, а root у вызывающей стороны сам зависит от найденных здесь якорей.
  *
@@ -16,12 +16,12 @@ import { getTsconfig } from 'get-tsconfig';
 import type { TsConfigResult } from 'get-tsconfig';
 
 import { createLogger } from '@/debug.js';
-import { segments, toPosix } from '@/path/index.js';
-import { hasValidStarShape, stripStarSuffix } from '@/settings/index.js';
+import { segments, toPosix } from '@/utils/path/index.js';
+import { hasValidStarShape, stripStarSuffix } from '@/raw-settings/index.js';
 
 const debug = createLogger('tsconfig');
 
-/** Результат поиска: сырые `paths` (валидация — дело `src/settings/`) и реальные пути. */
+/** Результат поиска: сырые `paths` (валидация — дело `src/raw-settings/`) и реальные пути. */
 export type TsconfigPaths = {
     /** `compilerOptions.paths` как есть — формат значений проверяет вызывающая сторона. */
     paths: Record<string, unknown>;
@@ -44,7 +44,7 @@ type CacheEntry = { value: TsconfigPaths | null; expiresAt: number };
 type LoadTsconfigOptions = {
     /** Имя файла tsconfig для поиска. */
     configName?: string;
-    /** Шов для тестов TTL — по образцу `createFsHost`. */
+    /** Шов для тестов TTL — по образцу `createRepoFs`. */
     now?: () => number;
     /** Шов для тестов: подмена чтения диска (по умолчанию — `getTsconfig` из `get-tsconfig`). */
     read?: (searchDir: string, configName: string) => TsConfigResult | null;
@@ -52,7 +52,7 @@ type LoadTsconfigOptions = {
 
 /**
  * TTL найденного результата в мемоизации «директория файла + имя tsconfig → результат», то же
- * значение, что `TTL_MS` в `src/host/fs.ts`.
+ * значение, что `TTL_MS` в `src/repo-fs/repo-fs.ts`.
  *
  * tsconfig правят руками чаще, чем создают `index.ts`, а вечный кэш в долгоживущем ESLint
  * редактора неприемлем.
@@ -61,7 +61,7 @@ const TTL_MS = 600_000;
 
 /**
  * TTL отрицательного результата (`null`) — заметно короче, та же асимметрия, что у
- * `NEGATIVE_TTL_MS` в `src/host/fs.ts`.
+ * `NEGATIVE_TTL_MS` в `src/repo-fs/repo-fs.ts`.
  *
  * «paths есть» опровергается их правкой раз в десять минут — терпимо, а «paths нет» — тем, что их
  * дописали (или починили битый tsconfig), и именно это делает в редакторе пользователь,
@@ -196,7 +196,7 @@ function getImplicitBaseUrl(compilerOptions: object): string | undefined {
 /**
  * Реальный абсолютный путь: unix (`/…`) или Windows-диск (`C:…`).
  *
- * Сосед `isAbsoluteRealPath` из `src/host/fs.ts` отвечает на тот же вопрос, но про уже
+ * Сосед `isAbsoluteRealPath` из `src/repo-fs/repo-fs.ts` отвечает на тот же вопрос, но про уже
  * нормализованные `toPosix`-пути и наружу из слоя не выходит; здесь проверяются сырые строки из
  * tsconfig — два «пограничных» модуля держат по своей проверке.
  */
@@ -241,7 +241,7 @@ function relativizePathsValues(
  *
  * Нестроковые значения молча пропускаются: их отбраковка с сообщением — дело разбора алиасов, а не
  * расчета root. Ключи и значения, которые разбор алиасов отбросит по форме `*`
- * (`hasValidStarShape` из `src/settings/`), пропускаются по той же причине: поднимать root ради
+ * (`hasValidStarShape` из `src/raw-settings/`), пропускаются по той же причине: поднимать root ради
  * якоря записи, которую разбор потом отбросит, нельзя.
  */
 function collectRealAnchors(paths: Record<string, unknown>, realBaseDir: string): string[] {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { createFakeFsHost } from '@/host/index.js';
+import { createFakeRepoFs } from '@/repo-fs/index.js';
 import { findBarrier } from '@/rules/no-barrel-bypass/core/barrier.js';
 
-/** Точки входа теста — список виртуальных путей вместо целого фейкового `FsHost`. */
-const entryPoints = (files: string[]) => createFakeFsHost(files).hasEntryPoint;
+/** Точки входа теста — список виртуальных путей вместо целого фейкового `RepoFs`. */
+const entryPoints = (files: string[]) => createFakeRepoFs(files).hasEntryPoint;
 
 describe('findBarrier — таблица свойств', () => {
     it('F и T в одной директории — разрешено', () => {

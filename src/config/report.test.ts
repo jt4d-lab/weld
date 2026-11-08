@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
-import { resetSettingsCaches } from '@/settings/index.js';
+import { createFakeRepoFs, resetRepoFsCaches } from '@/repo-fs/index.js';
+import { resetSettingsCaches } from '@/raw-settings/index.js';
 import { cleanupTmpProjects, makeTmpProject, tsconfigBasicFixture } from '@/testing/index.js';
 import type * as TsconfigLayer from '@/tsconfig/index.js';
 import { loadTsconfigPaths, resetTsconfigCache } from '@/tsconfig/index.js';
@@ -18,7 +18,7 @@ vi.mock('../tsconfig/index.js', async (importOriginal) => {
 const loadTsconfigPathsMock = vi.mocked(loadTsconfigPaths);
 
 afterEach(() => {
-    resetFsHostCaches();
+    resetRepoFsCaches();
     resetSettingsCaches();
     resetTsconfigCache();
     cleanupTmpProjects();
@@ -555,10 +555,10 @@ describe('reportForFile — схема', () => {
 });
 
 describe('reportForFile — поддельный хост', () => {
-    it('реального корня нет: unresolved: fsHost, авто-алиасы — пустой результат', () => {
-        const { report } = reportForFile(input({}), createFakeFsHost([]));
+    it('реального корня нет: unresolved: repoFs, авто-алиасы — пустой результат', () => {
+        const { report } = reportForFile(input({}), createFakeRepoFs([]));
 
-        expect(report.settings.repoRoot).toEqual({ status: 'unresolved', dependency: 'fsHost' });
+        expect(report.settings.repoRoot).toEqual({ status: 'unresolved', dependency: 'repoFs' });
         expect(report.settings.aliases).toEqual({ status: 'value', value: [] });
         expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
     });
@@ -566,10 +566,10 @@ describe('reportForFile — поддельный хост', () => {
     it('явные алиасы разбираются без рабочего корня', () => {
         const { report } = reportForFile(
             input({ weld: { aliases: { '@a/*': ['a/*'] } } }),
-            createFakeFsHost([]),
+            createFakeRepoFs([]),
         );
 
-        expect(report.settings.repoRoot).toEqual({ status: 'unresolved', dependency: 'fsHost' });
+        expect(report.settings.repoRoot).toEqual({ status: 'unresolved', dependency: 'repoFs' });
         expect(report.settings.aliases).toEqual({
             status: 'value',
             value: [{ prefix: '@a', anchor: '/a', star: true }],
@@ -577,13 +577,13 @@ describe('reportForFile — поддельный хост', () => {
     });
 
     it('кривое имя tsconfig под поддельным хостом: алиасы остаются пустыми, tsconfig не читается', () => {
-        const { report } = reportForFile(input({ weld: { tsconfig: 42 } }), createFakeFsHost([]));
+        const { report } = reportForFile(input({ weld: { tsconfig: 42 } }), createFakeRepoFs([]));
 
         expect(report.settings.tsconfig).toEqual({
             status: 'invalid',
             message: 'settings.weld.tsconfig must be a string, got number',
         });
-        expect(report.settings.repoRoot).toEqual({ status: 'unresolved', dependency: 'fsHost' });
+        expect(report.settings.repoRoot).toEqual({ status: 'unresolved', dependency: 'repoFs' });
         expect(report.settings.aliases).toEqual({ status: 'value', value: [] });
         expect(loadTsconfigPathsMock).not.toHaveBeenCalled();
     });

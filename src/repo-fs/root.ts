@@ -1,7 +1,7 @@
 import { createLogger } from '@/debug.js';
-import { toPosix } from '@/path/index.js';
+import { toPosix } from '@/utils/path/index.js';
 
-import { joinReal, parentOf } from '@/host/real-path.js';
+import { joinReal, parentOf } from '@/repo-fs/real-path.js';
 
 const debug = createLogger('root');
 
@@ -12,7 +12,7 @@ const debug = createLogger('root');
  * директории с `.git` (включительно — ее `package.json` еще учитывается) или, если `.git` не
  * встретился, на корне файловой системы.
  *
- * Принимает реальный путь и реальный `exists` — работает до создания `FsHost`.
+ * Принимает реальный путь и реальный `exists` — работает до создания `RepoFs`.
  *
  * @param exists Существует ли реальный путь.
  * @returns Директория с последним `package.json` либо `null`, если ничего не нашли.
