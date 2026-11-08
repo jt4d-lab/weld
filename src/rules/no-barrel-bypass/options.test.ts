@@ -1,12 +1,17 @@
 /**
- * Опции правила `repoRoot` / `aliasesBaseUrl` / `aliases` — те же настройки, что и в `settings.weld`, но
- * заданные на самом правиле. Здесь проверяется, что они действительно перекрывают секцию.
+ * Опции правила `repoRoot` / `aliasesBaseUrl` / `aliases` / `tsconfig` и поля схемы слоев — те же
+ * настройки, что и в `settings.weld`, но заданные на самом правиле.
+ *
+ * Здесь проверяется, что они действительно перекрывают секцию, а схема слоев разбирается только по
+ * запросу.
  */
 
+import type { Rule } from 'eslint';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
 
+import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
 import { consumerFile, createRuleTester, fixtureRoot } from '@/testing/index.js';
 
@@ -99,6 +104,80 @@ describe('опции правила перекрывают settings.weld', () =>
                 invalid: [],
             }),
         ).toThrow();
+    });
+});
+
+/**
+ * Правило-заглушка: ничего не проверяет, а только просит схему слоев.
+ *
+ * Ею проверяется, что схема разбирается именно по запросу, а не до вызова правила.
+ */
+function createSchemeProbe(): Rule.RuleModule {
+    return {
+        meta: {
+            schema: [{ type: 'object', properties: WELD_OPTION_PROPERTIES }],
+        },
+        create(context) {
+            resolveWeldContext(context, createFakeFsHost([]))?.getScheme();
+            return {};
+        },
+    };
+}
+
+describe('схема слоев в опциях: настоящий ESLint', () => {
+    const schemeSettings = { weld: { layers: ['app', '@modules'], moduleLayers: ['features'] } };
+
+    it('произвольные значения полей схемы проходят схему ESLint и не мешают правилу', () => {
+        ruleTester.run('no-barrel-bypass broken scheme', rule, {
+            valid: [],
+            invalid: [
+                {
+                    name: 'схема в опциях сломана, а правило продолжает работать',
+                    code: "import { a } from '@other/internal.ts';",
+                    filename: '/repo/src/feature/file.ts',
+                    settings: {
+                        weld: { aliasesBaseUrl: '/repo', aliases: { '@other/*': ['src/other/*'] } },
+                    },
+                    options: [{ layers: 'nope', srcDir: 42 }],
+                    output: "import { a } from '@other/index.ts';",
+                    errors: [aliasError],
+                },
+            ],
+        });
+    });
+
+    it('правило, спросившее схему, получает исключение разбора в том же прогоне', () => {
+        expect(() =>
+            ruleTester.run('scheme probe broken', createSchemeProbe(), {
+                valid: [
+                    {
+                        name: 'сломанные поля схемы в опциях',
+                        code: 'const a = 1;',
+                        filename: '/repo/src/feature/file.ts',
+                        settings: schemeSettings,
+                        options: [{ layers: 'nope' }],
+                    },
+                ],
+                invalid: [],
+            }),
+        ).toThrow('options.layers must be an array of strings, got string');
+    });
+
+    it('корректная схема разбирается без исключения', () => {
+        expect(() =>
+            ruleTester.run('scheme probe valid', createSchemeProbe(), {
+                valid: [
+                    {
+                        name: 'полная схема в настройках и опциях',
+                        code: 'const a = 1;',
+                        filename: '/repo/src/feature/file.ts',
+                        settings: schemeSettings,
+                        options: [{ srcDir: 'source' }],
+                    },
+                ],
+                invalid: [],
+            }),
+        ).not.toThrow();
     });
 });
 
