@@ -1,6 +1,6 @@
 import { dirname } from '@/utils/path/index.js';
 
-import { createFsHost, type FsHost } from '@/host/fs.js';
+import { createFsHost, type FsHost } from '@/repo-fs/fs.js';
 
 /**
  * Фейковый `FsHost` над списком виртуальных путей — без обращения к диску.

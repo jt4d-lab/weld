@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { findRepoRoot, getFsHost, resetFsHostCaches } from '@/host/index.js';
+import { findRepoRoot, getFsHost, resetFsHostCaches } from '@/repo-fs/index.js';
 
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
 import {

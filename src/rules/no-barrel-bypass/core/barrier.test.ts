@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createFakeFsHost } from '@/host/index.js';
+import { createFakeFsHost } from '@/repo-fs/index.js';
 import { findBarrier } from '@/rules/no-barrel-bypass/core/barrier.js';
 
 /** Точки входа теста — список виртуальных путей вместо целого фейкового `FsHost`. */

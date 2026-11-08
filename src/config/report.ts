@@ -2,7 +2,7 @@
  * Диагностический отчет эффективной конфигурации: состояния настроек вместо исключения.
  */
 
-import type { FsHost } from '@/host/index.js';
+import type { FsHost } from '@/repo-fs/index.js';
 import type {
     Alias,
     RawScheme,

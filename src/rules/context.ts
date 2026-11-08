@@ -10,7 +10,7 @@ import type { Rule } from 'eslint';
 
 import { resolveForFile } from '@/config/index.js';
 import type { WeldResolveOptions } from '@/config/index.js';
-import type { FsHost } from '@/host/index.js';
+import type { FsHost } from '@/repo-fs/index.js';
 import type { Alias, Scheme } from '@/settings/index.js';
 
 /**

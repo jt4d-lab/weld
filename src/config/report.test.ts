@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
+import { createFakeFsHost, resetFsHostCaches } from '@/repo-fs/index.js';
 import { resetSettingsCaches } from '@/settings/index.js';
 import { cleanupTmpProjects, makeTmpProject, tsconfigBasicFixture } from '@/testing/index.js';
 import type * as TsconfigLayer from '@/tsconfig/index.js';

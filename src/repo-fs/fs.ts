@@ -12,8 +12,8 @@ import {
     resolveRealPath,
     sameSegment,
     isAbsoluteRealPath,
-} from '@/host/real-path.js';
-import { findRepoRoot } from '@/host/root.js';
+} from '@/repo-fs/real-path.js';
+import { findRepoRoot } from '@/repo-fs/root.js';
 
 const debug = createLogger('fs');
 
@@ -318,7 +318,7 @@ export function resolveRoot(
  * обнулялся бы на каждом файле.
  *
  * @param repoRootOverride Значение repoRoot из опций правила. Разбирает и проверяет его все тот же
- * `getRepoRoot`, `src/host/` про формат конфига по-прежнему ничего не знает. Кэш инстансов
+ * `getRepoRoot`, `src/repo-fs/` про формат конфига по-прежнему ничего не знает. Кэш инстансов
  * ключуется уже резолвнутым root, поэтому файлы с разным override (или разными `coverDirs`) не
  * делят инстанс.
  * @param coverDirs Реальные директории, которые root обязан покрыть (якоря алиасов из tsconfig);

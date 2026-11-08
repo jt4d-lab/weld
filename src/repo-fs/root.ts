@@ -1,7 +1,7 @@
 import { createLogger } from '@/debug.js';
 import { toPosix } from '@/utils/path/index.js';
 
-import { joinReal, parentOf } from '@/host/real-path.js';
+import { joinReal, parentOf } from '@/repo-fs/real-path.js';
 
 const debug = createLogger('root');
 

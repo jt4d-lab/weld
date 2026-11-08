@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveForFile } from '@/config/index.js';
 import type * as ConfigLayer from '@/config/index.js';
-import { createFakeFsHost } from '@/host/index.js';
+import { createFakeFsHost } from '@/repo-fs/index.js';
 import { cleanupTmpProjects, linkRepoNodeModules, makeTmpProject } from '@/testing/index.js';
 
 import { inspectFile } from './inspect.js';

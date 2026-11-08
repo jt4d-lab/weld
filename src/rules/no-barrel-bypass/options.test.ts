@@ -9,7 +9,7 @@
 import type { Rule } from 'eslint';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createFakeFsHost, resetFsHostCaches } from '@/host/index.js';
+import { createFakeFsHost, resetFsHostCaches } from '@/repo-fs/index.js';
 
 import { WELD_OPTION_PROPERTIES, resolveWeldContext } from '@/rules/context.js';
 import { createRule } from '@/rules/no-barrel-bypass/index.js';
