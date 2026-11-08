@@ -1,4 +1,4 @@
-import { dirname } from '@/path/index.js';
+import { dirname } from '@/utils/path/index.js';
 
 import { createFsHost, type FsHost } from '@/host/fs.js';
 

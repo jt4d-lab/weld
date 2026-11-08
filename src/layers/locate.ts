@@ -10,7 +10,7 @@
  * бывает.
  */
 
-import { joinPath, relativePath, segments } from '@/path/index.js';
+import { joinPath, relativePath, segments } from '@/utils/path/index.js';
 import type { Scheme } from '@/settings/index.js';
 import { UNKNOWN_MARKER } from '@/settings/index.js';
 

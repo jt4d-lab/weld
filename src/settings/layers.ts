@@ -9,7 +9,7 @@
  * разбора живут в `src/settings/weld.ts` — здесь чистый разбор уже добытых значений.
  */
 
-import { resolvePath } from '@/path/index.js';
+import { resolvePath } from '@/utils/path/index.js';
 import type { SettingState } from './state.js';
 
 /** Метка места слоев модулей в `layers` — не имя директории. */

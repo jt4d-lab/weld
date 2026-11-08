@@ -9,7 +9,7 @@
 
 import path from 'node:path';
 
-import { commonDepth, joinSegments, segments, toPosix } from '@/path/index.js';
+import { commonDepth, joinSegments, segments, toPosix } from '@/utils/path/index.js';
 
 /** Ведущий Windows-диск (`C:`) реального пути после `toPosix`. */
 const DRIVE_PREFIX = /^[A-Za-z]:/;
@@ -99,7 +99,7 @@ export function sameSegment(left: string, right: string, index: number): boolean
  * Первым сегментом может быть Windows-диск (буква сравнивается без учета регистра — тот же
  * `sameSegment`): пути с разными префиксами (разные диски, диск против unix-корня) общей директории
  * не имеют — `null`. Диск снимается до сравнения сегментов, поэтому остаток — обычный posix-путь, и
- * общую глубину считает `commonDepth` из `src/path/`; про диски знает только код выше.
+ * общую глубину считает `commonDepth` из `src/utils/path/`; про диски знает только код выше.
  */
 export function commonRealDirectory(left: string, right: string): string | null {
     const prefixOf = (candidate: string): string => DRIVE_PREFIX.exec(candidate)?.[0] ?? '';

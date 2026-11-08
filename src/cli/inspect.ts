@@ -5,7 +5,7 @@ import { isEntryFileName } from '@/extensions.js';
 import type { AliasPath } from '@/imports/index.js';
 import { renderAliasPath } from '@/imports/index.js';
 import { locateFile, renderModuleName } from '@/layers/index.js';
-import { basename, dirname, splitExtension } from '@/path/index.js';
+import { basename, dirname, splitExtension } from '@/utils/path/index.js';
 
 import type { LintSettings } from './eslint-config.js';
 import { repoPath, repoRootOf, virtualPathOf } from './target.js';
@@ -127,7 +127,7 @@ function collapseEntryPoint(path: string): string {
  * Специфаер, который действительно резолвится: у звездного ключа на самом якоре хвостом становится
  * имя файла, у точного ключа специфаером становится сам префикс.
  *
- * Имя берется из виртуального пути (`fromFile`), а не из `lint.filePath`: `basename` в `@/path` —
+ * Имя берется из виртуального пути (`fromFile`), а не из `lint.filePath`: `basename` в `@/utils/path` —
  * posix-функция, а реальный путь на Windows пришел бы с `\`.
  */
 function withEntryName(rendered: AliasPath, virtualPath: string): string {

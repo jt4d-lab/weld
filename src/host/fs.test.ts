@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ENTRY_EXTENSIONS } from '@/extensions.js';
-import { basename, toPosix } from '@/path/index.js';
+import { basename, toPosix } from '@/utils/path/index.js';
 import { cleanupTmpProjects, makeTmpProject } from '@/testing/index.js';
 
 import { createFsHost, getFsHost, resetFsHostCaches, resolveRoot } from '@/host/fs.js';
