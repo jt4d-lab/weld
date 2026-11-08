@@ -23,7 +23,17 @@ export type ConfigData = {
 };
 
 /** Имена настроек отчета в порядке печати и сериализации, как в `docs/rules/settings.md`. */
-export const CONFIG_SETTING_NAMES = ['aliases', 'aliasesBaseUrl', 'repoRoot', 'tsconfig'] as const;
+export const CONFIG_SETTING_NAMES = [
+    'layers',
+    'moduleLayers',
+    'flatModules',
+    'modulesDir',
+    'srcDir',
+    'aliases',
+    'aliasesBaseUrl',
+    'repoRoot',
+    'tsconfig',
+] as const;
 
 /**
  * Отчет для команды `weld config`.

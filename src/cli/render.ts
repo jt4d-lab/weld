@@ -45,9 +45,13 @@ function widthOf(rows: readonly { label: string }[]): number {
 
 export function renderInspect(data: InspectData, options: RenderOptions): string {
     const c = pc.createColors(options.color);
+    const alias = data.alias ?? data.virtualPath;
     const rows = [
         { label: 'file:', value: sanitizeText(data.file) },
-        { label: 'alias:', value: c.cyan(sanitizeText(data.alias)) },
+        { label: 'alias:', value: c.cyan(sanitizeText(alias)) },
+        { label: 'module:', value: sanitizeText(data.module) },
+        { label: 'layer:', value: sanitizeText(data.layer) },
+        { label: 'innerPath:', value: sanitizeText(data.innerPath) },
     ];
     const width = widthOf(rows);
 
@@ -81,7 +85,7 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
                   `${SETTINGS_INDENT}${row(
                       c,
                       `${name}:`,
-                      rowValue(data.settings[name], c),
+                      rowValue(name, data.settings[name], c),
                       settingsWidth,
                   )}`,
               ],
@@ -94,13 +98,29 @@ export function renderConfig(data: ConfigData, options: RenderOptions): string {
     ].join('\n');
 }
 
-function rowValue(state: SettingState<unknown>, c: Colors): string {
+function rowValue(
+    name: (typeof CONFIG_SETTING_NAMES)[number],
+    state: SettingState<unknown>,
+    c: Colors,
+): string {
     if (state.status === 'invalid') {
         return c.red(sanitizeText(state.message));
     }
 
     if (state.status === 'unresolved') {
         return c.yellow(`(unresolved: ${state.dependency})`);
+    }
+
+    if (state.status === 'not-set') {
+        return c.dim('(not set)');
+    }
+
+    if (name === 'layers' || name === 'moduleLayers') {
+        return (state.value as readonly string[]).join(', ');
+    }
+
+    if (name === 'flatModules') {
+        return (state.value as boolean) ? 'true' : 'false';
     }
 
     return sanitizeText(state.value as string);
@@ -125,7 +145,9 @@ function renderAliases(state: SettingState<Alias[]>, c: Colors, width: number): 
     const marker =
         state.status === 'invalid'
             ? c.red(sanitizeText(state.message))
-            : c.yellow(`(unresolved: ${state.dependency})`);
+            : state.status === 'unresolved'
+              ? c.yellow(`(unresolved: ${state.dependency})`)
+              : c.dim('(not set)');
     return [`${SETTINGS_INDENT}${row(c, 'aliases:', marker, width)}`];
 }
 

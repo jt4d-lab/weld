@@ -2,12 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import type { ConfigData } from './config.js';
 import type { InspectData } from './inspect.js';
+import { inspectJson } from './inspect.js';
 import { plain } from './program.testing.js';
 import { renderConfig, renderInspect, renderJson, sanitizeText } from './render.js';
 
 const INSPECT: InspectData = {
     file: '/repo/src/feature/internal.ts',
     alias: '@/feature/internal.ts',
+    virtualPath: '/src/feature/internal.ts',
+    module: '@root',
+    layer: '@unknown',
+    innerPath: 'feature/internal.ts',
 };
 
 const CONFIG: ConfigData = {
@@ -18,6 +23,11 @@ const CONFIG: ConfigData = {
         aliasesBaseUrl: { status: 'value', value: '.' },
         tsconfig: { status: 'value', value: 'tsconfig.json' },
         aliases: { status: 'value', value: [{ prefix: '@', anchor: '/src', star: true }] },
+        srcDir: { status: 'value', value: '/src' },
+        modulesDir: { status: 'value', value: 'modules' },
+        layers: { status: 'value', value: ['app', '@modules', '@unknown'] },
+        moduleLayers: { status: 'value', value: ['features'] },
+        flatModules: { status: 'value', value: false },
     },
     sectionError: null,
 };
@@ -29,19 +39,22 @@ describe('sanitizeText', () => {
 });
 
 describe('renderInspect', () => {
-    it('печатает путь файла и путь импорта, выровненные по подписям', () => {
+    it('печатает путь файла, путь импорта и метаданные, выровненные по подписям', () => {
         expect(renderInspect(INSPECT, { color: false })).toBe(
-            ['file:  /repo/src/feature/internal.ts', 'alias: @/feature/internal.ts'].join('\n'),
+            [
+                'file:      /repo/src/feature/internal.ts',
+                'alias:     @/feature/internal.ts',
+                'module:    @root',
+                'layer:     @unknown',
+                'innerPath: feature/internal.ts',
+            ].join('\n'),
         );
     });
 
-    it('без алиаса печатает то, что подставила команда — виртуальный путь', () => {
-        const output = renderInspect(
-            { file: '/repo/src/feature/internal.ts', alias: '/src/feature/internal.ts' },
-            { color: false },
-        );
+    it('без алиаса (alias: null) печатает виртуальный путь', () => {
+        const output = renderInspect({ ...INSPECT, alias: null }, { color: false });
 
-        expect(output).toContain('alias: /src/feature/internal.ts');
+        expect(output).toContain('alias:     /src/feature/internal.ts');
     });
 
     it('color: false дает текст без escape-последовательностей', () => {
@@ -60,24 +73,36 @@ describe('renderInspect', () => {
     it('значения путей с управляющими символами очищаются', () => {
         const output = renderInspect(
             {
+                ...INSPECT,
                 file: '/repo/src/feature/int\x01ernal.ts',
                 alias: '@/feature/int\u007fernal.ts',
+                module: 'billing\x02::sub',
+                layer: 'fea\x1btures',
+                innerPath: 'feature/inter\x03nal.ts',
             },
             { color: false },
         );
 
-        expect(output).toContain('file:  /repo/src/feature/int?ernal.ts');
-        expect(output).toContain('alias: @/feature/int?ernal.ts');
+        expect(output).toContain('file:      /repo/src/feature/int?ernal.ts');
+        expect(output).toContain('alias:     @/feature/int?ernal.ts');
+        expect(output).toContain('module:    billing?::sub');
+        expect(output).toContain('layer:     fea?tures');
+        expect(output).toContain('innerPath: feature/inter?nal.ts');
     });
 });
 
 describe('renderConfig: файл', () => {
-    it('печатает примененный конфиг между file: и настройками', () => {
+    it('печатает конфиг, настройки и схему слоев после них', () => {
         expect(renderConfig(CONFIG, { color: false })).toBe(
             [
                 'file:   /repo/src/feature/index.ts',
                 'config: eslint.config.mjs',
                 'settings.weld:',
+                '  layers:         app, @modules, @unknown',
+                '  moduleLayers:   features',
+                '  flatModules:    false',
+                '  modulesDir:     modules',
+                '  srcDir:         /src',
                 '  aliases:',
                 '    @/* → /src/*',
                 '  aliasesBaseUrl: .',
@@ -92,7 +117,7 @@ describe('renderConfig: файл', () => {
         const inspectLine = renderInspect(INSPECT, { color: false }).split('\n')[0];
 
         expect(configLine).toBe('file:   /repo/src/feature/index.ts');
-        expect(inspectLine).toBe('file:  /repo/src/feature/internal.ts');
+        expect(inspectLine).toBe('file:      /repo/src/feature/internal.ts');
     });
 
     it('конфиг вне корня печатается абсолютным путем', () => {
@@ -102,42 +127,6 @@ describe('renderConfig: файл', () => {
         );
 
         expect(output.split('\n')[1]).toBe('config: /elsewhere/eslint.config.mjs');
-    });
-
-    it('путь конфига и значения настроек с управляющими символами очищаются', () => {
-        const output = renderConfig(
-            {
-                ...CONFIG,
-                configFile: 'eslint.con\x01fig.mjs',
-                settings: {
-                    ...CONFIG.settings,
-                    repoRoot: { status: 'value', value: '/rep\u007fo' },
-                },
-            },
-            { color: false },
-        );
-
-        expect(output.split('\n')[1]).toBe('config: eslint.con?fig.mjs');
-        expect(output).toContain('  repoRoot:       /rep?o');
-    });
-
-    it('имя алиаса с управляющим символом очищается в текстовом выводе', () => {
-        const output = renderConfig(
-            {
-                ...CONFIG,
-                settings: {
-                    ...CONFIG.settings,
-                    aliases: {
-                        status: 'value',
-                        value: [{ prefix: '@a\u0007b', anchor: '/ab', star: false }],
-                    },
-                },
-            },
-            { color: false },
-        );
-
-        expect(output).toContain('@a?b → /ab');
-        expect(output).not.toContain('\u0007');
     });
 
     it('пустые алиасы — явное (none) в строке подписи', () => {
@@ -200,7 +189,7 @@ describe('renderConfig: файл', () => {
         ]);
     });
 
-    it('хвост `/*` не удваивается, если он частично уже есть в записи', () => {
+    it('хвост /* не удваивается, если он частично уже есть в записи', () => {
         const output = renderConfig(
             {
                 ...CONFIG,
@@ -222,6 +211,25 @@ describe('renderConfig: файл', () => {
             '    @/* → /src/*',
             '    @app/* → /src/app/*',
         ]);
+    });
+
+    it('имя алиаса с управляющим символом очищается в текстовом выводе', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    aliases: {
+                        status: 'value',
+                        value: [{ prefix: '@a\u0007b', anchor: '/ab', star: false }],
+                    },
+                },
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('@a?b → /ab');
+        expect(output).not.toContain('\u0007');
     });
 
     it('invalid печатается сообщением на месте настройки', () => {
@@ -257,6 +265,53 @@ describe('renderConfig: файл', () => {
         );
 
         expect(output).toContain('  aliases:        (unresolved: repoRoot)');
+    });
+
+    it('not set печатается как (not set)', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    layers: { status: 'not-set' },
+                    moduleLayers: { status: 'not-set' },
+                },
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('  layers:         (not set)');
+        expect(output).toContain('  moduleLayers:   (not set)');
+    });
+
+    it('flatModules печатается как true/false, ошибка — как у строковых', () => {
+        const output = renderConfig(
+            {
+                ...CONFIG,
+                settings: { ...CONFIG.settings, flatModules: { status: 'value', value: true } },
+            },
+            { color: false },
+        );
+
+        expect(output).toContain('  flatModules:    true');
+
+        const broken = renderConfig(
+            {
+                ...CONFIG,
+                settings: {
+                    ...CONFIG.settings,
+                    flatModules: {
+                        status: 'invalid',
+                        message: 'settings.weld.flatModules must be a boolean, got string',
+                    },
+                },
+            },
+            { color: false },
+        );
+
+        expect(broken).toContain(
+            '  flatModules:    settings.weld.flatModules must be a boolean, got string',
+        );
     });
 
     it('ошибка секции печатается один раз на строке settings.weld', () => {
@@ -321,14 +376,19 @@ describe('renderConfig: директория', () => {
 
 describe('renderJson', () => {
     it('inspect с алиасом', () => {
-        expect(renderJson({ file: INSPECT.file, alias: INSPECT.alias })).toBe(
-            `{\n  "file": "/repo/src/feature/internal.ts",\n  "alias": "@/feature/internal.ts"\n}`,
+        expect(renderJson(inspectJson(INSPECT))).toBe(
+            `{\n  "file": "/repo/src/feature/internal.ts",\n  "alias": "@/feature/internal.ts",\n` +
+                `  "module": "@root",\n  "layer": "@unknown",\n` +
+                `  "innerPath": "feature/internal.ts"\n}`,
         );
     });
 
     it('inspect без алиаса — alias: null', () => {
-        expect(renderJson({ file: '/repo/src/a.ts', alias: null })).toBe(
-            `{\n  "file": "/repo/src/a.ts",\n  "alias": null\n}`,
+        const data = { ...INSPECT, file: '/repo/src/a.ts', alias: null, innerPath: 'a.ts' };
+
+        expect(renderJson(inspectJson(data))).toBe(
+            `{\n  "file": "/repo/src/a.ts",\n  "alias": null,\n  "module": "@root",\n` +
+                `  "layer": "@unknown",\n  "innerPath": "a.ts"\n}`,
         );
     });
 });
